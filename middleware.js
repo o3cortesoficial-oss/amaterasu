@@ -43,11 +43,9 @@ export default function middleware(req) {
 
   const isBot = isBotUA || isSuspicious;
 
-  // 1. PROTEÇÃO CONTRA BOTS (Cloaking)
-  if (isBot) {
-    // Se for bot tentando acessar a raiz, mostra a White Page (Carpintaria) via REWRITE
-    // Isso mantém a URL como "/" mas serve o conteúdo do white.html
-    if (pathname === '/') {
+  // 1. CLOAKING E ROTEAMENTO NA RAIZ (/)
+  if (pathname === '/') {
+    if (isBot) {
       console.log(`[PROTEÇÃO] BOT na raiz - Servindo White Page via Rewrite`);
       const whiteUrl = new URL('/white.html', req.url);
       return new Response(null, {
@@ -55,9 +53,19 @@ export default function middleware(req) {
           'x-middleware-rewrite': whiteUrl.toString()
         }
       });
+    } else {
+      console.log(`[ACL] HUMANO na raiz - Servindo Oferta via Rewrite`);
+      const landingUrl = new URL('/Landpagedrone.html', req.url);
+      return new Response(null, {
+        headers: {
+          'x-middleware-rewrite': landingUrl.toString()
+        }
+      });
     }
-    
-    // Se for bot tentando acessar páginas sensíveis diretamente, joga pra raiz (onde verá a White Page)
+  }
+
+  // 2. PROTEÇÃO CONTRA ACESSO DIRETO DE BOTS ÀS PÁGINAS SENSÍVEIS
+  if (isBot) {
     if (pathname === '/Landpagedrone.html' || 
         pathname.includes('Checkout') || 
         pathname === '/admin' ||
@@ -67,7 +75,7 @@ export default function middleware(req) {
     }
   }
 
-  // 2. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
+  // 3. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
   if (pathname === '/admin' || pathname === '/admin.html') {
     const hasSession = req.headers.get('cookie')?.includes('amz_admin_session');
     if (!hasSession) {
@@ -76,8 +84,7 @@ export default function middleware(req) {
     }
   }
 
-  // 3. PARA USUÁRIOS REAIS (E REDIRECIONAMENTOS DE BOTS):
+  // 4. PARA OUTRAS ROTAS:
   // Retornamos nada (undefined), deixando a Vercel seguir as regras do vercel.json
-  // Se for human na raiz (/), o vercel.json fará o rewrite para Landpagedrone.html
   return;
 }
