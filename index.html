@@ -3,186 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artesanato em Madeira & Carpintaria de Luxo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Carpintaria de Luxo - Arte em Madeira</title>
     <style>
         :root {
-            --primary: #4a3728;
-            --secondary: #d4a373;
-            --accent: #bc6c25;
-            --bg: #fefae0;
-            --text: #283618;
-            --light: #fefae0;
+            --primary: #5d4037;
+            --accent: #d7ccc8;
+            --text: #212121;
+            --white: #ffffff;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        h1, h2 {
-            font-family: 'Playfair Display', serif;
-            color: var(--primary);
-        }
-
-        header {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            text-align: center;
-            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&q=80&w=1600') center/cover no-repeat;
-            color: white;
-            padding: 2rem;
-        }
-
-        .hero-content h1 {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            color: var(--light);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .hero-content p {
-            font-size: 1.5rem;
-            max-width: 700px;
-            margin: 0 auto 2rem;
-            font-weight: 300;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 1rem 2.5rem;
-            background-color: var(--accent);
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .btn:hover {
-            background-color: var(--primary);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-
-        section {
-            padding: 100px 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 3rem;
-        }
-
-        .card {
-            background: white;
-            padding: 2.5rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            transition: transform 0.3s ease;
-            border-bottom: 4px solid var(--secondary);
-        }
-
-        .card:hover {
-            transform: translateY(-10px);
-        }
-
-        .card h3 {
-            margin-bottom: 1rem;
-            color: var(--primary);
-        }
-
-        .about {
-            display: flex;
-            align-items: center;
-            gap: 4rem;
-            flex-wrap: wrap;
-        }
-
-        .about-text {
-            flex: 1;
-            min-width: 300px;
-        }
-
-        .about-image {
-            flex: 1;
-            min-width: 300px;
-            height: 400px;
-            background: url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000') center/cover;
-            border-radius: 12px;
-            box-shadow: 20px 20px 0 var(--secondary);
-        }
-
-        footer {
-            background-color: var(--primary);
-            color: white;
-            padding: 4rem 2rem;
-            text-align: center;
-        }
-
-        .contact-info {
-            margin-top: 2rem;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-
-        @media (max-width: 768px) {
-            .hero-content h1 { font-size: 2.5rem; }
-            section { padding: 60px 1rem; }
-        }
+        * { margin: 0; padding: 0; box-box: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: var(--text); background: var(--white); }
+        header { background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1581421315152-cb384898fc6c?auto=format&fit=crop&q=80&w=1200') center/cover no-repeat; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: var(--white); padding: 0 20px; }
+        h1 { font-size: 3.5rem; margin-bottom: 1rem; letter-spacing: 2px; }
+        p.subtitle { font-size: 1.25rem; max-width: 700px; margin-bottom: 2rem; }
+        .btn { display: inline-block; background: var(--primary); color: var(--white); padding: 12px 30px; text-decoration: none; border-radius: 4px; transition: 0.3s; font-weight: bold; }
+        .btn:hover { background: #4e342e; transform: translateY(-3px); }
+        section { padding: 80px 20px; max-width: 1000px; margin: 0 auto; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 50px; }
+        .card { padding: 30px; border: 1px solid var(--accent); border-radius: 8px; transition: 0.3s; }
+        .card:hover { box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .card h3 { margin-bottom: 15px; color: var(--primary); }
+        footer { background: var(--primary); color: var(--white); padding: 50px 20px; text-align: center; }
+        .contact-info { margin-top: 30px; font-size: 0.9rem; opacity: 0.8; }
     </style>
 </head>
 <body>
 
     <header>
-        <div class="hero-content">
-            <h1>Solidez & Tradição</h1>
-            <p>Transformamos madeiras nobres em peças eternas para sua casa e escritório.</p>
-            <a href="#contato" class="btn">Solicitar Orçamento</a>
-        </div>
+        <h1>Carpintaria de Luxo</h1>
+        <p class="subtitle">Transformando madeira em obras de arte para o seu ambiente. Design exclusivo, durabilidade e sofisticação.</p>
+        <a href="#projetos" class="btn">Conhecer Projetos</a>
     </header>
 
-    <section id="servicos">
-        <h2 style="text-align: center; margin-bottom: 4rem;">Nossos Serviços Especializados</h2>
-        <div class="grid">
-            <div class="card">
-                <h3>Móveis Planejados</h3>
-                <p>Cozinhas, dormitórios e closets projetados sob medida com acabamento impecável.</p>
-            </div>
-            <div class="card">
-                <h3>Restauracao de Antiguidades</h3>
-                <p>Preservamos a história e o valor sentimental de seus móveis de família.</p>
-            </div>
-            <div class="card">
-                <h3>Estruturas em Madeira</h3>
-                <p>Telhados, pergolados e decks executados com altíssima precisão e durabilidade.</p>
-            </div>
-        </div>
+    <section id="sobre">
+        <h2>Nossa Essência</h2>
+        <div style="width: 50px; height: 4px; background: var(--primary); margin: 20px auto;"></div>
+        <p style="margin-top: 1.5rem;">Com mais de 25 anos de experiência no mercado, nossa oficina une técnicas ancestrais de marcenaria com o que há de mais moderno em design de interiores.</p>
+        <p style="margin-top: 1rem;">Cada peça que sai de nossa serraria é única, carregando consigo a textura, a alma da madeira e o compromisso com a satisfação do cliente.</p>
     </section>
 
-    <section class="about grey-bg">
-        <div class="about-image"></div>
-        <div class="about-text">
-            <h2>Arte em cada detalhe</h2>
-            <p style="margin-top: 1.5rem;">Com mais de 25 anos de experiência no mercado, nossa oficina une técnicas ancestrais de marcenaria com o que há de mais moderno em design de interiores.</p>
-            <p style="margin-top: 1rem;">Cada peça que sai de nossa serraria é única, carregando consigo a textura, a alma da madeira e o compromisso com a satisfação do cliente.</p>
+    <section id="projetos" style="background: #fdfdfd;">
+        <h2>Nossos Serviços</h2>
+        <div class="grid">
+            <div class="card">
+                <h3>Mobiliário Fino</h3>
+                <p>Mesas, aparadores e peças de destaque feitas com madeiras nobres selecionadas.</p>
+            </div>
+            <div class="card">
+                <h3>Projetos Sob Medida</h3>
+                <p>Soluções completas para cozinhas, quartos e escritórios com acabamento impecável.</p>
+            </div>
+            <div class="card">
+                <h3>Restauração</h3>
+                <p>Devolvemos a vida a móveis antigos com técnicas que respeitam a história da peça.</p>
+            </div>
         </div>
     </section>
 

@@ -3,12 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
+const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
 
-if (!supabaseUrl || !supabaseKey) {
+if (!hasSupabaseConfig) {
   console.warn("AVISO: Chaves do Supabase nao encontradas nas variaveis de ambiente da Vercel.");
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = hasSupabaseConfig
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 const defaultApiHost = "api.shieldtecnologia.com";
 const maxStoredWebhookEvents = 250;
@@ -43,6 +46,34 @@ function normalizeMultilineList(value) {
     .split(/\r?\n/)
     .map((entry) => normalizeText(entry))
     .filter(Boolean);
+}
+
+function createDefaultConfig() {
+  return {
+    apiHost: normalizeApiHost(defaultApiHost),
+    publicKey: "",
+    secretKey: "",
+    pixels: {
+      metaPixelId: [],
+      googleTagManagerId: [],
+      googleAdsId: [],
+      tiktokPixelId: [],
+      headTag: "",
+      bodyTag: "",
+    },
+    pushcut: {
+      items: [],
+    },
+    updatedAt: null,
+  };
+}
+
+function createSupabaseNotConfiguredError() {
+  const error = new Error(
+    "Configure SUPABASE_URL e SUPABASE_KEY nas variaveis de ambiente da Vercel para ativar o painel admin.",
+  );
+  error.status = 503;
+  return error;
 }
 
 function isValidHttpUrl(value) {
@@ -166,6 +197,10 @@ function validatePushcutItemsInput(items) {
 }
 
 async function loadConfig() {
+  if (!supabase) {
+    return createDefaultConfig();
+  }
+
   const { data, error } = await supabase
     .from("config")
     .select("data")
@@ -196,6 +231,10 @@ async function loadConfig() {
 }
 
 async function saveConfig(input) {
+  if (!supabase) {
+    throw createSupabaseNotConfiguredError();
+  }
+
   const current = await loadConfig();
   const nextPixelsInput =
     input && typeof input.pixels === "object" && input.pixels ? input.pixels : {};
@@ -251,6 +290,10 @@ async function saveConfig(input) {
 }
 
 async function loadWebhookEvents(limit = maxStoredWebhookEvents) {
+  if (!supabase) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("webhook_events")
     .select("*")
@@ -261,6 +304,7 @@ async function loadWebhookEvents(limit = maxStoredWebhookEvents) {
 }
 
 async function saveWebhookEvents(events) {
+  if (!supabase) return;
   if (!Array.isArray(events) || events.length === 0) return;
   
   const event = events[0];
@@ -269,6 +313,10 @@ async function saveWebhookEvents(events) {
 }
 
 async function loadConversionIntents() {
+  if (!supabase) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("conversion_intents")
     .select("*")
@@ -441,6 +489,13 @@ function extractCustomerFromPayload(payload, data) {
 }
 
 async function upsertAttributionSession(payload) {
+  if (!supabase) {
+    return {
+      attribution_id: normalizeText(payload?.attributionId),
+      session_id: normalizeText(payload?.sessionId),
+    };
+  }
+
   const attributionId = normalizeText(payload?.attributionId);
   const sessionId = normalizeText(payload?.sessionId);
 
@@ -488,6 +543,14 @@ async function upsertAttributionSession(payload) {
 }
 
 async function upsertConversionIntent(payload) {
+  if (!supabase) {
+    return {
+      id: randomUUID(),
+      attribution_id: normalizeText(payload?.attributionId),
+      session_id: normalizeText(payload?.sessionId),
+    };
+  }
+
   const attributionId = normalizeText(payload?.attributionId);
   const sessionId = normalizeText(payload?.sessionId);
 
@@ -710,6 +773,10 @@ function buildSalesStats(transactions) {
 }
 
 async function buildAnalyticsStats() {
+  if (!supabase) {
+    return { rows: [] };
+  }
+
   const { data } = await supabase.from("view_stats").select("*");
   return { rows: data || [] };
 }
