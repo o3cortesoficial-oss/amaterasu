@@ -39,36 +39,23 @@ export default function middleware(req) {
 
   const isBot = isBotUA || isSuspicious;
 
-  // 1. SEGURANÇA MÁXIMA: Se for bot, NUNCA deixa acessar páginas internas
+  // 1. SEGURANÇA MÁXIMA: Se for bot tentando acessar páginas sensíveis, joga pra home/white
   if (isBot) {
-    if (pathname === '/Landpagedrone.html' || pathname.startsWith('/Checkout') || pathname === '/admin.html') {
+    if (pathname === '/Landpagedrone.html' || 
+        pathname.includes('Checkout') || 
+        pathname === '/admin.html') {
       console.log(`[PROTEÇÃO] Redirecionando BOT (${userAgent}) - Tentativa de acesso a ${pathname}`);
       return Response.redirect(new URL('/', req.url));
     }
-  }
 
-  // 2. CLOAKING NA RAIZ:
-  if (pathname === '/') {
-    if (isBot) {
-      // Bot na raiz vê a Carpintaria (index.html)
-      // Não fazemos rewrite aqui, apenas deixamos a Vercel servir index.html
-      return;
-    } else {
-      // Usuário real na raiz vê o Drone (Landpagedrone.html) via Rewrite (URL não muda)
-      console.log(`[ACL] Encaminhando usuario real para a oferta`);
-      const landingUrl = new URL('/Landpagedrone.html', req.url);
-      return new Response(null, {
-        headers: {
-          'x-middleware-rewrite': landingUrl.toString()
-        }
-      });
+    // Na raiz (/), se for bot, redireciona para a página white explicitamente
+    if (pathname === '/') {
+        console.log(`[PROTEÇÃO] BOT na raiz - Redirecionando para White Page`);
+        return Response.redirect(new URL('/index.html', req.url));
     }
   }
 
-  // 3. PROTEÇÃO DE PÁGINAS INTERNAS (se um bot tentar acessar o link direto)
-  if (isBot && (pathname.includes('.html') && pathname !== '/index.html')) {
-     return Response.redirect(new URL('/', req.url));
-  }
-
+  // 2. PARA USUÁRIOS REAIS (E REDIRECIONAMENTOS DE BOTS):
+  // Retornamos nada (undefined), deixando a Vercel seguir as regras do vercel.json
   return;
 }
