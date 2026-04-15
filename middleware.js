@@ -43,7 +43,8 @@ export default function middleware(req) {
   if (isBot) {
     if (pathname === '/Landpagedrone.html' || 
         pathname.includes('Checkout') || 
-        pathname === '/admin.html') {
+        pathname === '/admin.html' ||
+        pathname === '/admin') {
       console.log(`[PROTEÇÃO] Redirecionando BOT (${userAgent}) - Tentativa de acesso a ${pathname}`);
       return Response.redirect(new URL('/', req.url));
     }
@@ -55,7 +56,16 @@ export default function middleware(req) {
     }
   }
 
-  // 2. PARA USUÁRIOS REAIS (E REDIRECIONAMENTOS DE BOTS):
+  // 2. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
+  if (pathname === '/admin' || pathname === '/admin.html') {
+    const hasSession = req.headers.get('cookie')?.includes('amz_admin_session');
+    if (!hasSession) {
+      console.log(`[AUTH] Usuario não autenticado tentando acessar admin. Redirecionando para login.`);
+      return Response.redirect(new URL('/login', req.url));
+    }
+  }
+
+  // 3. PARA USUÁRIOS REAIS (E REDIRECIONAMENTOS DE BOTS):
   // Retornamos nada (undefined), deixando a Vercel seguir as regras do vercel.json
   return;
 }

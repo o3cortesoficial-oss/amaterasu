@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import crypto, { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -22,7 +22,46 @@ const pushcutTimeoutMs = 8000;
 const maxStoredConversionIntents = 500;
 const conversionMatchWindowMs = 12 * 60 * 60 * 1000;
 
-let activeSessions = new Map(); // Note: Volatile in serverless, but kept for compatibility logic
+let activeSessions = new Map(); // Note: Volatile in serverless
+
+const ADMIN_EMAIL = "saidlabsglobal@gmail.com";
+const ADMIN_PASSWORD = "530348Home10";
+const AUTH_COOKIE_NAME = "amz_admin_session";
+const JWT_SECRET = process.env.JWT_SECRET || "amazon-seller-central-secret-key-123";
+
+function signToken(payload) {
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64");
+  const signature = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("base64");
+  return `${data}.${signature}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [data, signature] = token.split(".");
+    const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("base64");
+    if (signature !== expectedSignature) return null;
+    return JSON.parse(Buffer.from(data, "base64").toString());
+  } catch {
+    return null;
+  }
+}
+
+function getCookie(req, name) {
+  const cookies = req.headers.cookie || "";
+  const parts = cookies.split("; ");
+  for (const part of parts) {
+    const [key, value] = part.split("=");
+    if (key === name) return value;
+  }
+  return null;
+}
+
+function isAuthenticated(req) {
+  const token = getCookie(req, AUTH_COOKIE_NAME);
+  if (!token) return false;
+  const payload = verifyToken(token);
+  return payload && payload.email === ADMIN_EMAIL;
+}
 
 function normalizeApiHost(value) {
   const normalized = String(value || defaultApiHost)
@@ -793,35 +832,55 @@ function buildMetaAttributionStats(events) {
 
 // Catch-all Handler for /api/*
 export default async function handler(req, res) {
-  const config = await loadConfig();
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = url.pathname;
-
   // Set default response headers
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
 
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const pathname = url.pathname;
+
+  // 1. PUBLIC ROUTES
+  
+  // Auth Login
+  if (req.method === "POST" && pathname === "/api/auth/login") {
+    const { email, password } = req.body || {};
+    
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const token = signToken({ email, loginAt: new Date().toISOString() });
+      res.setHeader("Set-Cookie", `${AUTH_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+      return res.status(200).json({ ok: true, message: "Login realizado com sucesso." });
+    }
+    
+    return res.status(401).json({ message: "E-mail ou senha incorretos." });
+  }
+
+  // Analytics & Internal Tracking (Public)
+  if (req.method === "POST" && pathname === "/api/analytics/attribution") {
+    const session = await upsertAttributionSession(req.body || {});
+    return res.status(200).json({ ok: true, attributionId: session?.attribution_id });
+  }
+
+  if (req.method === "POST" && pathname === "/api/analytics/conversion") {
+    const conversionIntent = await upsertConversionIntent(req.body || {});
+    return res.status(200).json({ ok: true, conversionIntentId: conversionIntent?.id });
+  }
+
+  if (req.method === "POST" && pathname === "/api/analytics/ping") {
+    const { pageId, sessionId } = req.body || {};
+    if (pageId && sessionId) {
+      return res.status(200).json({ ok: true });
+    }
+    return res.status(400).json({ message: "Parametros invalidos." });
+  }
+
+  // 2. PROTECTED ADMIN ROUTES
+  if (!isAuthenticated(req)) {
+    return res.status(401).json({ message: "Nao autorizado. Faca login primeiro." });
+  }
+
+  const config = await loadConfig();
+
   try {
-    // Analytics & Internal Tracking
-    if (req.method === "POST" && pathname === "/api/analytics/attribution") {
-      const session = await upsertAttributionSession(req.body || {});
-      return res.status(200).json({ ok: true, attributionId: session?.attribution_id });
-    }
-
-    if (req.method === "POST" && pathname === "/api/analytics/conversion") {
-      const conversionIntent = await upsertConversionIntent(req.body || {});
-      return res.status(200).json({ ok: true, conversionIntentId: conversionIntent?.id });
-    }
-
-    if (req.method === "POST" && pathname === "/api/analytics/ping") {
-      const { pageId, sessionId } = req.body || {};
-      if (pageId && sessionId) {
-        // Ping logic here (omitted memory Map for serverless, consider Supabase update if needed)
-        return res.status(200).json({ ok: true });
-      }
-      return res.status(400).json({ message: "Parametros invalidos." });
-    }
-
     // Admin API
     if (req.method === "GET" && pathname === "/api/admin/config") {
       return res.status(200).json({ config: serializeConfigForClient(config, req) });
@@ -832,7 +891,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ config: serializeConfigForClient(nextConfig, req), message: "Configuracao salva." });
     }
 
-    // TitansHub Webhook
+    // TitansHub Webhook (Security check: and also maybe protect this or use a secret token?)
+    // Actually, Webhooks from TitansHub should be public or use a specific verification
     if (req.method === "POST" && pathname === "/api/titans/webhook") {
       const eventRecord = summarizeWebhookPayload(req.body, JSON.stringify(req.body));
       const pushcutDispatches = await notifyPushcutLinks(config, eventRecord);

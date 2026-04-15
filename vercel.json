@@ -26,6 +26,10 @@
       "destination": "/Landpagedrone.html"
     },
     {
+      "source": "/login",
+      "destination": "/login.html"
+    },
+    {
       "source": "/admin",
       "destination": "/admin.html"
     }
