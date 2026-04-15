@@ -854,6 +854,16 @@ export default async function handler(req, res) {
     return res.status(401).json({ message: "E-mail ou senha incorretos." });
   }
 
+  // TitansHub Webhook (Public)
+  if (req.method === "POST" && pathname === "/api/titans/webhook") {
+    const config = await loadConfig();
+    const eventRecord = summarizeWebhookPayload(req.body, JSON.stringify(req.body));
+    const pushcutDispatches = await notifyPushcutLinks(config, eventRecord);
+    eventRecord.pushcutDispatches = pushcutDispatches;
+    await saveWebhookEvents([eventRecord]);
+    return res.status(200).json({ ok: true, message: "Webhook recebido." });
+  }
+
   // Analytics & Internal Tracking (Public)
   if (req.method === "POST" && pathname === "/api/analytics/attribution") {
     const session = await upsertAttributionSession(req.body || {});
@@ -871,6 +881,80 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
     return res.status(400).json({ message: "Parametros invalidos." });
+  }
+
+  // Checkout State Sync (Public)
+  if (pathname === "/api/checkout/state") {
+    const attributionId = url.searchParams.get("attributionId") || req.body?.attributionId;
+    if (!attributionId) return res.status(400).json({ message: "attributionId missing" });
+
+    if (req.method === "GET") {
+      const { data } = await supabase
+        .from("conversion_intents")
+        .select("buyer, amount, stage")
+        .eq("attribution_id", attributionId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+      return res.status(200).json({ state: data || {} });
+    }
+
+    if (req.method === "POST") {
+      const intent = await upsertConversionIntent(req.body);
+      return res.status(200).json({ ok: true, intent });
+    }
+  }
+
+  // PIX Integration (Public)
+  if (pathname === "/api/pix/create" && req.method === "POST") {
+    const config = await loadConfig();
+    const { attributionId, amount, buyer, items } = req.body || {};
+    
+    if (!attributionId || !amount || !buyer) {
+      return res.status(400).json({ message: "Dados incompletos para criar PIX." });
+    }
+
+    const payload = {
+      amount: Math.round(amount * 100), // convert to cents
+      paymentMethod: "pix",
+      items: items || [{ title: "Drone DJI Mini 3", unitPrice: Math.round(amount * 100), quantity: 1, tangible: true }],
+      customer: {
+        name: buyer.name,
+        email: buyer.email || `${buyer.cpf || randomUUID()}@customer.com`,
+        document: {
+          number: buyer.cpf,
+          type: "cpf"
+        }
+      }
+    };
+
+    try {
+      const transaction = await callTitansApi(config, "/v1/transactions", {
+        method: "POST",
+        body: payload
+      });
+      
+      // Update intent with transaction ID
+      await supabase.from("conversion_intents").update({
+        matched_event_object_id: String(transaction.id),
+        stage: "payment_pending"
+      }).eq("attribution_id", attributionId);
+
+      return res.status(200).json({ ok: true, transaction });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
+  }
+
+  if (pathname.startsWith("/api/pix/status/") && req.method === "GET") {
+    const config = await loadConfig();
+    const transactionId = pathname.split("/").pop();
+    try {
+      const transaction = await callTitansApi(config, `/v1/transactions/${transactionId}`, { method: "GET" });
+      return res.status(200).json({ ok: true, status: transaction.status, transaction });
+    } catch (err) {
+      return res.status(500).json({ message: err.message });
+    }
   }
 
   // 2. PROTECTED ADMIN ROUTES
@@ -891,15 +975,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ config: serializeConfigForClient(nextConfig, req), message: "Configuracao salva." });
     }
 
-    // TitansHub Webhook (Security check: and also maybe protect this or use a secret token?)
-    // Actually, Webhooks from TitansHub should be public or use a specific verification
-    if (req.method === "POST" && pathname === "/api/titans/webhook") {
-      const eventRecord = summarizeWebhookPayload(req.body, JSON.stringify(req.body));
-      const pushcutDispatches = await notifyPushcutLinks(config, eventRecord);
-      eventRecord.pushcutDispatches = pushcutDispatches;
-      await saveWebhookEvents([eventRecord]);
-      return res.status(200).json({ ok: true, message: "Webhook recebido." });
-    }
 
     // Dashboard Metrics
     if (req.method === "GET" && pathname === "/api/titans/metrics") {

