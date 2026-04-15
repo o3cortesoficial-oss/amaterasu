@@ -1,13 +1,17 @@
 // No Vercel Middleware (standalone), ao retornar "undefined" ou nada, o request continua normalmente.
 // Removemos a dependencia de @vercel/edge para evitar erros de build.
 
+// Configuração do Middleware para Vercel
 export const config = {
   matcher: [
-    '/',
-    '/Landpagedrone.html',
-    '/Landpagedrone_limpo.html',
-    '/Checkout - Fase :path*',
-    '/Checkout%20-%20Fase%20:path*'
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 };
 
@@ -39,20 +43,21 @@ export default function middleware(req) {
 
   const isBot = isBotUA || isSuspicious;
 
-  // 1. SEGURANÇA MÁXIMA: Se for bot tentando acessar páginas sensíveis, joga pra home/white
+  // 1. PROTEÇÃO CONTRA BOTS (Cloaking)
   if (isBot) {
+    // Se for bot tentando acessar a raiz, joga pra White Page (Carpintaria)
+    if (pathname === '/') {
+      console.log(`[PROTEÇÃO] BOT na raiz - Redirecionando para White Page`);
+      return Response.redirect(new URL('/white.html', req.url));
+    }
+    
+    // Se for bot tentando acessar páginas sensíveis, joga pra raiz (que levará à White Page)
     if (pathname === '/Landpagedrone.html' || 
         pathname.includes('Checkout') || 
-        pathname === '/admin.html' ||
-        pathname === '/admin') {
+        pathname === '/admin' ||
+        pathname === '/admin.html') {
       console.log(`[PROTEÇÃO] Redirecionando BOT (${userAgent}) - Tentativa de acesso a ${pathname}`);
       return Response.redirect(new URL('/', req.url));
-    }
-
-    // Na raiz (/), se for bot, redireciona para a página white explicitamente
-    if (pathname === '/') {
-        console.log(`[PROTEÇÃO] BOT na raiz - Redirecionando para White Page`);
-        return Response.redirect(new URL('/index.html', req.url));
     }
   }
 
@@ -67,5 +72,6 @@ export default function middleware(req) {
 
   // 3. PARA USUÁRIOS REAIS (E REDIRECIONAMENTOS DE BOTS):
   // Retornamos nada (undefined), deixando a Vercel seguir as regras do vercel.json
+  // Se for human na raiz (/), o vercel.json fará o rewrite para Landpagedrone.html
   return;
 }
