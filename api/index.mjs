@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = "https://nlawvbnenzyjknmsqlwa.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYXd2Ym5lbnp5amtubXNxbHdhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI2ODc1NywiZXhwIjoyMDkxODQ0NzU3fQ.EhpYOTo0h2WIgR1Qy4HSvXktgBh-cOqEJMgyl7rT0qk";
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn("AVISO: Chaves do Supabase nao encontradas nas variaveis de ambiente da Vercel.");
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

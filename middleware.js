@@ -12,7 +12,7 @@ export const config = {
 };
 
 export default function middleware(req) {
-  const url = req.nextUrl;
+  const url = new URL(req.url);
   const userAgent = req.headers.get('user-agent') || '';
   
   // Lista de padrões de User-Agents de bots e crawlers conhecidos
@@ -45,22 +45,23 @@ export default function middleware(req) {
     
     // Se for a raiz, mostra a página de carpintaria (index.html)
     if (url.pathname === '/') {
-        // Na Vercel, o request continua para index.html automaticamente
         return; 
     }
     
-    // Se estiver tentando acessar diretamente as páginas internas, redireciona para a home (carpintaria)
-    // ou retorna um 404 falso
-    url.pathname = '/'; 
-    return Response.redirect(url);
+    // Redireciona para a home (carpintaria)
+    const rootUrl = new URL('/', req.url);
+    return Response.redirect(rootUrl);
   }
 
   // Se for um usuário real acessando a raiz, mostramos a landing page do drone
   if (url.pathname === '/') {
-    url.pathname = '/Landpagedrone.html';
-    return Response.rewrite(url);
+    const landingUrl = new URL('/Landpagedrone.html', req.url);
+    return new Response(null, {
+        headers: {
+            'x-middleware-rewrite': landingUrl.toString()
+        }
+    });
   }
 
-  // Por padrão, continua o request
   return;
 }
