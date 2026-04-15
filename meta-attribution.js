@@ -38,16 +38,19 @@
   };
 
   function readStorage(storage, key) {
+    // We now prioritize sessionStorage per user request to move away from localStorage
+    const targetStorage = window.sessionStorage;
     try {
-      return storage.getItem(key);
+      return targetStorage.getItem(key);
     } catch (error) {
       return null;
     }
   }
 
   function writeStorage(storage, key, value) {
+    const targetStorage = window.sessionStorage;
     try {
-      storage.setItem(key, value);
+      targetStorage.setItem(key, value);
     } catch (error) {}
   }
 
@@ -163,17 +166,12 @@
   }
 
   function loadSnapshot() {
-    return (
-      safeJsonParse(readStorage(window.sessionStorage, STORAGE_KEYS.attributionSnapshot)) ||
-      safeJsonParse(readStorage(window.localStorage, STORAGE_KEYS.attributionSnapshot)) ||
-      null
-    );
+    return safeJsonParse(readStorage(window.sessionStorage, STORAGE_KEYS.attributionSnapshot)) || null;
   }
 
   function saveSnapshot(snapshot) {
     const serialized = JSON.stringify(snapshot);
     writeStorage(window.sessionStorage, STORAGE_KEYS.attributionSnapshot, serialized);
-    writeStorage(window.localStorage, STORAGE_KEYS.attributionSnapshot, serialized);
   }
 
   function buildOrUpdateSnapshot(pageId) {
@@ -227,15 +225,15 @@
   }
 
   function readAddressPayload() {
-    const raw = readStorage(window.localStorage, "checkout_address");
+    const raw = readStorage(window.sessionStorage, "checkout_address");
     return safeJsonParse(raw) || {};
   }
 
   function buildConversionPayload(pageId, stage) {
     const snapshot = buildOrUpdateSnapshot(pageId);
     const address = readAddressPayload();
-    const amountWhole = readStorage(window.localStorage, "checkout_price_whole") || "";
-    const amountFraction = readStorage(window.localStorage, "checkout_price_fraction") || "00";
+    const amountWhole = readStorage(window.sessionStorage, "checkout_price_whole") || "";
+    const amountFraction = readStorage(window.sessionStorage, "checkout_price_fraction") || "00";
     const amountCents = Number(
       String(amountWhole).replace(/\D/g, "") + String(amountFraction).replace(/\D/g, "").padStart(2, "0"),
     ) || 0;
@@ -247,8 +245,8 @@
       stage: stage,
       amount: amountCents,
       buyer: {
-        name: readStorage(window.localStorage, "user_name") || address.nome || "",
-        fullAddress: readStorage(window.localStorage, "user_full_address") || "",
+        name: readStorage(window.sessionStorage, "user_name") || address.nome || "",
+        fullAddress: readStorage(window.sessionStorage, "user_full_address") || "",
         cpf: address.cpf || "",
         phone: address.telefone || "",
         zipCode: address.cep || "",

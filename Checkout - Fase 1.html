@@ -1475,7 +1475,7 @@ document.addEventListener('DOMContentLoaded', function() {
             for (var key in fields) {
                 data[key] = fields[key] ? fields[key].value : '';
             }
-            localStorage.setItem('checkout_address', JSON.stringify(data));
+            sessionStorage.setItem('checkout_address', JSON.stringify(data));
         });
     });
 });
@@ -1535,9 +1535,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (payload.cep) addressParts.push(payload.cep);
         addressParts.push('Brasil');
 
-        localStorage.setItem('checkout_address', JSON.stringify(payload));
-        localStorage.setItem('user_name', payload.nome || 'Cliente');
-        localStorage.setItem('user_full_address', addressParts.join(', '));
+        sessionStorage.setItem('checkout_address', JSON.stringify(payload));
+        sessionStorage.setItem('user_name', payload.nome || 'Cliente');
+        sessionStorage.setItem('user_full_address', addressParts.join(', '));
     }
 
     function saveAndContinue(event) {

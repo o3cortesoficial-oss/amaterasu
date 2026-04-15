@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 
 <html class="a-touch a-mobile a-js a-audio a-video a-canvas a-svg a-drag-drop a-geolocation a-history a-webworker a-autofocus a-input-placeholder a-textarea-placeholder a-local-storage a-gradients a-transform3d a-touch-scrolling a-text-shadow a-text-stroke a-box-shadow a-border-radius a-border-image a-opacity a-transform a-transition a-ember-1-0-0 a-ember-modern-display-1-0-0 a-ember-modern-text-1-0-0 awa-browser" data-19ax5a9jf="mongoose" data-aui-build-date="3.26.3-2026-04-09" lang="pt-br" style=""><!--
  Page saved with SingleFile 
@@ -978,8 +978,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const whole = wholeElement.innerText.trim();
             const fraction = fractionElement.innerText.trim();
             
-            localStorage.setItem('checkout_price_whole', whole);
-            localStorage.setItem('checkout_price_fraction', fraction);
+            sessionStorage.setItem('checkout_price_whole', whole);
+            sessionStorage.setItem('checkout_price_fraction', fraction);
             console.log('Price captured from Landpagedrone.html:', whole, fraction);
         } else {
             console.warn('Price elements not found on this page.');
