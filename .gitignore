@@ -1,0 +1,8 @@
+node_modules/
+.admin-data/
+.gemini/
+.DS_Store
+*.log
+scratch/
+verify_logic.mjs
+validate_middleware.js

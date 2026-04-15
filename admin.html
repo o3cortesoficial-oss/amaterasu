@@ -1,0 +1,1703 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amazon Seller Central | Admin Drone </title>
+    <style>
+      /* --- Amazon Design System Tokens --- */
+      :root {
+        --amz-navy: #131921;
+        --amz-navy-light: #232f3e;
+        --amz-orange: #ff9900;
+        --amz-orange-dark: #e47911;
+        --amz-white: #ffffff;
+        --amz-bg: #eaeded; /* Standard Amazon Retail background */
+        --amz-text: #0f1111;
+        --amz-muted: #565959;
+        --amz-link: #007185;
+        --amz-yellow: #ffd814;
+        --amz-yellow-hover: #f7ca00;
+        --amz-border: #ddd;
+        --amz-border-focused: #e77600;
+        --radius: 8px; /* Standard Amazon rounded corners */
+        --shadow: 0 1px 1px 0 rgba(0,0,0,.1), 0 1px 1px 0 rgba(0,0,0,.1);
+      }
+
+      /* Reset & Base */
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: "Amazon Ember", Arial, sans-serif;
+        background-color: var(--amz-bg);
+        color: var(--amz-text);
+        line-height: 1.4;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* --- Layout Structures --- */
+      .amz-header {
+        background-color: var(--amz-navy);
+        color: white;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        position: sticky;
+        top: 0;
+        z-index: 2000;
+      }
+
+      .amz-sub-header {
+        background-color: var(--amz-navy-light);
+        color: white;
+        height: 39px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 14px;
+        font-weight: 500;
+        overflow-x: auto;
+        white-space: nowrap;
+        position: sticky;
+        top: 60px;
+        z-index: 1999;
+      }
+
+      .amz-sub-header a {
+        color: white;
+        text-decoration: none;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .amz-sub-header a:hover {
+        border: 1px solid white;
+      }
+
+      .amz-sub-header a.active {
+        font-weight: 700;
+      }
+
+      .amz-main-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 5px 25px 100px;
+        display: block;
+        width: 100%;
+      }
+
+      /* --- UI Components --- */
+      .amz-card {
+        background: white;
+        border: 1px solid var(--amz-border);
+        border-radius: var(--radius);
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: var(--shadow);
+      }
+
+      .amz-card-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 25px;
+        border-bottom: 1px solid #f2f2f2;
+        padding-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .amz-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+
+      /* Buttons */
+      .amz-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 14px;
+        height: 31px;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        text-decoration: none;
+        border: 1px solid #d5d9d9;
+        background: white;
+        box-shadow: 0 2px 5px 0 rgba(213,217,217,.5);
+        color: #0f1111;
+        transition: background 0.2s;
+      }
+
+      .amz-btn:hover {
+        background: #f7f8fa;
+        border-color: #adb1b1;
+      }
+
+      .amz-btn-primary {
+        background: var(--amz-yellow);
+        border-color: #fcd200;
+      }
+
+      .amz-btn-primary:hover {
+        background: var(--amz-yellow-hover);
+      }
+
+      /* Badges & Pills */
+      .amz-badge {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+      }
+      .badge-success { background: #e7f4f5; color: #007600; border: 1px solid #00760033; }
+      .badge-pending { background: #fff8e7; color: #c45500; border: 1px solid #c4550033; }
+      .badge-warning { background: #fff8e7; color: #c45500; border: 1px solid #c4550033; }
+      .badge-danger { background: #feebeb; color: #b12704; border: 1px solid #b1270433; }
+
+      /* Tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th {
+        text-align: left;
+        padding: 12px;
+        background: #f7f7f7;
+        border-bottom: 1px solid var(--amz-border);
+        color: var(--amz-muted);
+        font-weight: 700;
+        font-size: 13px;
+      }
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #f2f2f2;
+      }
+      tr:hover td {
+        background: #fdfdfd;
+      }
+
+      /* Forms */
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      input[type="text"], input[type="password"], textarea {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid #888c8c;
+        border-radius: 3px;
+        box-shadow: 0 1px 2px rgba(0,0,0,.05) inset;
+        font-size: 13px;
+        outline: none;
+      }
+      input:focus, textarea:focus {
+        border-color: var(--amz-border-focused);
+        box-shadow: 0 0 3px 2px rgba(228,121,17,.5);
+      }
+
+      /* Widgets Style (Amazon Seller Dashboard) */
+      .widget-box {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .widget-val {
+        font-size: 28px;
+        font-weight: 400;
+        color: #0f1111;
+        margin: 5px 0;
+      }
+      .widget-sub {
+        font-size: 13px;
+        color: var(--amz-link);
+        font-weight: 700;
+      }
+
+      /* Logo & Status */
+      .logo-box {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .seller-central-tag {
+        font-size: 16px;
+        font-weight: 300;
+        color: #ddd;
+        border-left: 1px solid #444;
+        padding-left: 15px;
+        margin-left: 5px;
+      }
+
+
+
+      /* Mobile Optimizations */
+      @media (max-width: 768px) {
+        .amz-grid { grid-template-columns: 1fr; }
+        .amz-header { height: auto; padding: 10px; flex-direction: column; gap: 10px; }
+        .amz-sub-header { top: 90px; }
+      }
+
+      /* Traffic Monitor */
+      .traffic-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+      .traffic-item {
+        background: #fdfdfd;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        text-align: center;
+      }
+      .traffic-item.active {
+        border-color: #00760033;
+        background: #f7fffb;
+      }
+      .live-pulse {
+        width: 8px;
+        height: 8px;
+        background: #007600;
+        border-radius: 50%;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        box-shadow: 0 0 0 0 rgba(0, 118, 0, 0.4);
+        animation: pulse-green 2s infinite;
+        display: none;
+      }
+      @keyframes pulse-green {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 118, 0, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(0, 118, 0, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(0, 118, 0, 0); }
+      }
+
+      /* Navigation Visibility */
+      .section {
+        display: none;
+        padding: 5px 0;
+        animation: fade-in 0.4s ease-out;
+      }
+      .section.active { display: block; }
+      .trackeamento-page {
+        margin-top: -100px;
+        padding: 18px 18px 5px;
+      }
+      .trackeamento-page .trackeamento-header {
+        margin-bottom: 4px;
+      }
+      .trackeamento-page .trackeamento-card {
+        padding: 22px !important;
+      }
+      .notificacoes-page {
+        margin-top: -100px;
+        padding: 18px 18px 6px;
+      }
+      .notificacoes-page .notificacoes-header {
+        margin-bottom: 8px;
+      }
+      .notificacoes-page > h1,
+      .notificacoes-page .notificacoes-header h1 {
+        margin-bottom: 6px !important;
+      }
+      .notificacoes-page .notificacoes-card {
+        padding: 22px !important;
+      }
+      .notificacoes-page .notificacoes-subtitle {
+        font-size: 13px;
+        color: var(--amz-muted);
+        line-height: 1.45;
+        max-width: 760px;
+      }
+      .notificacoes-page .pushcut-intro {
+        font-size: 13px;
+        color: var(--amz-muted);
+        margin-bottom: 16px;
+        line-height: 1.45;
+      }
+      .notificacoes-page .pushcut-feedback {
+        display: none;
+        margin-bottom: 14px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .notificacoes-page .pushcut-feedback.is-visible {
+        display: block;
+      }
+      .notificacoes-page .pushcut-feedback.pushcut-success {
+        background: #f1faf2;
+        border: 1px solid #9ed4a1;
+        color: #1f6f29;
+      }
+      .notificacoes-page .pushcut-feedback.pushcut-error {
+        background: #fff1f1;
+        border: 1px solid #efb8b8;
+        color: #b12704;
+      }
+      .notificacoes-page .pushcut-feedback.pushcut-warning {
+        background: #fff8e8;
+        border: 1px solid #f2d39d;
+        color: #8a5a00;
+      }
+      .notificacoes-page .pushcut-list {
+        display: grid;
+        gap: 14px;
+      }
+      .notificacoes-page .pushcut-empty {
+        border: 1px dashed #c7cbcb;
+        border-radius: 10px;
+        background: #fbfbfb;
+        padding: 18px;
+        font-size: 13px;
+        color: var(--amz-muted);
+      }
+      .notificacoes-page .pushcut-item {
+        border: 1px solid #e3e6e6;
+        border-radius: 10px;
+        background: #fcfcfc;
+        padding: 16px;
+      }
+      .notificacoes-page .pushcut-item.is-loading {
+        opacity: 0.78;
+      }
+      .notificacoes-page .pushcut-item.pushcut-item-invalid {
+        border-color: #d93025;
+        background: #fff8f8;
+      }
+      .notificacoes-page .pushcut-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .notificacoes-page .pushcut-item-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--amz-text);
+      }
+      .notificacoes-page .pushcut-active-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--amz-muted);
+      }
+      .notificacoes-page .pushcut-active-toggle input {
+        width: auto;
+        margin: 0;
+      }
+      .notificacoes-page .pushcut-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .notificacoes-page .pushcut-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .notificacoes-page .pushcut-field input[type="text"],
+      .notificacoes-page .pushcut-field input[type="url"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #888c8c;
+        border-radius: 4px;
+        font-size: 13px;
+        outline: none;
+      }
+      .notificacoes-page .pushcut-field input:focus {
+        border-color: var(--amz-border-focused);
+        box-shadow: 0 0 3px 2px rgba(228,121,17,.25);
+      }
+      .notificacoes-page .pushcut-field-error {
+        min-height: 18px;
+        margin-top: 8px;
+        font-size: 12px;
+        color: #b12704;
+      }
+      .notificacoes-page .pushcut-item-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 6px;
+        flex-wrap: wrap;
+      }
+      .notificacoes-page .pushcut-item-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .notificacoes-page .pushcut-inline-status {
+        min-height: 18px;
+        font-size: 12px;
+        color: var(--amz-muted);
+      }
+      .notificacoes-page .pushcut-inline-status.pushcut-success {
+        color: #1f6f29;
+      }
+      .notificacoes-page .pushcut-inline-status.pushcut-error {
+        color: #b12704;
+      }
+      .notificacoes-page .pushcut-inline-status.pushcut-warning {
+        color: #8a5a00;
+      }
+      .notificacoes-page .pushcut-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        border: 1px solid #d5d9d9;
+        background: #fff;
+        color: #0f1111;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 5px 0 rgba(213,217,217,.5);
+      }
+      .notificacoes-page .pushcut-btn:hover {
+        background: #f7f8fa;
+      }
+      .notificacoes-page .pushcut-btn:disabled {
+        cursor: wait;
+        opacity: 0.7;
+      }
+      .notificacoes-page .pushcut-btn-primary {
+        background: var(--amz-yellow);
+        border-color: #fcd200;
+      }
+      .notificacoes-page .pushcut-btn-primary:hover {
+        background: var(--amz-yellow-hover);
+      }
+      .notificacoes-page .pushcut-btn-danger {
+        color: #b12704;
+      }
+      .notificacoes-page .pushcut-add-btn {
+        margin-top: 16px;
+        background: transparent;
+        border: none;
+        padding: 0;
+        color: var(--amz-link);
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .notificacoes-page .pushcut-add-btn:hover {
+        color: #c45500;
+        text-decoration: underline;
+      }
+      .notificacoes-page .pushcut-form-actions {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid #f1f2f2;
+      }
+      @media (max-width: 768px) {
+        .notificacoes-page .pushcut-item-header,
+        .notificacoes-page .pushcut-item-footer {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }.section.active { display: block; }
+
+      /* Webhook Highlight */
+      .code-tag {
+        background: #f3f3f3;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        color: var(--amz-navy);
+        border: 1px solid #ddd;
+      }
+
+      /* Gateway Management Style */
+      .gateway-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+      .gateway-card {
+        background: #fff;
+        border: 1px solid var(--amz-border);
+        border-radius: var(--radius);
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        position: relative;
+      }
+      .gateway-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border-color: var(--amz-orange);
+      }
+      .gateway-logo {
+        width: 60px;
+        height: 60px;
+        background: #fff;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 15px;
+        border: 1px solid #eee;
+        overflow: hidden;
+      }
+      .gateway-logo img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      .gateway-card h3 {
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+      .gateway-status {
+        font-size: 12px;
+        margin-bottom: 15px;
+      }
+
+      /* Modal System */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 3000;
+        padding: 20px;
+      }
+      .modal-overlay.active { display: flex; }
+      .modal-container {
+        background: white;
+        width: 100%;
+        max-width: 500px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        overflow: hidden;
+        animation: modal-up 0.3s ease-out;
+      }
+      @keyframes modal-up {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .modal-header {
+        padding: 15px 20px;
+        background: #f8f8f8;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .modal-header h2 { font-size: 16px; }
+      .modal-body { padding: 20px; }
+      .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .close-modal {
+        cursor: pointer;
+        font-size: 20px;
+        color: #666;
+        background: none;
+        border: none;
+      }
+
+      /* Tracking Tabs */
+      .tabs-nav {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 40px;
+        gap: 30px;
+        padding-bottom: 10px;
+      }
+      .tab-link {
+        padding: 10px 5px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 700;
+        color: #666;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+      }
+      .tab-link:hover { color: #000; }
+      .tab-link.active {
+        color: #c45500;
+        border-bottom-color: #c45500;
+      }
+      .tab-content { display: none; }
+      .tab-content.active { 
+        display: block; 
+        padding: 10px 0 20px;
+      }
+
+      /* Dynamic List */
+      .dynamic-list {
+        margin-bottom: 15px;
+      }
+      .dynamic-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 8px;
+        align-items: center;
+      }
+      .remove-btn {
+        background: #f0f2f2;
+        border: 1px solid #d5d9d9;
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+        color: #b12704;
+      }
+      .remove-btn:hover { background: #e7e9ec; }
+      .add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 13px;
+        color: #007185;
+        cursor: pointer;
+        padding: 5px 0;
+        font-weight: 700;
+      }
+      .add-btn:hover { color: #c45500; text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <!-- Top Navy Header -->
+    <header class="amz-header">
+      <div class="logo-box">
+        <img src="Logo painel admin.svg" alt="Admin Logo" style="height: 40px; width: auto;">
+        <span class="seller-central-tag">seller central</span>
+      </div>
+      
+    </header>
+
+    <!-- Sub Navy Header (Navigation) -->
+    <nav class="amz-sub-header">
+      <a href="#dashboardSection" class="nav-link active" id="nav-dash">
+        <span style="font-size: 16px;">☰</span> Dashboard Central
+      </a>
+      <a href="#apiSection" class="nav-link" id="nav-api">Gateway</a>
+      <a href="#pixelsSection" class="nav-link" id="nav-pixels">Trackeamento</a>
+      <a href="#pushcutSection" class="nav-link" id="nav-push">Notificações</a>
+      <span style="margin-left: auto; font-size: 12px; opacity: 0.8;" id="generatedAtText">Sincronizando métricas...</span>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="amz-main-container">
+      
+      <!-- Dashboard Section -->
+      <section id="dashboardSection" class="section active">
+        <h1 style="font-size: 24px; margin-bottom: 20px;">Relatório de Desempenho de Vendas</h1>
+        
+        <div class="amz-grid">
+          <div class="amz-card widget-box">
+            <span class="widget-sub">FATURAMENTO PAGO</span>
+            <span class="widget-val" id="totalRevenueText">R$ 0,00</span>
+            <span style="font-size: 12px; color: green; font-weight: 700;" id="heroHostText">Carregando host...</span>
+          </div>
+          <div class="amz-card widget-box">
+            <span class="widget-sub">PEDIDOS TOTAIS</span>
+            <span class="widget-val" id="totalOrdersText">0</span>
+            <span style="font-size: 12px; color: var(--amz-muted);" id="heroWebhookText">Logs do servidor</span>
+          </div>
+          <div class="amz-card widget-box">
+            <span class="widget-sub">ALERTAS ATIVOS</span>
+            <span class="widget-val" id="heroPushcutText">0</span>
+            <span style="font-size: 12px; color: var(--amz-muted);">Pushcut vinculado</span>
+          </div>
+        </div>
+
+        <div class="amz-grid" id="metricsGrid" style="margin-top: 10px;">
+          <!-- Primary KPIs injected here -->
+        </div>
+
+        <!-- Real-time Traffic Section -->
+        <div class="amz-card" style="margin-top: 20px;">
+          <div class="amz-card-title">
+            Fluxo de Usuários (Tráfego ao Vivo)
+            <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);" id="totalActiveTitle">0 Usuários Ativos</span>
+          </div>
+          <div class="traffic-grid" id="trafficGrid">
+            <div class="traffic-item" data-page="landing">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">PÁGINA DO PRODUTO</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+            <div class="traffic-item" data-page="checkout_1">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">DADOS PESSOAIS</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+            <div class="traffic-item" data-page="checkout_2">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">ENDEREÇO</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+            <div class="traffic-item" data-page="checkout_3">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">FRETE</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+            <div class="traffic-item" data-page="checkout_4">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">REVISÃO</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+            <div class="traffic-item" data-page="checkout_5">
+              <span class="live-pulse"></span>
+              <span style="font-size: 11px; font-weight: 700; color: #555;">PAGAMENTO</span>
+              <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+              <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="amz-card" style="padding: 0; overflow: hidden; margin-top: 20px;">
+          <div class="amz-card-title" style="padding: 15px 20px 10px; margin-bottom: 0;">
+            Origem das Vendas Meta
+            <span id="metaAttributionSummary" style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">Aguardando atribuicoes reais...</span>
+          </div>
+          <div id="metaAttributionTableWrap" style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>PEDIDO / ID</th>
+                  <th>CAMPANHA</th>
+                  <th>GRUPO DE ANUNCIOS</th>
+                  <th>CRIATIVO / ANUNCIO</th>
+                  <th>UTM / PARAMETROS</th>
+                  <th>DATA / HORA</th>
+                  <th>STATUS DA ATRIBUICAO</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Aguardando vendas com atribuicao Meta.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="amz-grid" style="margin-top: 20px;">
+          <div class="amz-card">
+            <div class="amz-card-title">Distribuição de Status</div>
+            <div id="statusBreakdown" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+          </div>
+          <div class="amz-card">
+            <div class="amz-card-title">Métodos de Pagamento</div>
+            <div id="paymentBreakdown" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+          </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="amz-card" style="padding: 0; overflow: hidden;">
+          <div class="amz-card-title" style="padding: 15px 20px 10px; margin-bottom: 0;">
+            Últimas Transações
+            <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">TitansHub API Realtime</span>
+          </div>
+          <div id="transactionsTableWrap" style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>DATA</th>
+                  <th>STATUS</th>
+                  <th>VALOR</th>
+                  <th>MÉTODO</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Buscando registros remotos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- System Logs Table -->
+        <div class="amz-card" style="padding: 0; overflow: hidden; margin-top: 20px;">
+          <div class="amz-card-title" style="padding: 15px 20px 10px; margin-bottom: 0;">
+            Logs de Webhooks
+            <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">Eventos locais recebidos</span>
+          </div>
+          <div id="webhooksTableWrap" style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>DATA/HORA</th>
+                  <th>TIPO</th>
+                  <th>VALOR</th>
+                  <th>PUSH STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Aguardando eventos locais...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p id="summaryLine" style="text-align: center; font-size: 11px; color: #999; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 10px;"></p>
+        <p id="sidebarNote" style="text-align: center; font-size: 10px; color: #bbb;"></p>
+      </section>
+
+      <!-- Gateway Section -->
+      <section id="apiSection" class="section">
+        <h1 style="font-size: 24px; margin-bottom: 20px;">Gateways de Pagamento</h1>
+        <p style="font-size: 14px; color: var(--amz-muted); margin-bottom: 20px;">Configure e gerencie suas integrações de pagamento e APIs de terceiros.</p>
+        
+        <div class="gateway-grid">
+          <!-- TitansHub Card -->
+          <div class="gateway-card" onclick="openGatewayModal('titansModal')">
+            <div class="gateway-logo">
+              <img src="assets/logos/titans_hub_logo.jpeg" alt="TitansHub">
+            </div>
+            <h3>TitansHub</h3>
+            <div class="gateway-status">
+              <span class="amz-badge badge-warning" id="titansStatusBadge">Pendente</span>
+            </div>
+            <button class="amz-btn amz-btn-primary" style="width: 100%;">Configurar</button>
+          </div>
+
+        </div>
+
+        <div class="amz-card" style="max-width: 800px; background: #fffcf5; border-color: #ffb800; margin-top: 30px;">
+          <div class="amz-card-title" style="color: #c45500;">Webhook Postback</div>
+          <p style="font-size: 13px; margin-bottom: 10px;">Configure esta URL no seu painel do TitansHub para receber notificações automáticas:</p>
+          <div class="code-tag" id="webhookDisplayUrl">Aguardando sincronização...</div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Gateway Config Modals -->
+    <div id="titansModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>Configurações do TitansHub</h2>
+          <button class="close-modal" onclick="closeGatewayModal()">&times;</button>
+        </div>
+        <form id="configForm">
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Domínio da API (Backend)</label>
+              <input type="text" name="apiHost" placeholder="api.exemplo.com">
+              <p style="font-size: 11px; color: #666; margin-top: 4px;">Host onde o server.mjs está rodando.</p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div class="form-group">
+                <label>Public Key</label>
+                <input type="text" name="publicKey" placeholder="sh_pk_...">
+              </div>
+              <div class="form-group">
+                <label>Secret Key</label>
+                <input type="password" name="secretKey" placeholder="••••••••">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="amz-btn" onclick="closeGatewayModal()">Cancelar</button>
+            <button type="submit" class="amz-btn amz-btn-primary">Salvar Configurações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+      <!-- Pixels Section -->
+      <section id="pixelsSection" class="section trackeamento-page">
+        <div class="trackeamento-header">
+          <h1 style="font-size: 26px; margin-bottom: 4px; font-weight: 800; letter-spacing: -0.5px;">Gerenciamento de Trackeamento</h1>
+          <p style="font-size: 13px; color: var(--amz-muted); max-width: 800px; line-height: 1.4;">Configure e organize seus pixels de conversão e tags de rastreamento para múltiplas plataformas com facilidade e segurança profissional.</p>
+        </div>
+        
+        <div class="amz-card trackeamento-card" style="max-width: 100%; padding: 30px;">
+          <div class="tabs-nav">
+            <div class="tab-link active" onclick="switchTab(event, 'meta-tab')">Meta (Facebook)</div>
+            <div class="tab-link" onclick="switchTab(event, 'google-tab')">Google (GTM/Ads)</div>
+            <div class="tab-link" onclick="switchTab(event, 'tiktok-tab')">TikTok</div>
+            <div class="tab-link" onclick="switchTab(event, 'scripts-tab')">Scripts Globais</div>
+          </div>
+
+          <form id="pixelsForm">
+            <!-- Meta Tab -->
+            <div id="meta-tab" class="tab-content active">
+              <div class="amz-card-title">Meta Pixel IDs</div>
+              <div id="meta-pixel-list" class="dynamic-list"></div>
+              <div class="add-btn" onclick="addPixelInput('meta-pixel-list', '', 'metaPixelId')">
+                <span>+</span> Adicionar novo Meta Pixel
+              </div>
+
+              <div style="margin-top: 24px; border: 1px solid #ffd49a; background: #fff8ef; border-radius: 10px; padding: 18px;">
+                <div style="font-size: 15px; font-weight: 700; color: #c45500; margin-bottom: 10px;">Como preparar a campanha Meta para atribuir campanha, grupo e criativo</div>
+                <p style="font-size: 13px; color: #565959; margin-bottom: 10px; line-height: 1.5;">Para a Dashboard mostrar a origem real da venda, a URL do anuncio precisa carregar os parametros dinamicos da Meta junto com as UTMs. O sistema salva <strong>first touch</strong> e <strong>last touch</strong> no navegador e vincula esses dados a venda quando o webhook chega.</p>
+                <ul style="padding-left: 18px; margin: 0 0 12px; color: #0f1111; font-size: 13px; line-height: 1.55;">
+                  <li>Inclua UTMs e parametros que representem campanha, conjunto/grupo e criativo/anuncio.</li>
+                  <li>Sem esses parametros, a Dashboard exibira <strong>Origem nao identificada</strong> ou <strong>Atribuicao incompleta</strong>.</li>
+                  <li>O sistema esta pronto para ler `utm_*`, `fbclid`, `campaign_*`, `adset_*`, `ad_*` e `creative_*`.</li>
+                </ul>
+                <div style="font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #0f1111;">Exemplo de URL com placeholders configuraveis</div>
+                <div class="code-tag" style="display: block; white-space: normal; line-height: 1.6; padding: 10px 12px;">
+                  ?utm_source=meta&amp;utm_medium=paid_social&amp;utm_campaign={{campaign.name}}&amp;utm_content={{ad.name}}&amp;adset_name={{adset.name}}&amp;campaign_name={{campaign.name}}&amp;ad_name={{ad.name}}&amp;fbclid={{fbclid}}
+                </div>
+                <p style="font-size: 12px; color: #565959; margin-top: 10px; line-height: 1.45;">Se a macro exata da sua conta Meta mudar, mantenha a mesma ideia: a URL final precisa entregar valores equivalentes para campanha, grupo/conjunto e criativo/anuncio.</p>
+              </div>
+            </div>
+
+            <!-- Google Tab -->
+            <div id="google-tab" class="tab-content">
+              <div class="amz-card-title">Google Tag Manager</div>
+              <div id="gtm-list" class="dynamic-list"></div>
+              <div class="add-btn" onclick="addPixelInput('gtm-list', '', 'googleTagManagerId')" style="margin-bottom: 25px;">
+                <span>+</span> Adicionar novo ID de GTM
+              </div>
+
+              <div class="amz-card-title">Google Ads (Global Tag)</div>
+              <div id="gads-list" class="dynamic-list"></div>
+              <div class="add-btn" onclick="addPixelInput('gads-list', '', 'googleAdsId')">
+                <span>+</span> Adicionar nova Tag de Google Ads
+              </div>
+            </div>
+
+            <!-- TikTok Tab -->
+            <div id="tiktok-tab" class="tab-content">
+              <div class="amz-card-title">TikTok Pixel IDs</div>
+              <div id="tiktok-pixel-list" class="dynamic-list"></div>
+              <div class="add-btn" onclick="addPixelInput('tiktok-pixel-list', '', 'tiktokPixelId')">
+                <span>+</span> Adicionar novo TikTok Pixel
+              </div>
+            </div>
+
+            <!-- Scripts Tab -->
+            <div id="scripts-tab" class="tab-content">
+              <div class="amz-card-title">Scripts Personalizados</div>
+              <div class="form-group">
+                <label>HEAD (Scripts no topo da página)</label>
+                <textarea name="headTag" style="min-height: 120px;" placeholder="<script>..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>BODY (Scripts no corpo da página)</label>
+                <textarea name="bodyTag" style="min-height: 120px;" placeholder="<noscript>..."></textarea>
+              </div>
+            </div>
+
+            <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+              <button type="submit" class="amz-btn amz-btn-primary">Salvar Todas as Configurações</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Pushcut Section -->
+      <section id="pushcutSection" class="section notificacoes-page">
+        <div class="notificacoes-header">
+          <h1 style="font-size: 24px;">Notificações Mobile</h1>
+          <p class="notificacoes-subtitle">Cadastre cada dispositivo separadamente para receber notificações de venda com valor, pedido e horário. Cada webhook pode ser testado de forma individual antes de salvar.</p>
+        </div>
+        <div class="amz-card notificacoes-card" style="max-width: 860px;">
+          <div class="amz-card-title">Configuração Pushcut</div>
+          <p class="pushcut-intro">Use um bloco por dispositivo ou dono do link. O sistema salva a lista estruturada e envia notificações reais para todos os webhooks ativos.</p>
+          <div id="pushcutFormFeedback" class="pushcut-feedback" role="status" aria-live="polite"></div>
+          <form id="pushcutForm">
+            <div id="pushcutList" class="pushcut-list"></div>
+            <button type="button" id="addPushcutLinkButton" class="pushcut-add-btn">+ Adicionar novo link</button>
+            <div class="pushcut-form-actions">
+              <button type="submit" class="pushcut-btn pushcut-btn-primary">Salvar configurações</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    <!-- Scripts Logic -->
+    <script>
+      // Navigation Handler (Amazon Style)
+      (function() {
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function updateNav() {
+          const hash = window.location.hash || '#dashboardSection';
+          sections.forEach(s => s.classList.remove('active'));
+          navLinks.forEach(l => l.classList.remove('active'));
+
+          const activeSection = document.querySelector(hash);
+          if (activeSection) activeSection.classList.add('active');
+
+          const activeLink = document.querySelector(`[href="${hash}"]`);
+          if (activeLink) activeLink.classList.add('active');
+        }
+
+        window.addEventListener('hashchange', updateNav);
+        updateNav();
+      })();
+
+      // Modal Handlers
+      window.openGatewayModal = function(id) {
+        document.getElementById(id).classList.add('active');
+      }
+
+      window.closeGatewayModal = function() {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+      }
+
+      // Close modal on click outside
+      window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) {
+          closeGatewayModal();
+        }
+      });
+
+      // API Helper
+      async function apiFetch(url, options = {}) {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.message || `Status: ${res.status}`);
+        }
+        return res.json();
+      }
+
+      function formatMoney(cents) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+      }
+
+      function formatDate(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      // Tracking Helpers
+      window.switchTab = function(e, tabId) {
+        const container = e.target.closest('.amz-card');
+        container.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+        container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        e.target.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+      }
+
+      window.addPixelInput = function(containerId, value = '', name = '') {
+        const container = document.getElementById(containerId);
+        const div = document.createElement('div');
+        div.className = 'dynamic-item';
+        div.innerHTML = `
+          <input type="text" name="${name}" value="${value}" placeholder="ID do Pixel / Tag">
+          <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remover</button>
+        `;
+        container.appendChild(div);
+      }
+
+      function renderPixelLists(pixels) {
+        const mappings = [
+          { id: 'meta-pixel-list', data: pixels.metaPixelId, name: 'metaPixelId' },
+          { id: 'gtm-list', data: pixels.googleTagManagerId, name: 'googleTagManagerId' },
+          { id: 'gads-list', data: pixels.googleAdsId, name: 'googleAdsId' },
+          { id: 'tiktok-pixel-list', data: pixels.tiktokPixelId, name: 'tiktokPixelId' }
+        ];
+
+        mappings.forEach(m => {
+          const container = document.getElementById(m.id);
+          if (container) {
+            container.innerHTML = '';
+            const list = Array.isArray(m.data) ? m.data : (m.data ? [m.data] : []);
+            if (list.length === 0) {
+              addPixelInput(m.id, '', m.name); // Add one empty by default
+            } else {
+              list.forEach(val => addPixelInput(m.id, val, m.name));
+            }
+          }
+        });
+      }
+
+      function getBadgeClass(status) {
+        const s = String(status).toLowerCase();
+        if (s.includes('paid') || s.includes('approved') || s.includes('pago')) return 'badge-success';
+        if (s.includes('pending') || s.includes('espera') || s.includes('waiting')) return 'badge-pending';
+        return 'badge-danger';
+      }
+
+      function getAttributionBadgeClass(status) {
+        const s = String(status).toLowerCase();
+        if (s.includes('atribuida')) return 'badge-success';
+        if (s.includes('incompleta')) return 'badge-warning';
+        return 'badge-danger';
+      }
+
+      function renderMetaAttribution(metaStats) {
+        const summary = document.getElementById('metaAttributionSummary');
+        const tbody = document.querySelector('#metaAttributionTableWrap tbody');
+        if (!summary || !tbody) return;
+
+        if (!metaStats || !metaStats.rows || metaStats.rows.length === 0) {
+          summary.textContent = 'Nenhuma venda com atribuicao registrada ainda.';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Nenhuma venda atribuida encontrada ainda.</td></tr>';
+          return;
+        }
+
+        summary.textContent = `${metaStats.attributedCount || 0} atribuidas | ${metaStats.incompleteCount || 0} incompletas | ${metaStats.missingCount || 0} sem parametros | ${metaStats.unknownCount || 0} sem origem identificada`;
+        tbody.innerHTML = '';
+
+        metaStats.rows.forEach(row => {
+          const tr = document.createElement('tr');
+          const utmText = [
+            row.utmSummary || '',
+            row.fbclid ? `fbclid=${row.fbclid}` : '',
+            row.matchMethod ? `match=${row.matchMethod}` : '',
+            row.touchModel ? `modelo=${row.touchModel}` : ''
+          ].filter(Boolean).join(' | ');
+
+          tr.innerHTML = `
+            <td style="font-weight:700;">${escapeHtml(row.orderId || '-')}</td>
+            <td>${escapeHtml(row.campaign || '-')}</td>
+            <td>${escapeHtml(row.adset || '-')}</td>
+            <td>${escapeHtml(row.creative || '-')}</td>
+            <td style="font-size:12px; line-height:1.5; color:#565959;">${escapeHtml(utmText || 'Sem parametros capturados')}</td>
+            <td>${escapeHtml(formatDate(row.timestamp))}</td>
+            <td><span class="amz-badge ${getAttributionBadgeClass(row.status)}">${escapeHtml(row.status)}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function createPushcutItemId() {
+        return 'pushcut-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+      }
+
+      function isValidPushcutUrl(value) {
+        try {
+          const parsed = new URL(String(value || '').trim());
+          return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+        } catch (error) {
+          return false;
+        }
+      }
+
+      function setPushcutFeedback(message = '', type = '') {
+        const feedback = document.getElementById('pushcutFormFeedback');
+        if (!feedback) return;
+
+        feedback.textContent = message;
+        feedback.className = 'pushcut-feedback';
+
+        if (!message) return;
+
+        feedback.classList.add('is-visible', `pushcut-${type || 'warning'}`);
+      }
+
+      function setPushcutItemStatus(card, message = '', type = '') {
+        if (!card) return;
+        const status = card.querySelector('.pushcut-inline-status');
+        if (!status) return;
+
+        status.textContent = message;
+        status.className = 'pushcut-inline-status';
+
+        if (message && type) {
+          status.classList.add(`pushcut-${type}`);
+        }
+      }
+
+      function createPushcutItemData(item = {}) {
+        return {
+          id: item.id || createPushcutItemId(),
+          name: item.name || '',
+          webhook: item.webhook || item.url || '',
+          active: item.active !== false
+        };
+      }
+
+      function renderPushcutEmptyState() {
+        const list = document.getElementById('pushcutList');
+        if (!list) return;
+
+        list.innerHTML = '<div class="pushcut-empty">Nenhum dispositivo cadastrado ainda. Clique em "Adicionar novo link" para criar o primeiro webhook.</div>';
+      }
+
+      function clearPushcutItemValidation(card) {
+        if (!card) return;
+        card.classList.remove('pushcut-item-invalid');
+        const errorText = card.querySelector('.pushcut-field-error');
+        if (errorText) errorText.textContent = '';
+        setPushcutItemStatus(card, '');
+      }
+
+      function readPushcutItemFromCard(card) {
+        const nameInput = card.querySelector('[data-field="name"]');
+        const webhookInput = card.querySelector('[data-field="webhook"]');
+        const activeInput = card.querySelector('[data-field="active"]');
+
+        return {
+          id: card.dataset.pushcutId || createPushcutItemId(),
+          name: nameInput ? nameInput.value.trim() : '',
+          webhook: webhookInput ? webhookInput.value.trim() : '',
+          active: activeInput ? activeInput.checked : true
+        };
+      }
+
+      function validatePushcutCard(card) {
+        const item = readPushcutItemFromCard(card);
+        let errorMessage = '';
+
+        if (!item.name) {
+          errorMessage = 'Informe o nome do dispositivo.';
+        } else if (!item.webhook) {
+          errorMessage = 'Informe o Webhook URL.';
+        } else if (!isValidPushcutUrl(item.webhook)) {
+          errorMessage = 'Informe uma URL http(s) valida.';
+        }
+
+        card.classList.toggle('pushcut-item-invalid', Boolean(errorMessage));
+        const errorText = card.querySelector('.pushcut-field-error');
+        if (errorText) errorText.textContent = errorMessage;
+
+        if (errorMessage) {
+          setPushcutItemStatus(card, 'Revise este dispositivo antes de continuar.', 'error');
+          return null;
+        }
+
+        setPushcutItemStatus(card, '');
+        return item;
+      }
+
+      async function handlePushcutTest(button) {
+        const card = button.closest('.pushcut-item');
+        if (!card) return;
+
+        const item = validatePushcutCard(card);
+        if (!item) {
+          setPushcutFeedback('Corrija os campos destacados antes de testar o Pushcut.', 'error');
+          return;
+        }
+
+        button.disabled = true;
+        card.classList.add('is-loading');
+        setPushcutItemStatus(card, 'Enviando notificacao de teste...', 'warning');
+
+        try {
+          const response = await apiFetch('/api/pushcut/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item })
+          });
+
+          setPushcutItemStatus(card, response.message || `Teste enviado para ${item.name}.`, 'success');
+          setPushcutFeedback('', '');
+        } catch (err) {
+          setPushcutItemStatus(card, 'Falha no teste: ' + err.message, 'error');
+        } finally {
+          button.disabled = false;
+          card.classList.remove('is-loading');
+        }
+      }
+
+      function createPushcutItemElement(item = {}) {
+        const data = createPushcutItemData(item);
+        const card = document.createElement('article');
+        card.className = 'pushcut-item';
+        card.dataset.pushcutId = data.id;
+        card.innerHTML = `
+          <div class="pushcut-item-header">
+            <div class="pushcut-item-title">Dispositivo Pushcut</div>
+            <label class="pushcut-active-toggle">
+              <input type="checkbox" data-field="active" ${data.active ? 'checked' : ''}>
+              <span>Ativo</span>
+            </label>
+          </div>
+          <div class="pushcut-grid">
+            <div class="pushcut-field">
+              <label>Nome do dispositivo / dono do link</label>
+              <input type="text" data-field="name" value="${escapeHtml(data.name)}" placeholder="Ex.: iPhone Admin">
+            </div>
+            <div class="pushcut-field">
+              <label>Webhook URL</label>
+              <input type="url" data-field="webhook" value="${escapeHtml(data.webhook)}" placeholder="https://api.pushcut.io/...">
+            </div>
+          </div>
+          <div class="pushcut-field-error"></div>
+          <div class="pushcut-item-footer">
+            <div class="pushcut-inline-status">Teste individual disponivel para este link.</div>
+            <div class="pushcut-item-actions">
+              <button type="button" class="pushcut-btn" data-action="test">Testar notificacao</button>
+              <button type="button" class="pushcut-btn pushcut-btn-danger" data-action="remove">Remover</button>
+            </div>
+          </div>
+        `;
+
+        card.querySelector('[data-action="test"]').addEventListener('click', async (event) => {
+          await handlePushcutTest(event.currentTarget);
+        });
+
+        card.querySelector('[data-action="remove"]').addEventListener('click', () => {
+          card.remove();
+          setPushcutFeedback('', '');
+          if (!document.querySelector('#pushcutList .pushcut-item')) {
+            renderPushcutEmptyState();
+          }
+        });
+
+        card.querySelectorAll('input').forEach((input) => {
+          input.addEventListener('input', () => {
+            clearPushcutItemValidation(card);
+            setPushcutFeedback('', '');
+          });
+          input.addEventListener('change', () => {
+            clearPushcutItemValidation(card);
+            setPushcutFeedback('', '');
+          });
+        });
+
+        return card;
+      }
+
+      function renderPushcutItems(items = []) {
+        const list = document.getElementById('pushcutList');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        if (!Array.isArray(items) || items.length === 0) {
+          renderPushcutEmptyState();
+          return;
+        }
+
+        items.forEach((item) => {
+          list.appendChild(createPushcutItemElement(item));
+        });
+      }
+
+      function addPushcutItem(item = {}) {
+        const list = document.getElementById('pushcutList');
+        if (!list) return;
+
+        const emptyState = list.querySelector('.pushcut-empty');
+        if (emptyState) {
+          list.innerHTML = '';
+        }
+
+        list.appendChild(createPushcutItemElement(item));
+      }
+
+      function collectPushcutItemsFromForm() {
+        const cards = Array.from(document.querySelectorAll('#pushcutList .pushcut-item'));
+
+        if (!cards.length) {
+          return [];
+        }
+
+        const items = [];
+        for (const card of cards) {
+          const item = validatePushcutCard(card);
+          if (!item) {
+            return null;
+          }
+          items.push(item);
+        }
+
+        return items;
+      }
+
+      // Refresh Logic
+      async function refreshDashboard() {
+        const dot = document.getElementById('connectionDot');
+        const statusText = document.getElementById('connectionText');
+        
+        try {
+          const data = await apiFetch('/api/titans/metrics');
+          if (dot) dot.className = 'dot online';
+          if (statusText) statusText.textContent = 'Sistema Online';
+          
+          // Populate Configs
+          if (data.config) {
+            document.getElementById('heroHostText').textContent = 'Domínio: ' + data.config.apiHost;
+            document.getElementById('webhookDisplayUrl').textContent = data.config.webhookUrl;
+            document.getElementById('heroPushcutText').textContent = data.config.pushcut.count;
+            
+            // Gateway Card Status
+            const titansBadge = document.getElementById('titansStatusBadge');
+            if (titansBadge) {
+              if (data.config.isConfigured) {
+                titansBadge.textContent = 'Configurado';
+                titansBadge.className = 'amz-badge badge-success';
+              } else {
+                titansBadge.textContent = 'Pendente';
+                titansBadge.className = 'amz-badge badge-warning';
+              }
+            }
+
+            const cForm = document.getElementById('configForm');
+            if (cForm && cForm.apiHost) cForm.apiHost.value = data.config.apiHost || '';
+            if (cForm && cForm.publicKey) cForm.publicKey.value = data.config.publicKey || '';
+            
+            const pForm = document.getElementById('pixelsForm');
+            if (pForm) {
+              renderPixelLists(data.config.pixels);
+              pForm.headTag.value = data.config.pixels.headTag || '';
+              pForm.bodyTag.value = data.config.pixels.bodyTag || '';
+            }
+
+            renderPushcutItems(Array.isArray(data.config.pushcut.items) ? data.config.pushcut.items : []);
+            
+            document.getElementById('sidebarNote').textContent = 'Server: ' + data.config.apiHost;
+            document.getElementById('summaryLine').textContent = 'Última sincronização completa: ' + formatDate(data.generatedAt);
+          }
+
+          // Analytics
+          if (data.analytics) {
+            document.getElementById('totalActiveTitle').textContent = data.analytics.totalActive + ' Usuários Ativos';
+            const pages = ['landing', 'checkout_1', 'checkout_2', 'checkout_3', 'checkout_4', 'checkout_5'];
+            pages.forEach(pid => {
+              const item = document.querySelector(`.traffic-item[data-page="${pid}"]`);
+              if (item) {
+                const active = data.analytics.active[pid] || 0;
+                const cum = data.analytics.cumulative[pid] || 0;
+                item.querySelector('.active-val').textContent = active;
+                item.querySelector('.cum-val').textContent = cum + ' total';
+                
+                const pulse = item.querySelector('.live-pulse');
+                if (active > 0) {
+                  item.classList.add('active');
+                  pulse.style.display = 'block';
+                } else {
+                  item.classList.remove('active');
+                  pulse.style.display = 'none';
+                }
+              }
+            });
+          }
+
+          // Stats
+          if (data.salesStats) {
+            document.getElementById('totalRevenueText').textContent = formatMoney(data.salesStats.totalPaidAmount);
+            document.getElementById('totalOrdersText').textContent = data.salesStats.totalRecords;
+            document.getElementById('heroWebhookText').textContent = data.webhookStats.receivedCount + ' Eventos';
+            document.getElementById('generatedAtText').textContent = 'Sincronizado: ' + formatDate(data.generatedAt);
+
+            const grid = document.getElementById('metricsGrid');
+            if (grid) {
+              grid.innerHTML = `
+                <div class="amz-card widget-box">
+                  <span class="widget-sub">VOLUME BRUTO</span>
+                  <span class="widget-val">${formatMoney(data.salesStats.totalAmount)}</span>
+                </div>
+                <div class="amz-card widget-box">
+                  <span class="widget-sub">TOTAL CANCELADO</span>
+                  <span class="widget-val">${formatMoney(data.salesStats.totalRefundedAmount)}</span>
+                </div>
+              `;
+            }
+
+            // Breakdown status
+            const statusWrap = document.getElementById('statusBreakdown');
+            if (statusWrap) {
+              statusWrap.innerHTML = '';
+              for (const [key, val] of Object.entries(data.salesStats.statusBreakdown)) {
+                const badge = document.createElement('span');
+                badge.className = 'amz-badge ' + getBadgeClass(key);
+                badge.textContent = `${key.toUpperCase()}: ${val}`;
+                statusWrap.appendChild(badge);
+              }
+            }
+
+            // Payment method
+            const payWrap = document.getElementById('paymentBreakdown');
+            if (payWrap) {
+              payWrap.innerHTML = '';
+              for (const [key, val] of Object.entries(data.salesStats.paymentMethodBreakdown)) {
+                const bg = document.createElement('span');
+                bg.className = 'amz-badge';
+                bg.style.background = '#f0f2f2';
+                bg.textContent = `${key.toUpperCase()}: ${val}`;
+                payWrap.appendChild(bg);
+              }
+            }
+          }
+
+          renderMetaAttribution(data.metaAttributionStats);
+
+          // Transactions Table
+          if (data.transactions) {
+            const tbody = document.querySelector('#transactionsTableWrap tbody');
+            if (tbody) {
+              tbody.innerHTML = data.transactions.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum registro encontrado.</td></tr>';
+              data.transactions.forEach(tx => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                  <td style="font-weight:700;">${formatDate(tx.createdAt)}</td>
+                  <td><span class="amz-badge ${getBadgeClass(tx.status)}">${tx.status}</span></td>
+                  <td style="color:#B12704; font-weight:700;">${formatMoney(tx.amount)}</td>
+                  <td>${tx.paymentMethod || 'PIX'}</td>
+                `;
+                tbody.appendChild(row);
+              });
+            }
+          }
+
+          // Webhooks Table
+          if (data.webhooks) {
+            const tbody = document.querySelector('#webhooksTableWrap tbody');
+            if (tbody) {
+              tbody.innerHTML = data.webhooks.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum evento recente.</td></tr>';
+              data.webhooks.slice(0, 50).forEach(wh => {
+                const pushcutOk = Array.isArray(wh.pushcutDispatches)
+                  ? wh.pushcutDispatches.filter(item => item.ok).length
+                  : 0;
+                const pushcutTotal = Array.isArray(wh.pushcutDispatches)
+                  ? wh.pushcutDispatches.length
+                  : 0;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                  <td>${formatDate(wh.receivedAt)}</td>
+                  <td>${escapeHtml((wh.type || 'custom').toUpperCase())}</td>
+                  <td style="font-weight:700;">${formatMoney(wh.amount || 0)}</td>
+                  <td><span class="amz-badge ${pushcutTotal && pushcutOk === pushcutTotal ? 'badge-success' : pushcutTotal ? 'badge-warning' : 'badge-pending'}">${pushcutTotal ? `${pushcutOk}/${pushcutTotal} ENVIADO` : 'SEM PUSHCUT'}</span></td>
+                `;
+                tbody.appendChild(row);
+              });
+            }
+          }
+
+        } catch (err) {
+          console.error(err);
+          if (dot) dot.className = 'dot';
+          if (statusText) statusText.textContent = 'Erro de Conexão';
+        }
+      }
+
+      // Form Submissions
+      document.getElementById('configForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+          apiHost: e.target.apiHost.value,
+          publicKey: e.target.publicKey.value,
+          secretKey: e.target.secretKey.value || undefined
+        };
+        try {
+          await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          alert('Configurações salvas com sucesso!');
+          closeGatewayModal();
+          refreshDashboard();
+        } catch (err) {
+          alert('Erro ao salvar: ' + err.message);
+        }
+      });
+
+      document.getElementById('pixelsForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = {
+          pixels: {
+            metaPixelId: fd.getAll('metaPixelId').map(v => v.trim()).filter(Boolean),
+            googleTagManagerId: fd.getAll('googleTagManagerId').map(v => v.trim()).filter(Boolean),
+            googleAdsId: fd.getAll('googleAdsId').map(v => v.trim()).filter(Boolean),
+            tiktokPixelId: fd.getAll('tiktokPixelId').map(v => v.trim()).filter(Boolean),
+            headTag: fd.get('headTag'),
+            bodyTag: fd.get('bodyTag')
+          }
+        };
+        try {
+          await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          alert('Configurações de trackeamento atualizadas!');
+          refreshDashboard();
+        } catch (err) {
+          alert('Erro: ' + err.message);
+        }
+      });
+
+      document.getElementById('addPushcutLinkButton').addEventListener('click', () => {
+        addPushcutItem();
+        setPushcutFeedback('', '');
+      });
+
+      document.getElementById('pushcutForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const items = collectPushcutItemsFromForm();
+
+        if (items === null) {
+          setPushcutFeedback('Corrija os campos obrigatorios antes de salvar as notificacoes.', 'error');
+          return;
+        }
+
+        try {
+          const response = await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pushcut: { items } })
+          });
+
+          renderPushcutItems(Array.isArray(response?.config?.pushcut?.items) ? response.config.pushcut.items : items);
+          setPushcutFeedback(response.message || 'Configuracoes do Pushcut salvas com sucesso.', 'success');
+          refreshDashboard();
+        } catch (err) {
+          setPushcutFeedback('Erro ao salvar: ' + err.message, 'error');
+        }
+      });
+
+      // Init Load
+      refreshDashboard();
+    </script>
+  </body>
+</html>

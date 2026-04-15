@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /Landpagedrone.html
+Disallow: /Checkout*
+Disallow: /admin.html
+Disallow: /assets/
+Allow: /index.html
+Allow: /
+
+Sitemap: /sitemap.xml
