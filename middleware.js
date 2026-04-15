@@ -45,13 +45,19 @@ export default function middleware(req) {
 
   // 1. PROTEÇÃO CONTRA BOTS (Cloaking)
   if (isBot) {
-    // Se for bot tentando acessar a raiz, joga pra White Page (Carpintaria)
+    // Se for bot tentando acessar a raiz, mostra a White Page (Carpintaria) via REWRITE
+    // Isso mantém a URL como "/" mas serve o conteúdo do white.html
     if (pathname === '/') {
-      console.log(`[PROTEÇÃO] BOT na raiz - Redirecionando para White Page`);
-      return Response.redirect(new URL('/white.html', req.url));
+      console.log(`[PROTEÇÃO] BOT na raiz - Servindo White Page via Rewrite`);
+      const whiteUrl = new URL('/white.html', req.url);
+      return new Response(null, {
+        headers: {
+          'x-middleware-rewrite': whiteUrl.toString()
+        }
+      });
     }
     
-    // Se for bot tentando acessar páginas sensíveis, joga pra raiz (que levará à White Page)
+    // Se for bot tentando acessar páginas sensíveis diretamente, joga pra raiz (onde verá a White Page)
     if (pathname === '/Landpagedrone.html' || 
         pathname.includes('Checkout') || 
         pathname === '/admin' ||
