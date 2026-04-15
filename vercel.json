@@ -22,6 +22,10 @@
       "destination": "/api/index.mjs"
     },
     {
+      "source": "/",
+      "destination": "/Landpagedrone.html"
+    },
+    {
       "source": "/login",
       "destination": "/login.html"
     },

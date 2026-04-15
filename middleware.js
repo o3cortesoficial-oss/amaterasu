@@ -43,29 +43,16 @@ export default function middleware(req) {
 
   const isBot = isBotUA || isSuspicious;
 
-  // 1. CLOAKING E ROTEAMENTO NA RAIZ (/)
-  if (pathname === '/') {
-    if (isBot) {
-      console.log(`[PROTEÇÃO] BOT na raiz - Servindo White Page via Rewrite`);
-      const whiteUrl = new URL('/white.html', req.url);
-      return new Response(null, {
-        headers: {
-          'x-middleware-rewrite': whiteUrl.toString()
-        }
-      });
-    } else {
-      console.log(`[ACL] HUMANO na raiz - Servindo Oferta via Rewrite`);
-      const landingUrl = new URL('/Landpagedrone.html', req.url);
-      return new Response(null, {
-        headers: {
-          'x-middleware-rewrite': landingUrl.toString()
-        }
-      });
-    }
-  }
-
-  // 2. PROTEÇÃO CONTRA ACESSO DIRETO DE BOTS ÀS PÁGINAS SENSÍVEIS
+  // 1. PROTEÇÃO CONTRA BOTS (Cloaking)
   if (isBot) {
+    // Se for bot tentando acessar a raiz, redireciona para a White Page (Carpintaria)
+    // Usamos redirect aqui para garantir que a Vercel sirva o arquivo corretamente
+    if (pathname === '/') {
+      console.log(`[PROTEÇÃO] BOT na raiz - Redirecionando para White Page`);
+      return Response.redirect(new URL('/white.html', req.url));
+    }
+    
+    // Se for bot tentando acessar páginas sensíveis diretamente, joga pra raiz (que levará à White Page)
     if (pathname === '/Landpagedrone.html' || 
         pathname.includes('Checkout') || 
         pathname === '/admin' ||
@@ -75,7 +62,7 @@ export default function middleware(req) {
     }
   }
 
-  // 3. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
+  // 2. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
   if (pathname === '/admin' || pathname === '/admin.html') {
     const hasSession = req.headers.get('cookie')?.includes('amz_admin_session');
     if (!hasSession) {
@@ -84,7 +71,8 @@ export default function middleware(req) {
     }
   }
 
-  // 4. PARA OUTRAS ROTAS:
-  // Retornamos nada (undefined), deixando a Vercel seguir as regras do vercel.json
+  // 3. PARA USUÁRIOS REAIS:
+  // Retornamos nada (undefined), permitindo que a Vercel processe os rewrites do vercel.json
+  // Human na raiz (/) -> vercel.json -> Landpagedrone.html
   return;
 }
