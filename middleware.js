@@ -1,4 +1,5 @@
-import { next } from '@vercel/edge';
+// No Vercel Middleware (standalone), ao retornar "undefined" ou nada, o request continua normalmente.
+// Removemos a dependencia de @vercel/edge para evitar erros de build.
 
 export const config = {
   matcher: [
@@ -44,8 +45,8 @@ export default function middleware(req) {
     
     // Se for a raiz, mostra a página de carpintaria (index.html)
     if (url.pathname === '/') {
-        // Na Vercel, index.html é servido por padrão, então apenas deixamos seguir ou reescrevemos explicitamente
-        return next(); 
+        // Na Vercel, o request continua para index.html automaticamente
+        return; 
     }
     
     // Se estiver tentando acessar diretamente as páginas internas, redireciona para a home (carpintaria)
@@ -60,5 +61,6 @@ export default function middleware(req) {
     return Response.rewrite(url);
   }
 
-  return next();
+  // Por padrão, continua o request
+  return;
 }
