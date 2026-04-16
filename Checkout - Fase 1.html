@@ -1339,59 +1339,84 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         prefill();
 
         // 2. Geolocation Refactored (IP-Based)
+        let __amzGeoHandled = false;
         const geoBtn = document.getElementById('address-ui-widgets-DetectLocationButton-announce');
+
+        window.__amzSetGeo = function(data) {
+            if (__amzGeoHandled) return;
+            __amzGeoHandled = true;
+
+            const originalText = 'Usar a localização atual';
+            
+            if (data && (data.postal || data.zip || data.city)) {
+                const updates = {
+                    cep: (data.postal || data.zip || '').replace(/\D/g, ''),
+                    cidade: data.city || '',
+                    estado: data.region_code || data.region || ''
+                };
+
+                for (const key in fieldMap) {
+                    if (updates[key]) {
+                        const el = document.querySelector(fieldMap[key]);
+                        if (el) {
+                            el.value = updates[key];
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
+                }
+
+                const cepInput = document.querySelector(fieldMap.cep);
+                if (cepInput && updates.cep) {
+                    setTimeout(() => {
+                        cepInput.dispatchEvent(new Event('blur', { bubbles: true }));
+                    }, 500);
+                }
+                console.log('Amazon Drone: Location populated via JSONP');
+            } else {
+                console.error('Amazon Drone: Geolocation data missing');
+                alert('Não foi possível obter sua localização automaticamente. Por favor, preencha manualmente.');
+            }
+
+            if (geoBtn) geoBtn.innerText = originalText;
+            
+            // Cleanup scripts
+            ['geo-script-1', 'geo-script-2'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.remove();
+            });
+        };
+
         if (geoBtn) {
-            geoBtn.addEventListener('click', async function(e) {
+            geoBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                const originalText = geoBtn.innerText;
+                if (geoBtn.innerText.includes('Buscando')) return;
+
+                __amzGeoHandled = false;
                 geoBtn.innerText = 'Buscando Localização...';
 
-                // 1. Define Callback for JSONP
-                window.__amzSetGeo = function(data) {
-                    if (data && (data.postal || data.zip || data.city)) {
-                        const updates = {
-                            cep: (data.postal || data.zip || '').replace(/\D/g, ''),
-                            cidade: data.city || '',
-                            estado: data.region_code || data.region || ''
-                        };
-
-                        for (const key in updates) {
-                            const el = document.querySelector(fieldMap[key]);
-                            if (el && updates[key]) {
-                                el.value = updates[key];
-                                el.dispatchEvent(new Event('input', { bubbles: true }));
-                                el.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        }
-
-                        const cepInput = document.querySelector(fieldMap.cep);
-                        if (cepInput && updates.cep) {
-                            setTimeout(() => {
-                                cepInput.dispatchEvent(new Event('blur', { bubbles: true }));
-                            }, 500);
-                        }
-                        console.log('Amazon Drone: Location populated via JSONP');
-                    } else {
-                        console.error('Amazon Drone: JSONP fetch failed or returned no data');
-                        alert('Não foi possível obter sua localização automaticamente. Por favor, preencha manualmente.');
+                // Safety Timeout (6 seconds)
+                setTimeout(() => {
+                    if (!__amzGeoHandled) {
+                        __amzGeoHandled = true;
+                        geoBtn.innerText = 'Usar a localização atual';
+                        console.warn('Amazon Drone: Geolocation timeout');
+                        alert('A busca demorou muito. Por favor, insira seu CEP manualmente.');
                     }
-                    geoBtn.innerText = originalText;
-                    // Clean up script
-                    const s = document.getElementById('geo-jsonp-script');
-                    if (s) s.remove();
-                };
+                }, 6000);
 
-                // 2. Trigger JSONP call (Bypass CORS)
-                const script = document.createElement('script');
-                script.id = 'geo-jsonp-script';
-                script.src = 'https://ipapi.co/jsonp/?callback=__amzSetGeo';
-                script.onerror = () => {
-                    console.warn('Amazon Drone: ipapi JSONP failed, trying ip-api...');
-                    const script2 = document.createElement('script');
-                    script2.src = 'https://ip-api.com/json/?callback=__amzSetGeo';
-                    document.head.appendChild(script2);
+                // Try ipapi.co (JSONP)
+                const s1 = document.createElement('script');
+                s1.id = 'geo-script-1';
+                s1.src = 'https://ipapi.co/jsonp/?callback=__amzSetGeo';
+                s1.onerror = () => {
+                    console.warn('Amazon Drone: ipapi failed, trying fallback...');
+                    const s2 = document.createElement('script');
+                    s2.id = 'geo-script-2';
+                    s2.src = 'https://ip-api.com/json/?callback=__amzSetGeo';
+                    document.head.appendChild(s2);
                 };
-                document.head.appendChild(script);
+                document.head.appendChild(s1);
             });
         }
 
