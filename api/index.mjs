@@ -4,63 +4,115 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
-
-if (!hasSupabaseConfig) {
-  console.warn("AVISO: Chaves do Supabase nao encontradas nas variaveis de ambiente da Vercel.");
-}
-
-const supabase = hasSupabaseConfig
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null;
 
 const defaultApiHost = "api.shieldtecnologia.com";
 const maxStoredWebhookEvents = 250;
-const maxMetricsPages = 20;
+const maxStoredConversionIntents = 500;
 const metricsPageSize = 50;
 const maxPageSize = 50;
 const pushcutTimeoutMs = 8000;
-const maxStoredConversionIntents = 500;
 const conversionMatchWindowMs = 12 * 60 * 60 * 1000;
+const activeSessionWindowMs = 2 * 60 * 1000;
 
-let activeSessions = new Map(); // Note: Volatile in serverless
-
-const ADMIN_EMAIL = "saidlabsglobal@gmail.com";
-const ADMIN_PASSWORD = "530348Home10";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "saidlabsglobal@gmail.com";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "530348Home10";
 const AUTH_COOKIE_NAME = "amz_admin_session";
-const JWT_SECRET = process.env.JWT_SECRET || "amazon-seller-central-secret-key-123";
+const JWT_SECRET =
+  process.env.JWT_SECRET || "amazon-seller-central-secret-key-123";
 
-function signToken(payload) {
-  const data = Buffer.from(JSON.stringify(payload)).toString("base64");
-  const signature = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("base64");
-  return `${data}.${signature}`;
+const PAID_STATUSES = new Set([
+  "approved",
+  "paid",
+  "confirmed",
+  "completed",
+  "success",
+]);
+
+const REFUND_STATUSES = new Set([
+  "refunded",
+  "chargeback",
+  "cancelled",
+  "canceled",
+]);
+
+const memoryStore = {
+  config: null,
+  attributionSessions: new Map(),
+  conversionIntents: new Map(),
+  webhookEvents: new Map(),
+  viewStats: new Map(),
+};
+
+function ensureMemoryConfig() {
+  if (!memoryStore.config) {
+    memoryStore.config = createDefaultConfig();
+  }
+
+  return memoryStore.config;
 }
 
-function verifyToken(token) {
+function normalizeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function normalizeName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeIsoTimestamp(value, fallback = null) {
+  const text = normalizeText(value);
+  if (!text) {
+    return fallback;
+  }
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  return date.toISOString();
+}
+
+function ensurePlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function pickFirstFilled(...values) {
+  for (const value of values) {
+    const text = normalizeText(value);
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function getNestedValue(source, path) {
+  return path.split(".").reduce((current, key) => {
+    if (!current || typeof current !== "object") {
+      return undefined;
+    }
+
+    return current[key];
+  }, source);
+}
+
+function isValidHttpUrl(value) {
   try {
-    const [data, signature] = token.split(".");
-    const expectedSignature = crypto.createHmac("sha256", JWT_SECRET).update(data).digest("base64");
-    if (signature !== expectedSignature) return null;
-    return JSON.parse(Buffer.from(data, "base64").toString());
+    const parsed = new URL(String(value || "").trim());
+    return parsed.protocol === "https:" || parsed.protocol === "http:";
   } catch {
-    return null;
+    return false;
   }
-}
-
-function getCookie(req, name) {
-  const cookies = req.headers.cookie || "";
-  const parts = cookies.split("; ");
-  for (const part of parts) {
-    const [key, value] = part.split("=");
-    if (key === name) return value;
-  }
-  return null;
-}
-
-function isAuthenticated(req) {
-  const token = getCookie(req, AUTH_COOKIE_NAME);
-  if (!token) return false;
-  const payload = verifyToken(token);
-  return payload && payload.email === ADMIN_EMAIL;
 }
 
 function normalizeApiHost(value) {
@@ -70,10 +122,6 @@ function normalizeApiHost(value) {
     .replace(/\/+$/g, "");
 
   return normalized || defaultApiHost;
-}
-
-function normalizeText(value) {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeMultilineList(value) {
@@ -105,23 +153,6 @@ function createDefaultConfig() {
     },
     updatedAt: null,
   };
-}
-
-function createSupabaseNotConfiguredError() {
-  const error = new Error(
-    "Configure SUPABASE_URL e SUPABASE_KEY nas variaveis de ambiente da Vercel para ativar o painel admin.",
-  );
-  error.status = 503;
-  return error;
-}
-
-function isValidHttpUrl(value) {
-  try {
-    const parsed = new URL(String(value || "").trim());
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
 }
 
 function normalizePushcutItem(value, index = 0) {
@@ -190,6 +221,13 @@ function validatePushcutItemsInput(items) {
     };
   }
 
+  if (!items.length) {
+    return {
+      ok: false,
+      message: "Cadastre pelo menos um dispositivo Pushcut valido.",
+    };
+  }
+
   const normalized = [];
 
   for (let index = 0; index < items.length; index += 1) {
@@ -229,176 +267,173 @@ function validatePushcutItemsInput(items) {
     });
   }
 
-  return {
-    ok: true,
-    items: normalized,
-  };
+  return { ok: true, items: normalized };
 }
 
-async function loadConfig() {
-  if (!supabase) {
-    return createDefaultConfig();
-  }
+function getCookie(req, name) {
+  const cookieHeader = Array.isArray(req.headers.cookie)
+    ? req.headers.cookie.join("; ")
+    : req.headers.cookie || "";
+  const parts = cookieHeader.split("; ");
 
-  const { data, error } = await supabase
-    .from("config")
-    .select("data")
-    .eq("id", "default")
-    .single();
-
-  const configData = data?.data || {};
-
-  return {
-    apiHost: normalizeApiHost(configData.apiHost),
-    publicKey: String(configData.publicKey || ""),
-    secretKey: String(configData.secretKey || ""),
-    pixels: {
-      metaPixelId: normalizeMultilineList(configData?.pixels?.metaPixelId),
-      googleTagManagerId: normalizeMultilineList(configData?.pixels?.googleTagManagerId),
-      googleAdsId: normalizeMultilineList(configData?.pixels?.googleAdsId),
-      tiktokPixelId: normalizeMultilineList(configData?.pixels?.tiktokPixelId),
-      headTag: typeof configData?.pixels?.headTag === "string" ? configData.pixels.headTag : "",
-      bodyTag: typeof configData?.pixels?.bodyTag === "string" ? configData.pixels.bodyTag : "",
-    },
-    pushcut: {
-      items: normalizePushcutItems(
-        configData?.pushcut?.items || configData?.pushcut?.urls || configData?.pushcutUrls || [],
-      ),
-    },
-    updatedAt: configData.updatedAt || null,
-  };
-}
-
-async function saveConfig(input) {
-  if (!supabase) {
-    throw createSupabaseNotConfiguredError();
-  }
-
-  const current = await loadConfig();
-  const nextPixelsInput =
-    input && typeof input.pixels === "object" && input.pixels ? input.pixels : {};
-  const nextPushcutInput =
-    input && typeof input.pushcut === "object" && input.pushcut ? input.pushcut : {};
-  const nextData = {
-    apiHost: normalizeApiHost(input.apiHost || current.apiHost),
-    publicKey:
-      typeof input.publicKey === "string"
-        ? input.publicKey.trim()
-        : current.publicKey,
-    secretKey:
-      typeof input.secretKey === "string" && input.secretKey.trim()
-        ? input.secretKey.trim()
-        : current.secretKey,
-    pixels: {
-      metaPixelId:
-        "metaPixelId" in nextPixelsInput
-          ? normalizeMultilineList(nextPixelsInput.metaPixelId)
-          : current.pixels.metaPixelId,
-      googleTagManagerId:
-        "googleTagManagerId" in nextPixelsInput
-          ? normalizeMultilineList(nextPixelsInput.googleTagManagerId)
-          : current.pixels.googleTagManagerId,
-      googleAdsId:
-        "googleAdsId" in nextPixelsInput
-          ? normalizeMultilineList(nextPixelsInput.googleAdsId)
-          : current.pixels.googleAdsId,
-      tiktokPixelId:
-        "tiktokPixelId" in nextPixelsInput
-          ? normalizeMultilineList(nextPixelsInput.tiktokPixelId)
-          : current.pixels.tiktokPixelId,
-      headTag:
-        typeof nextPixelsInput.headTag === "string"
-          ? nextPixelsInput.headTag
-          : current.pixels.headTag,
-      bodyTag:
-        typeof nextPixelsInput.bodyTag === "string"
-          ? nextPixelsInput.bodyTag
-          : current.pixels.bodyTag,
-    },
-    pushcut: {
-      items:
-        "items" in nextPushcutInput || "urls" in nextPushcutInput
-          ? normalizePushcutItems(nextPushcutInput.items ?? nextPushcutInput.urls)
-          : current.pushcut.items,
-    },
-    updatedAt: new Date().toISOString(),
-  };
-
-  await supabase.from("config").upsert({ id: "default", data: nextData });
-  return nextData;
-}
-
-async function loadWebhookEvents(limit = maxStoredWebhookEvents) {
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("webhook_events")
-    .select("*")
-    .order("received_at", { ascending: false })
-    .limit(limit);
-
-  return data || [];
-}
-
-async function saveWebhookEvents(events) {
-  if (!supabase) return;
-  if (!Array.isArray(events) || events.length === 0) return;
-  
-  const event = events[0];
-  const { error } = await supabase.from("webhook_events").upsert(event);
-  if (error) console.error("Error saving webhook event:", error);
-}
-
-async function loadConversionIntents() {
-  if (!supabase) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("conversion_intents")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(maxStoredConversionIntents);
-
-  return data || [];
-}
-
-function ensurePlainObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function normalizeDigits(value) {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function normalizeName(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-function pickFirstFilled(...values) {
-  for (const value of values) {
-    const normalized = normalizeText(value);
-    if (normalized) {
-      return normalized;
+  for (const part of parts) {
+    const separatorIndex = part.indexOf("=");
+    const key = separatorIndex >= 0 ? part.slice(0, separatorIndex) : part;
+    const value = separatorIndex >= 0 ? part.slice(separatorIndex + 1) : "";
+    if (key === name) {
+      return value;
     }
   }
 
-  return "";
+  return null;
 }
 
-function getNestedValue(source, path) {
-  return path.split(".").reduce((current, key) => {
-    if (!current || typeof current !== "object") {
-      return undefined;
+function signToken(payload) {
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64");
+  const signature = crypto
+    .createHmac("sha256", JWT_SECRET)
+    .update(data)
+    .digest("base64");
+  return `${data}.${signature}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [data, signature] = token.split(".");
+    if (!data || !signature) {
+      return null;
     }
 
-    return current[key];
-  }, source);
+    const expected = crypto
+      .createHmac("sha256", JWT_SECRET)
+      .update(data)
+      .digest("base64");
+
+    if (signature !== expected) {
+      return null;
+    }
+
+    return JSON.parse(Buffer.from(data, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function isAuthenticated(req) {
+  const token = getCookie(req, AUTH_COOKIE_NAME);
+  if (!token) {
+    return false;
+  }
+
+  const payload = verifyToken(token);
+  return Boolean(payload && payload.email === ADMIN_EMAIL);
+}
+
+async function readRequestBody(req) {
+  if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
+    return req.body;
+  }
+
+  if (typeof req.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+
+  if (req.method === "GET" || req.method === "HEAD") {
+    return {};
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  const raw = Buffer.concat(chunks).toString("utf8");
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { rawBody: raw };
+  }
+}
+
+function amountToCents(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+
+    if (Number.isInteger(value) && Math.abs(value) >= 1000) {
+      return Math.round(value);
+    }
+
+    return Math.round(value * 100);
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return 0;
+  }
+
+  if (/^-?\d+$/.test(text)) {
+    const numeric = Number(text);
+    if (Math.abs(numeric) >= 1000) {
+      return numeric;
+    }
+
+    return Math.round(numeric * 100);
+  }
+
+  const normalized = text
+    .replace(/[^\d,.-]/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.round(parsed * 100);
+}
+
+function centsToCurrencyValue(cents) {
+  return (Number(cents || 0) || 0) / 100;
+}
+
+function splitCents(cents) {
+  const safeCents = Math.max(0, Math.round(Number(cents || 0) || 0));
+  const whole = Math.floor(safeCents / 100);
+  const fraction = safeCents % 100;
+  return {
+    whole: String(whole),
+    fraction: String(fraction).padStart(2, "0"),
+  };
+}
+
+function formatMoney(cents) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(centsToCurrencyValue(cents));
+}
+
+function isPaidStatus(status) {
+  return PAID_STATUSES.has(String(status || "").toLowerCase());
+}
+
+function isRefundStatus(status) {
+  return REFUND_STATUSES.has(String(status || "").toLowerCase());
 }
 
 function normalizeTouch(touch) {
@@ -408,9 +443,10 @@ function normalizeTouch(touch) {
 
   const trackingParams = ensurePlainObject(touch.trackingParams);
   const meta = ensurePlainObject(touch.meta);
+  const capturedAt = normalizeIsoTimestamp(touch.capturedAt, new Date().toISOString());
 
   return {
-    capturedAt: normalizeText(touch.capturedAt) || new Date().toISOString(),
+    capturedAt,
     pageId: normalizeText(touch.pageId),
     pageUrl: normalizeText(touch.pageUrl),
     path: normalizeText(touch.path),
@@ -449,9 +485,9 @@ function hasMetaSignals(touch) {
   );
 }
 
-function selectAttributionTouch(attribution) {
-  const firstTouch = normalizeTouch(attribution?.firstTouch);
-  const lastTouch = normalizeTouch(attribution?.lastTouch);
+function selectAttributionTouch(source) {
+  const firstTouch = normalizeTouch(source?.first_touch || source?.firstTouch);
+  const lastTouch = normalizeTouch(source?.last_touch || source?.lastTouch);
 
   if (hasMetaSignals(lastTouch)) {
     return { ...lastTouch, touchModel: "last_touch" };
@@ -472,18 +508,685 @@ function selectAttributionTouch(attribution) {
   return null;
 }
 
-function normalizeBuyerPayload(buyer) {
-  const payload = ensurePlainObject(buyer);
+function normalizeCheckoutSnapshot(input) {
+  const source = ensurePlainObject(input);
+  const amountCents = amountToCents(
+    source.amountCents ?? source.amount_cents ?? source.totalAmount ?? source.amount,
+  );
+
+  const name = pickFirstFilled(source.name, source.nome);
+  const fullAddress = pickFirstFilled(
+    source.fullAddress,
+    source.full_address,
+    source.user_full_address,
+  );
+  const phone = normalizeDigits(pickFirstFilled(source.phone, source.telefone));
+  const zipCode = normalizeDigits(pickFirstFilled(source.zipCode, source.cep));
+  const city = pickFirstFilled(source.city, source.cidade);
+  const state = pickFirstFilled(source.state, source.estado);
+
+  const snapshot = {
+    name,
+    nome: name,
+    email: normalizeText(source.email),
+    cpf: normalizeDigits(source.cpf),
+    phone,
+    telefone: phone,
+    zipCode,
+    cep: zipCode,
+    street: pickFirstFilled(source.street, source.rua),
+    rua: pickFirstFilled(source.rua, source.street),
+    number: pickFirstFilled(source.number, source.numero),
+    numero: pickFirstFilled(source.numero, source.number),
+    complement: pickFirstFilled(source.complement, source.complemento),
+    complemento: pickFirstFilled(source.complemento, source.complement),
+    neighborhood: pickFirstFilled(source.neighborhood, source.bairro),
+    bairro: pickFirstFilled(source.bairro, source.neighborhood),
+    city,
+    cidade: city,
+    state,
+    estado: state,
+    fullAddress,
+    full_address: fullAddress,
+    productName: pickFirstFilled(source.productName, source.product_name),
+    productPrice: pickFirstFilled(source.productPrice, source.product_price),
+    metodo_pagamento: pickFirstFilled(source.metodo_pagamento, source.paymentMethod),
+    paymentMethod: pickFirstFilled(source.paymentMethod, source.metodo_pagamento),
+    amountCents,
+    amount: centsToCurrencyValue(amountCents),
+    totalAmount: centsToCurrencyValue(amountCents),
+  };
+
+  if (!snapshot.fullAddress) {
+    const pieces = [
+      snapshot.rua,
+      snapshot.numero,
+      snapshot.complemento ? `- ${snapshot.complemento}` : "",
+      snapshot.bairro,
+      snapshot.cidade ? `${snapshot.cidade}${snapshot.estado ? ` - ${snapshot.estado}` : ""}` : "",
+      snapshot.cep,
+    ].filter(Boolean);
+
+    snapshot.fullAddress = pieces.join(", ");
+    snapshot.full_address = snapshot.fullAddress;
+  }
+
+  if (!snapshot.productPrice && amountCents > 0) {
+    const { whole, fraction } = splitCents(amountCents);
+    snapshot.productPrice = `${whole},${fraction}`;
+  }
+
+  return snapshot;
+}
+
+function buildCheckoutState(intent, fallbackAttributionId = "", fallbackSessionId = "") {
+  const source = ensurePlainObject(intent);
+  const buyer = normalizeCheckoutSnapshot(source.buyer);
+  const amountCents = amountToCents(source.amount || buyer.amountCents);
+  const { whole, fraction } = splitCents(amountCents);
 
   return {
-    name: normalizeText(payload.name),
-    fullAddress: normalizeText(payload.fullAddress),
-    cpf: normalizeDigits(payload.cpf),
-    phone: normalizeDigits(payload.phone),
-    zipCode: normalizeDigits(payload.zipCode),
-    city: normalizeText(payload.city),
-    state: normalizeText(payload.state),
+    ...buyer,
+    buyer,
+    amount: centsToCurrencyValue(amountCents),
+    amountCents,
+    totalAmount: centsToCurrencyValue(amountCents),
+    checkout_price_whole: whole,
+    checkout_price_fraction: fraction,
+    productPrice: buyer.productPrice || `${whole},${fraction}`,
+    stage: normalizeText(source.stage),
+    attribution_id: normalizeText(source.attribution_id) || fallbackAttributionId,
+    session_id: normalizeText(source.session_id) || fallbackSessionId,
+    matched_event_id: normalizeText(source.matched_event_id),
+    matched_event_object_id: pickFirstFilled(
+      source.matched_event_object_id,
+      source.order_id,
+    ),
+    order_id: pickFirstFilled(source.matched_event_object_id, source.order_id),
+    landing_page: normalizeText(source.landing_page),
+    page_url: normalizeText(source.page_url),
   };
+}
+
+function getWebhookUrl(req) {
+  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const host = req.headers.host;
+  return `${protocol}://${host}/api/titans/webhook`;
+}
+
+async function loadConfig() {
+  if (!supabase) {
+    return ensureMemoryConfig();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("config")
+      .select("data")
+      .eq("id", "default")
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+
+    const configData = data?.data || {};
+
+    return {
+      apiHost: normalizeApiHost(configData.apiHost),
+      publicKey: String(configData.publicKey || ""),
+      secretKey: String(configData.secretKey || ""),
+      pixels: {
+        metaPixelId: normalizeMultilineList(configData?.pixels?.metaPixelId),
+        googleTagManagerId: normalizeMultilineList(configData?.pixels?.googleTagManagerId),
+        googleAdsId: normalizeMultilineList(configData?.pixels?.googleAdsId),
+        tiktokPixelId: normalizeMultilineList(configData?.pixels?.tiktokPixelId),
+        headTag:
+          typeof configData?.pixels?.headTag === "string" ? configData.pixels.headTag : "",
+        bodyTag:
+          typeof configData?.pixels?.bodyTag === "string" ? configData.pixels.bodyTag : "",
+      },
+      pushcut: {
+        items: normalizePushcutItems(
+          configData?.pushcut?.items || configData?.pushcut?.urls || configData?.pushcutUrls || [],
+        ),
+      },
+      updatedAt: configData.updatedAt || null,
+    };
+  } catch (error) {
+    console.error("loadConfig error:", error);
+    return ensureMemoryConfig();
+  }
+}
+
+async function saveConfig(input) {
+  const current = await loadConfig();
+  const nextPixelsInput =
+    input && typeof input.pixels === "object" && input.pixels ? input.pixels : {};
+  const nextPushcutInput =
+    input && typeof input.pushcut === "object" && input.pushcut ? input.pushcut : {};
+
+  const next = {
+    apiHost: normalizeApiHost(input?.apiHost || current.apiHost),
+    publicKey:
+      typeof input?.publicKey === "string" ? input.publicKey.trim() : current.publicKey,
+    secretKey:
+      typeof input?.secretKey === "string" && input.secretKey.trim()
+        ? input.secretKey.trim()
+        : current.secretKey,
+    pixels: {
+      metaPixelId:
+        "metaPixelId" in nextPixelsInput
+          ? normalizeMultilineList(nextPixelsInput.metaPixelId)
+          : current.pixels.metaPixelId,
+      googleTagManagerId:
+        "googleTagManagerId" in nextPixelsInput
+          ? normalizeMultilineList(nextPixelsInput.googleTagManagerId)
+          : current.pixels.googleTagManagerId,
+      googleAdsId:
+        "googleAdsId" in nextPixelsInput
+          ? normalizeMultilineList(nextPixelsInput.googleAdsId)
+          : current.pixels.googleAdsId,
+      tiktokPixelId:
+        "tiktokPixelId" in nextPixelsInput
+          ? normalizeMultilineList(nextPixelsInput.tiktokPixelId)
+          : current.pixels.tiktokPixelId,
+      headTag:
+        typeof nextPixelsInput.headTag === "string"
+          ? nextPixelsInput.headTag
+          : current.pixels.headTag,
+      bodyTag:
+        typeof nextPixelsInput.bodyTag === "string"
+          ? nextPixelsInput.bodyTag
+          : current.pixels.bodyTag,
+    },
+    pushcut: {
+      items:
+        "items" in nextPushcutInput || "urls" in nextPushcutInput
+          ? normalizePushcutItems(nextPushcutInput.items ?? nextPushcutInput.urls)
+          : current.pushcut.items,
+    },
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!supabase) {
+    memoryStore.config = next;
+    return next;
+  }
+
+  try {
+    const { error } = await supabase.from("config").upsert({
+      id: "default",
+      data: next,
+    });
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error("saveConfig error:", error);
+    memoryStore.config = next;
+  }
+
+  return next;
+}
+
+function serializeConfigForClient(config, req) {
+  const pushcutItems = Array.isArray(config.pushcut?.items)
+    ? config.pushcut.items
+    : [];
+
+  return {
+    apiHost: config.apiHost,
+    publicKey: config.publicKey,
+    hasSecretKey: Boolean(config.secretKey),
+    isConfigured: Boolean(config.publicKey && config.secretKey),
+    pixels: config.pixels,
+    pushcut: {
+      items: pushcutItems,
+      count: pushcutItems.length,
+      activeCount: pushcutItems.filter((item) => item.active !== false).length,
+    },
+    updatedAt: config.updatedAt,
+    webhookUrl: getWebhookUrl(req),
+  };
+}
+
+function serializePublicConfig(config) {
+  return {
+    pixels: {
+      metaPixelId: config.pixels?.metaPixelId || [],
+      googleTagManagerId: config.pixels?.googleTagManagerId || [],
+      googleAdsId: config.pixels?.googleAdsId || [],
+      tiktokPixelId: config.pixels?.tiktokPixelId || [],
+      headTag: config.pixels?.headTag || "",
+      bodyTag: config.pixels?.bodyTag || "",
+    },
+  };
+}
+
+async function loadWebhookEvents(limit = maxStoredWebhookEvents) {
+  if (!supabase) {
+    return Array.from(memoryStore.webhookEvents.values())
+      .sort((a, b) => new Date(b.received_at) - new Date(a.received_at))
+      .slice(0, limit);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("webhook_events")
+      .select("*")
+      .order("received_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("loadWebhookEvents error:", error);
+    return Array.from(memoryStore.webhookEvents.values())
+      .sort((a, b) => new Date(b.received_at) - new Date(a.received_at))
+      .slice(0, limit);
+  }
+}
+
+async function saveWebhookEvent(event) {
+  if (!event) {
+    return;
+  }
+
+  if (!supabase) {
+    memoryStore.webhookEvents.set(event.id, event);
+    return;
+  }
+
+  try {
+    const { error } = await supabase.from("webhook_events").insert(event);
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error("saveWebhookEvent error:", error);
+    memoryStore.webhookEvents.set(event.id, event);
+  }
+}
+
+async function loadConversionIntents(limit = maxStoredConversionIntents) {
+  if (!supabase) {
+    return Array.from(memoryStore.conversionIntents.values())
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .slice(0, limit);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("conversion_intents")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("loadConversionIntents error:", error);
+    return Array.from(memoryStore.conversionIntents.values())
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .slice(0, limit);
+  }
+}
+
+async function loadLatestConversionIntentByAttributionId(attributionId) {
+  const normalizedId = normalizeText(attributionId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (!supabase) {
+    return Array.from(memoryStore.conversionIntents.values())
+      .filter((intent) => intent.attribution_id === normalizedId)
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0] || null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("conversion_intents")
+      .select("*")
+      .eq("attribution_id", normalizedId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    return data?.[0] || null;
+  } catch (error) {
+    console.error("loadLatestConversionIntentByAttributionId error:", error);
+    return null;
+  }
+}
+
+async function saveConversionIntentRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  if (!supabase) {
+    memoryStore.conversionIntents.set(row.id, row);
+    return row;
+  }
+
+  try {
+    const { error } = await supabase.from("conversion_intents").upsert(row);
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error("saveConversionIntentRow error:", error);
+    memoryStore.conversionIntents.set(row.id, row);
+  }
+
+  return row;
+}
+
+async function loadAttributionSessionByAttributionId(attributionId) {
+  const normalizedId = normalizeText(attributionId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (!supabase) {
+    return memoryStore.attributionSessions.get(normalizedId) || null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("attribution_sessions")
+      .select("*")
+      .eq("attribution_id", normalizedId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+
+    return data || null;
+  } catch (error) {
+    console.error("loadAttributionSessionByAttributionId error:", error);
+    return memoryStore.attributionSessions.get(normalizedId) || null;
+  }
+}
+
+async function loadAttributionSessionBySessionId(sessionId) {
+  const normalizedId = normalizeText(sessionId);
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (!supabase) {
+    return (
+      Array.from(memoryStore.attributionSessions.values())
+        .filter((session) => session.session_id === normalizedId)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0] || null
+    );
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("attribution_sessions")
+      .select("*")
+      .eq("session_id", normalizedId)
+      .order("updated_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    return data?.[0] || null;
+  } catch (error) {
+    console.error("loadAttributionSessionBySessionId error:", error);
+    return (
+      Array.from(memoryStore.attributionSessions.values())
+        .filter((session) => session.session_id === normalizedId)
+        .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))[0] || null
+    );
+  }
+}
+
+async function saveAttributionSessionRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  if (!supabase) {
+    memoryStore.attributionSessions.set(row.attribution_id, row);
+    return row;
+  }
+
+  try {
+    const { error } = await supabase.from("attribution_sessions").upsert(row);
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error("saveAttributionSessionRow error:", error);
+    memoryStore.attributionSessions.set(row.attribution_id, row);
+  }
+
+  return row;
+}
+
+async function loadViewStats() {
+  if (!supabase) {
+    return Array.from(memoryStore.viewStats.values());
+  }
+
+  try {
+    const { data, error } = await supabase.from("view_stats").select("*");
+    if (error) {
+      throw error;
+    }
+    return data || [];
+  } catch (error) {
+    console.error("loadViewStats error:", error);
+    return Array.from(memoryStore.viewStats.values());
+  }
+}
+
+async function incrementViewStat(pageId) {
+  const normalizedPageId = normalizeText(pageId);
+  if (!normalizedPageId) {
+    return null;
+  }
+
+  if (!supabase) {
+    const current =
+      memoryStore.viewStats.get(normalizedPageId) || {
+        page_id: normalizedPageId,
+        cumulative_views: 0,
+        active_sessions: 0,
+        updated_at: new Date().toISOString(),
+      };
+    const next = {
+      ...current,
+      cumulative_views: Number(current.cumulative_views || 0) + 1,
+      updated_at: new Date().toISOString(),
+    };
+    memoryStore.viewStats.set(normalizedPageId, next);
+    return next;
+  }
+
+  try {
+    const { data: existing } = await supabase
+      .from("view_stats")
+      .select("*")
+      .eq("page_id", normalizedPageId)
+      .single();
+
+    const next = {
+      page_id: normalizedPageId,
+      cumulative_views: Number(existing?.cumulative_views || 0) + 1,
+      active_sessions: Number(existing?.active_sessions || 0),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("view_stats").upsert(next);
+    if (error) {
+      throw error;
+    }
+
+    return next;
+  } catch (error) {
+    console.error("incrementViewStat error:", error);
+    return null;
+  }
+}
+
+async function touchSessionPresence(payload) {
+  const attributionId = normalizeText(payload?.attributionId);
+  const sessionId = normalizeText(payload?.sessionId);
+  const pageId = normalizeText(payload?.pageId);
+  const currentPage = normalizeText(payload?.currentPage);
+  const now = new Date().toISOString();
+
+  if (!sessionId || !pageId) {
+    return null;
+  }
+
+  const current =
+    (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
+    (await loadAttributionSessionBySessionId(sessionId));
+
+  if (!current && !attributionId) {
+    return null;
+  }
+
+  const next = {
+    attribution_id: current?.attribution_id || attributionId,
+    session_id: sessionId,
+    page_id: pageId || current?.page_id || "",
+    entry_page: current?.entry_page || "",
+    current_page: currentPage || current?.current_page || "",
+    first_touch: current?.first_touch || null,
+    last_touch: current?.last_touch || null,
+    created_at: current?.created_at || now,
+    updated_at: now,
+  };
+
+  if (!current?.page_id && pageId) {
+    await incrementViewStat(pageId);
+  } else if (current?.page_id && pageId && current.page_id !== pageId) {
+    await incrementViewStat(pageId);
+  }
+
+  await saveAttributionSessionRow(next);
+  return next;
+}
+
+async function upsertAttributionSession(payload) {
+  const attributionId = normalizeText(payload?.attributionId);
+  const sessionId = normalizeText(payload?.sessionId);
+
+  if (!attributionId || !sessionId) {
+    return null;
+  }
+
+  const current =
+    (await loadAttributionSessionByAttributionId(attributionId)) ||
+    (await loadAttributionSessionBySessionId(sessionId));
+  const firstTouch = normalizeTouch(payload?.firstTouch);
+  const lastTouch = normalizeTouch(payload?.lastTouch);
+  const pageId = normalizeText(payload?.pageId);
+  const now = new Date().toISOString();
+
+  const next = {
+    attribution_id: attributionId,
+    session_id: sessionId,
+    created_at: current?.created_at || now,
+    updated_at: now,
+    page_id: pageId || current?.page_id || "",
+    entry_page:
+      normalizeText(payload?.entryPage) ||
+      current?.entry_page ||
+      firstTouch?.pageUrl ||
+      lastTouch?.pageUrl ||
+      "",
+    current_page: normalizeText(payload?.currentPage) || current?.current_page || "",
+    first_touch: current?.first_touch || null,
+    last_touch: current?.last_touch || null,
+  };
+
+  if (firstTouch && hasTrackingData(firstTouch) && !next.first_touch) {
+    next.first_touch = firstTouch;
+  }
+
+  if (lastTouch && hasTrackingData(lastTouch)) {
+    next.last_touch = lastTouch;
+  }
+
+  if (!current?.page_id && next.page_id) {
+    await incrementViewStat(next.page_id);
+  } else if (current?.page_id && next.page_id && current.page_id !== next.page_id) {
+    await incrementViewStat(next.page_id);
+  }
+
+  await saveAttributionSessionRow(next);
+  return next;
+}
+
+async function upsertConversionIntent(payload) {
+  const attributionId = normalizeText(payload?.attributionId);
+  const sessionId = normalizeText(payload?.sessionId);
+
+  if (!attributionId || !sessionId) {
+    return null;
+  }
+
+  const intents = await loadConversionIntents();
+  const current =
+    intents.find(
+      (intent) =>
+        intent.attribution_id === attributionId &&
+        (!intent.matched_event_id || intent.stage !== "paid"),
+    ) ||
+    intents.find((intent) => intent.attribution_id === attributionId) ||
+    null;
+  const now = new Date().toISOString();
+  const buyer = normalizeCheckoutSnapshot(payload?.buyer || current?.buyer || {});
+  const amount = amountToCents(payload?.amount ?? current?.amount ?? buyer.amountCents);
+
+  const next = {
+    id: current?.id || randomUUID(),
+    attribution_id: attributionId,
+    session_id: sessionId,
+    page_id: normalizeText(payload?.pageId) || current?.page_id || "",
+    stage: normalizeText(payload?.stage) || current?.stage || "conversion_intent",
+    amount,
+    buyer,
+    landing_page:
+      normalizeText(payload?.landingPage) || current?.landing_page || "",
+    first_touch: normalizeTouch(payload?.firstTouch) || current?.first_touch || null,
+    last_touch: normalizeTouch(payload?.lastTouch) || current?.last_touch || null,
+    page_url: normalizeText(payload?.pageUrl) || current?.page_url || "",
+    created_at: current?.created_at || now,
+    captured_at: normalizeIsoTimestamp(payload?.capturedAt, current?.captured_at || now),
+    updated_at: now,
+    matched_event_id: current?.matched_event_id || null,
+    matched_event_object_id: current?.matched_event_object_id || null,
+    matched_at: current?.matched_at || null,
+    match_method: current?.match_method || null,
+    match_score: current?.match_score || null,
+  };
+
+  await saveConversionIntentRow(next);
+  await upsertAttributionSession(payload);
+  return next;
 }
 
 function extractCustomerFromPayload(payload, data) {
@@ -500,6 +1203,8 @@ function extractCustomerFromPayload(payload, data) {
     ),
     document: normalizeDigits(
       pickFirstFilled(
+        getNestedValue(data, "customer.document.number"),
+        getNestedValue(payload, "customer.document.number"),
         getNestedValue(data, "customer.document"),
         getNestedValue(payload, "customer.document"),
         getNestedValue(data, "customer.cpf"),
@@ -527,134 +1232,536 @@ function extractCustomerFromPayload(payload, data) {
   };
 }
 
-async function upsertAttributionSession(payload) {
-  if (!supabase) {
-    return {
-      attribution_id: normalizeText(payload?.attributionId),
-      session_id: normalizeText(payload?.sessionId),
-    };
-  }
-
-  const attributionId = normalizeText(payload?.attributionId);
-  const sessionId = normalizeText(payload?.sessionId);
-
-  if (!attributionId || !sessionId) {
-    return null;
-  }
-
-  const { data: currentRecord } = await supabase
-    .from("attribution_sessions")
-    .select("*")
-    .eq("attribution_id", attributionId)
-    .single();
-
-  const current = ensurePlainObject(currentRecord);
-  const firstTouch = normalizeTouch(payload?.firstTouch);
-  const lastTouch = normalizeTouch(payload?.lastTouch);
-  
-  const next = {
-    attribution_id: attributionId,
-    session_id: sessionId,
-    created_at: current.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    page_id: normalizeText(payload?.pageId) || current.page_id || "",
-    entry_page:
-      normalizeText(payload?.entryPage) ||
-      current.entry_page ||
-      firstTouch?.pageUrl ||
-      lastTouch?.pageUrl ||
-      "",
-    current_page: normalizeText(payload?.currentPage) || current.current_page || "",
-    first_touch: current.first_touch || null,
-    last_touch: current.last_touch || null,
-  };
-
-  if (firstTouch && hasTrackingData(firstTouch) && !next.first_touch) {
-    next.first_touch = firstTouch;
-  }
-
-  if (lastTouch && hasTrackingData(lastTouch)) {
-    next.last_touch = lastTouch;
-  }
-
-  await supabase.from("attribution_sessions").upsert(next);
-  return next;
-}
-
-async function upsertConversionIntent(payload) {
-  if (!supabase) {
-    return {
-      id: randomUUID(),
-      attribution_id: normalizeText(payload?.attributionId),
-      session_id: normalizeText(payload?.sessionId),
-    };
-  }
-
-  const attributionId = normalizeText(payload?.attributionId);
-  const sessionId = normalizeText(payload?.sessionId);
-
-  if (!attributionId || !sessionId) {
-    return null;
-  }
-
-  const intents = await loadConversionIntents();
-  const existingIndex = intents.findIndex(
-    (intent) => intent.attribution_id === attributionId && !intent.matched_event_id,
+function summarizeWebhookPayload(payload, rawBody = "") {
+  const safePayload = ensurePlainObject(payload);
+  const data = ensurePlainObject(safePayload.data);
+  const customer = extractCustomerFromPayload(safePayload, data);
+  const status = pickFirstFilled(
+    data.status,
+    safePayload.status,
+    safePayload.eventStatus,
   );
-  const current = existingIndex >= 0 ? intents[existingIndex] : {};
-  const now = new Date().toISOString();
-  const next = {
-    id: current.id || randomUUID(),
-    attribution_id: attributionId,
-    session_id: sessionId,
-    page_id: normalizeText(payload?.pageId) || current.page_id || "",
-    stage: normalizeText(payload?.stage) || current.stage || "conversion_intent",
-    amount: Number(payload?.amount || current.amount || 0) || 0,
-    buyer: normalizeBuyerPayload(payload?.buyer || current.buyer),
-    landing_page:
-      normalizeText(payload?.landingPage) || current.landing_page || "",
-    first_touch: normalizeTouch(payload?.firstTouch) || current.first_touch || null,
-    last_touch: normalizeTouch(payload?.lastTouch) || current.last_touch || null,
-    page_url: normalizeText(payload?.pageUrl) || current.page_url || "",
-    created_at: current.created_at || now,
-    captured_at: normalizeText(payload?.capturedAt) || current.captured_at || now,
-    updated_at: now,
-    matched_event_id: current.matched_event_id || null,
-    matched_event_object_id: current.matched_event_object_id || null,
-    matched_at: current.matched_at || null,
-    match_method: current.match_method || null,
-    match_score: current.match_score || null,
-  };
 
-  await supabase.from("conversion_intents").upsert(next);
-  await upsertAttributionSession(payload);
-  return next;
-}
-
-function getWebhookUrl(req) {
-  const protocol = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers.host;
-  return `${protocol}://${host}/api/titans/webhook`;
-}
-
-function serializeConfigForClient(config, req) {
-  const pushcutItems = Array.isArray(config.pushcut?.items)
-    ? config.pushcut.items
-    : [];
+  const amount = amountToCents(
+    data.amount ??
+      safePayload.amount ??
+      data.totalAmount ??
+      safePayload.totalAmount,
+  );
+  const paidAmount = amountToCents(
+    data.paidAmount ??
+      safePayload.paidAmount ??
+      (isPaidStatus(status) ? amount : 0),
+  );
+  const refundedAmount = amountToCents(
+    data.refundedAmount ??
+      safePayload.refundedAmount ??
+      (isRefundStatus(status) ? amount : 0),
+  );
 
   return {
-    apiHost: config.apiHost,
-    publicKey: config.publicKey,
-    hasSecretKey: Boolean(config.secretKey),
-    isConfigured: Boolean(config.publicKey && config.secretKey),
-    pixels: config.pixels,
-    pushcut: {
-      items: pushcutItems,
-      count: pushcutItems.length,
-      activeCount: pushcutItems.filter((item) => item.active !== false).length,
+    id: randomUUID(),
+    received_at: new Date().toISOString(),
+    type: pickFirstFilled(safePayload.type, safePayload.event) || "transaction",
+    object_id: pickFirstFilled(
+      safePayload.objectId,
+      safePayload.object_id,
+      data.id,
+      data.transactionId,
+      safePayload.id,
+    ),
+    status,
+    payment_method: pickFirstFilled(
+      data.paymentMethod,
+      safePayload.paymentMethod,
+      data.method,
+      safePayload.method,
+      "pix",
+    ),
+    amount,
+    paid_amount: paidAmount,
+    refunded_amount: refundedAmount,
+    external_ref: pickFirstFilled(
+      data.externalRef,
+      safePayload.externalRef,
+      data.external_ref,
+      safePayload.external_ref,
+    ),
+    secure_id: pickFirstFilled(data.secureId, safePayload.secureId),
+    customer,
+    url: pickFirstFilled(data.url, safePayload.url),
+    raw: Object.keys(safePayload).length ? safePayload : { rawBody },
+    pushcut_dispatches: [],
+    meta_attribution: null,
+  };
+}
+
+function normalizeTransactionRecord(record) {
+  const source = ensurePlainObject(record);
+  const status = normalizeText(source.status || source.event_status || "unknown");
+  const grossAmount = amountToCents(
+    source.amount ?? source.totalAmount ?? source.total_amount ?? 0,
+  );
+  const paidAmount = amountToCents(
+    source.paidAmount ??
+      source.paid_amount ??
+      (isPaidStatus(status) ? grossAmount : 0),
+  );
+  const refundedAmount = amountToCents(
+    source.refundedAmount ??
+      source.refunded_amount ??
+      (isRefundStatus(status) ? grossAmount : 0),
+  );
+
+  return {
+    id: pickFirstFilled(
+      source.id,
+      source.object_id,
+      source.secure_id,
+      source.external_ref,
+    ),
+    objectId: pickFirstFilled(source.object_id, source.id),
+    createdAt:
+      normalizeIsoTimestamp(
+        source.createdAt ||
+          source.created_at ||
+          source.updatedAt ||
+          source.updated_at ||
+          source.received_at,
+      ) || new Date().toISOString(),
+    status,
+    amount: grossAmount,
+    paidAmount,
+    refundedAmount,
+    paymentMethod: pickFirstFilled(
+      source.paymentMethod,
+      source.payment_method,
+      getNestedValue(source, "paymentMethodData.type"),
+      "pix",
+    ),
+    externalRef: pickFirstFilled(source.externalRef, source.external_ref),
+    raw: source,
+  };
+}
+
+async function findMatchingConversionIntent(eventRecord) {
+  const intents = await loadConversionIntents();
+  if (!intents.length) {
+    return null;
+  }
+
+  const eventTime = new Date(eventRecord.received_at).getTime();
+  const eventAmount = amountToCents(eventRecord.paid_amount || eventRecord.amount);
+  const eventDocument = normalizeDigits(eventRecord.customer?.document);
+  const eventName = normalizeName(eventRecord.customer?.name);
+
+  for (const intent of intents) {
+    if (eventRecord.external_ref && intent.id === eventRecord.external_ref) {
+      return { intent, method: "external_ref", score: 100 };
+    }
+  }
+
+  for (const intent of intents) {
+    if (
+      eventRecord.object_id &&
+      intent.matched_event_object_id &&
+      String(intent.matched_event_object_id) === String(eventRecord.object_id)
+    ) {
+      return { intent, method: "transaction_id", score: 95 };
+    }
+  }
+
+  const candidates = intents
+    .map((intent) => {
+      const buyer = normalizeCheckoutSnapshot(intent.buyer);
+      const buyerDocument = normalizeDigits(buyer.cpf);
+      const buyerName = normalizeName(buyer.name || buyer.nome);
+      const amount = amountToCents(intent.amount);
+      const capturedTime = new Date(intent.updated_at || intent.created_at || 0).getTime();
+      const withinWindow = Number.isFinite(eventTime) &&
+        Number.isFinite(capturedTime) &&
+        Math.abs(eventTime - capturedTime) <= conversionMatchWindowMs;
+
+      let score = 0;
+      let method = "";
+
+      if (eventAmount && amount && eventAmount === amount) {
+        score += 45;
+        method = "amount";
+      }
+
+      if (eventDocument && buyerDocument && eventDocument === buyerDocument) {
+        score += 40;
+        method = method ? `${method}+document` : "document";
+      }
+
+      if (eventName && buyerName && eventName === buyerName) {
+        score += 25;
+        method = method ? `${method}+name` : "name";
+      }
+
+      if (withinWindow) {
+        score += 15;
+        method = method ? `${method}+time` : "time";
+      }
+
+      return { intent, score, method, withinWindow };
+    })
+    .filter((item) => item.score >= 60)
+    .sort((a, b) => b.score - a.score);
+
+  return candidates[0] || null;
+}
+
+function buildMetaAttribution(intent, session, eventRecord, matchInfo) {
+  const source = session || intent || {};
+  const touch = selectAttributionTouch(source);
+  const trackingParams = ensurePlainObject(touch?.trackingParams);
+  const meta = ensurePlainObject(touch?.meta);
+  const sourceValue = String(trackingParams.utm_source || "").toLowerCase();
+  const mediumValue = String(trackingParams.utm_medium || "").toLowerCase();
+
+  const isMeta =
+    Boolean(touch?.isMeta) ||
+    Boolean(trackingParams.fbclid) ||
+    sourceValue.includes("meta") ||
+    sourceValue.includes("facebook") ||
+    sourceValue.includes("instagram") ||
+    mediumValue.includes("paid_social") ||
+    mediumValue.includes("meta");
+
+  const campaignName = pickFirstFilled(meta.campaignName, trackingParams.utm_campaign);
+  const adsetName = pickFirstFilled(meta.adsetName, trackingParams.adset_name, trackingParams.adset);
+  const adName = pickFirstFilled(meta.adName, trackingParams.ad_name, trackingParams.ad);
+  const creativeName = pickFirstFilled(meta.creativeName, trackingParams.creative_name, trackingParams.creative);
+  const hasTrackingParams = Object.keys(trackingParams).length > 0;
+  const hasMetaDetails = Boolean(campaignName || adsetName || adName || creativeName);
+
+  let statusLabel = "Sem parâmetros capturados";
+  if (isMeta && hasMetaDetails) {
+    statusLabel = "Atribuída";
+  } else if (isMeta || hasTrackingParams) {
+    statusLabel = "Atribuição incompleta";
+  } else if (touch) {
+    statusLabel = "Origem não identificada";
+  }
+
+  return {
+    status_label: statusLabel,
+    source_is_meta: isMeta,
+    has_tracking_params: hasTrackingParams,
+    touch_found: Boolean(touch),
+    campaign_id: normalizeText(meta.campaignId),
+    campaign_name: campaignName,
+    adset_id: normalizeText(meta.adsetId),
+    adset_name: adsetName,
+    ad_id: normalizeText(meta.adId),
+    ad_name: adName,
+    creative_id: normalizeText(meta.creativeId),
+    creative_name: creativeName,
+    utm_source: normalizeText(trackingParams.utm_source),
+    utm_medium: normalizeText(trackingParams.utm_medium),
+    utm_campaign: normalizeText(trackingParams.utm_campaign),
+    utm_content: normalizeText(trackingParams.utm_content),
+    utm_term: normalizeText(trackingParams.utm_term),
+    fbclid: normalizeText(trackingParams.fbclid),
+    touch_model: normalizeText(touch?.touchModel),
+    captured_at: normalizeText(touch?.capturedAt),
+    landing_page: normalizeText(
+      intent?.landing_page || session?.entry_page || touch?.pageUrl,
+    ),
+    page_url: normalizeText(intent?.page_url || touch?.pageUrl),
+    match_method: normalizeText(matchInfo?.method),
+    match_score: Number(matchInfo?.score || 0) || 0,
+    order_id: pickFirstFilled(eventRecord.object_id, eventRecord.external_ref, eventRecord.id),
+  };
+}
+
+async function markConversionIntentMatched(intent, eventRecord, matchInfo) {
+  if (!intent) {
+    return null;
+  }
+
+  const next = {
+    ...intent,
+    matched_event_id: eventRecord.id,
+    matched_event_object_id: eventRecord.object_id || intent.matched_event_object_id || null,
+    matched_at: new Date().toISOString(),
+    match_method: normalizeText(matchInfo?.method),
+    match_score: Number(matchInfo?.score || 0) || intent.match_score || 0,
+    stage: isPaidStatus(eventRecord.status)
+      ? "paid"
+      : isRefundStatus(eventRecord.status)
+        ? "refunded"
+        : "payment_pending",
+    updated_at: new Date().toISOString(),
+  };
+
+  await saveConversionIntentRow(next);
+  return next;
+}
+
+async function dispatchPushcutLink(pushcutItem, payload) {
+  const webhook = pushcutItem.webhook;
+  const signal =
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(pushcutTimeoutMs)
+      : undefined;
+
+  try {
+    const response = await fetch(webhook, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      deviceName: pushcutItem.name,
+      webhook: pushcutItem.webhook,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error.message,
+      deviceName: pushcutItem.name,
+      webhook: pushcutItem.webhook,
+    };
+  }
+}
+
+function buildPushcutPayload(eventRecord, intent = null) {
+  const orderId = pickFirstFilled(
+    eventRecord.object_id,
+    eventRecord.external_ref,
+    intent?.id,
+    eventRecord.id,
+  );
+  const amount = eventRecord.paid_amount || eventRecord.amount;
+  const when = new Date(eventRecord.received_at).toLocaleString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+  const title = isPaidStatus(eventRecord.status)
+    ? "Nova venda aprovada"
+    : "Atualização de venda";
+  const body = `Pedido #${orderId || "SEM-ID"} aprovado no valor de ${formatMoney(amount)}`;
+  const detail = `Horário: ${when} | Status: ${String(eventRecord.status || "pendente").toUpperCase()}`;
+
+  return {
+    title,
+    body,
+    text: body,
+    message: detail,
+    notification: {
+      title,
+      body,
     },
-    updatedAt: config.updatedAt,
-    webhookUrl: getWebhookUrl(req),
+    event: {
+      id: eventRecord.id,
+      orderId,
+      status: eventRecord.status,
+      amount,
+      receivedAt: eventRecord.received_at,
+    },
+  };
+}
+
+async function notifyPushcutLinks(config, eventRecord, intent = null) {
+  if (!isPaidStatus(eventRecord.status)) {
+    return [];
+  }
+
+  const activeItems = (Array.isArray(config.pushcut?.items)
+    ? config.pushcut.items
+    : []
+  ).filter((item) => item.active && item.webhook && isValidHttpUrl(item.webhook));
+
+  if (!activeItems.length) {
+    return [];
+  }
+
+  const payload = buildPushcutPayload(eventRecord, intent);
+  return Promise.all(activeItems.map((item) => dispatchPushcutLink(item, payload)));
+}
+
+function buildTestPushcutPayload(item) {
+  const title = "Nova venda recebida";
+  const body = "Venda teste aprovada no valor de R$ 197,90";
+  const detail = "Pedido #TESTE123 | Origem: Demo";
+
+  return {
+    title,
+    body,
+    text: body,
+    message: detail,
+    notification: {
+      title,
+      body,
+    },
+    event: {
+      test: true,
+      device: item.name,
+      orderId: "TESTE123",
+      status: "approved",
+      amount: 19790,
+      receivedAt: new Date().toISOString(),
+    },
+  };
+}
+
+function buildSalesStats(transactions) {
+  const normalized = transactions.map((record) => normalizeTransactionRecord(record));
+
+  return {
+    totalRecords: normalized.length,
+    totalAmount: normalized.reduce((sum, item) => sum + item.amount, 0),
+    totalPaidAmount: normalized.reduce(
+      (sum, item) => sum + (isPaidStatus(item.status) ? item.paidAmount || item.amount : 0),
+      0,
+    ),
+    totalRefundedAmount: normalized.reduce(
+      (sum, item) => sum + (item.refundedAmount || 0),
+      0,
+    ),
+    statusBreakdown: normalized.reduce((accumulator, item) => {
+      const key = item.status || "unknown";
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {}),
+    paymentMethodBreakdown: normalized.reduce((accumulator, item) => {
+      const key = item.paymentMethod || "pix";
+      accumulator[key] = (accumulator[key] || 0) + 1;
+      return accumulator;
+    }, {}),
+    recentTransactions: normalized
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 20),
+  };
+}
+
+async function buildAnalyticsStats() {
+  const pageIds = [
+    "landing",
+    "checkout_1",
+    "checkout_2",
+    "checkout_3",
+    "checkout_4",
+    "checkout_5",
+  ];
+
+  const cumulative = Object.fromEntries(pageIds.map((pageId) => [pageId, 0]));
+  const active = Object.fromEntries(pageIds.map((pageId) => [pageId, 0]));
+
+  const viewStats = await loadViewStats();
+  viewStats.forEach((row) => {
+    const pageId = normalizeText(row.page_id);
+    if (pageId) {
+      cumulative[pageId] = Number(row.cumulative_views || 0);
+    }
+  });
+
+  let activeSessions = [];
+  if (!supabase) {
+    activeSessions = Array.from(memoryStore.attributionSessions.values());
+  } else {
+    try {
+      const cutoff = new Date(Date.now() - activeSessionWindowMs).toISOString();
+      const { data, error } = await supabase
+        .from("attribution_sessions")
+        .select("page_id, updated_at")
+        .gte("updated_at", cutoff);
+
+      if (error) {
+        throw error;
+      }
+
+      activeSessions = data || [];
+    } catch (error) {
+      console.error("buildAnalyticsStats activeSessions error:", error);
+      activeSessions = Array.from(memoryStore.attributionSessions.values());
+    }
+  }
+
+  const cutoffTime = Date.now() - activeSessionWindowMs;
+  activeSessions.forEach((session) => {
+    const updatedAt = new Date(session.updated_at || 0).getTime();
+    const pageId = normalizeText(session.page_id);
+
+    if (pageId && Number.isFinite(updatedAt) && updatedAt >= cutoffTime) {
+      active[pageId] = (active[pageId] || 0) + 1;
+    }
+  });
+
+  return {
+    totalActive: Object.values(active).reduce((sum, value) => sum + value, 0),
+    active,
+    cumulative,
+  };
+}
+
+function buildMetaAttributionStats(events) {
+  const rows = (Array.isArray(events) ? events : [])
+    .filter((event) => event && (isPaidStatus(event.status) || event.meta_attribution))
+    .slice(0, 50)
+    .map((event) => {
+      const meta = ensurePlainObject(event.meta_attribution);
+      const utmSummary = [
+        meta.utm_source ? `source=${meta.utm_source}` : "",
+        meta.utm_medium ? `medium=${meta.utm_medium}` : "",
+        meta.utm_campaign ? `campaign=${meta.utm_campaign}` : "",
+        meta.utm_content ? `content=${meta.utm_content}` : "",
+        meta.utm_term ? `term=${meta.utm_term}` : "",
+      ]
+        .filter(Boolean)
+        .join(" | ");
+
+      return {
+        orderId: pickFirstFilled(event.object_id, event.external_ref, event.id),
+        campaign: pickFirstFilled(meta.campaign_name, meta.utm_campaign),
+        adset: pickFirstFilled(meta.adset_name),
+        creative: pickFirstFilled(meta.ad_name, meta.creative_name, meta.utm_content),
+        utmSummary,
+        fbclid: normalizeText(meta.fbclid),
+        timestamp: normalizeIsoTimestamp(event.received_at, new Date().toISOString()),
+        status: normalizeText(meta.status_label) || "Sem parâmetros capturados",
+        matchMethod: normalizeText(meta.match_method),
+        touchModel: normalizeText(meta.touch_model),
+      };
+    });
+
+  return {
+    rows,
+    attributedCount: rows.filter((row) => row.status === "Atribuída").length,
+    incompleteCount: rows.filter((row) => row.status === "Atribuição incompleta").length,
+    missingCount: rows.filter((row) => row.status === "Sem parâmetros capturados").length,
+    unknownCount: rows.filter((row) => row.status === "Origem não identificada").length,
+  };
+}
+
+function serializeWebhookForClient(event) {
+  return {
+    id: event.id,
+    receivedAt: event.received_at,
+    type: event.type,
+    objectId: event.object_id,
+    status: event.status,
+    paymentMethod: event.payment_method,
+    amount: event.amount,
+    paidAmount: event.paid_amount,
+    refundedAmount: event.refunded_amount,
+    externalRef: event.external_ref,
+    customer: event.customer,
+    pushcutDispatches: event.pushcut_dispatches || [],
+    metaAttribution: event.meta_attribution || null,
   };
 }
 
@@ -693,7 +1800,7 @@ async function callTitansApi(config, pathname, options = {}) {
   });
 
   const text = await response.text();
-  let data;
+  let data = null;
 
   try {
     data = text ? JSON.parse(text) : null;
@@ -707,7 +1814,6 @@ async function callTitansApi(config, pathname, options = {}) {
         ? data
         : data?.message || `TitansHub respondeu com status ${response.status}.`,
     );
-
     error.status = response.status;
     error.details = data;
     throw error;
@@ -718,10 +1824,7 @@ async function callTitansApi(config, pathname, options = {}) {
 
 async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
   const safePage = Math.max(1, Number(page) || 1);
-  const safePageSize = Math.min(
-    maxPageSize,
-    Math.max(1, Number(pageSize) || 20),
-  );
+  const safePageSize = Math.min(maxPageSize, Math.max(1, Number(pageSize) || 20));
 
   return callTitansApi(config, "/v1/transactions", {
     method: "GET",
@@ -732,276 +1835,405 @@ async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
   });
 }
 
-function summarizeWebhookPayload(payload, rawBody) {
-  const data =
-    payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
-      ? payload.data
-      : payload && typeof payload === "object"
-        ? payload
-        : {};
-  const customer = extractCustomerFromPayload(payload, data);
-
-  return {
-    id: randomUUID(),
-    receivedAt: new Date().toISOString(),
-    type: payload?.type || payload?.event || "transaction",
-    objectId: payload?.objectId || data.id || null,
-    status: data.status || null,
-    paymentMethod: data.paymentMethod || null,
-    amount: Number(data.amount || 0) || 0,
-    paidAmount: Number(data.paidAmount || 0) || 0,
-    refundedAmount: Number(data.refundedAmount || 0) || 0,
-    externalRef: data.externalRef || null,
-    secureId: data.secureId || null,
-    customer,
-    raw: payload && typeof payload === "object" ? payload : { rawBody },
-  };
-}
-
-async function dispatchPushcutLink(pushcutItem, payload) {
-  const webhook = pushcutItem.webhook;
-
-  try {
-    const postResponse = await fetch(webhook, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(pushcutTimeoutMs),
-    });
-
-    return { ok: postResponse.ok, status: postResponse.status };
-  } catch (error) {
-    return { ok: false, error: error.message };
-  }
-}
-
-async function notifyPushcutLinks(config, eventRecord) {
-  const activeItems = (Array.isArray(config.pushcut?.items)
-    ? config.pushcut.items
-    : []
-  ).filter(
-    (item) => item.active && item.webhook && isValidHttpUrl(item.webhook),
-  );
-
-  if (!activeItems.length) return [];
-
-  const payload = {
-    title: "Nova venda recebida",
-    body: `Venda no valor de R$ ${(eventRecord.amount / 100).toFixed(2)}`,
-    event: eventRecord
-  };
-
-  return Promise.all(
-    activeItems.map((item) => dispatchPushcutLink(item, payload)),
+function extractPixCode(transaction) {
+  return pickFirstFilled(
+    getNestedValue(transaction, "paymentMethodData.pix.qrcode"),
+    getNestedValue(transaction, "paymentMethodData.pix.qrCode"),
+    getNestedValue(transaction, "paymentMethodData.pix.copyPaste"),
+    getNestedValue(transaction, "paymentMethodData.pix.code"),
+    transaction.pix_code,
+    transaction.qrCode,
+    transaction.qrcode,
+    transaction.copyPaste,
   );
 }
 
-function buildSalesStats(transactions) {
+function normalizePixTransaction(transaction) {
+  const safe = ensurePlainObject(transaction);
+  const id = pickFirstFilled(safe.id, safe.object_id, safe.secureId, safe.secure_id);
+
   return {
-    loadedRecords: transactions.length,
-    totalAmount: transactions.reduce((sum, t) => sum + (Number(t.amount || 0)), 0),
-    statusBreakdown: transactions.reduce((acc, t) => {
-      acc[t.status] = (acc[t.status] || 0) + 1;
-      return acc;
-    }, {}),
-    recentTransactions: transactions.slice(0, 20),
+    ...safe,
+    id,
+    status: normalizeText(safe.status),
+    amount: amountToCents(safe.amount),
+    paymentMethod: pickFirstFilled(safe.paymentMethod, safe.payment_method, "pix"),
+    paymentMethodData: safe.paymentMethodData || safe.payment_method_data || {},
+    pix_code: extractPixCode(safe),
   };
 }
 
-async function buildAnalyticsStats() {
-  if (!supabase) {
-    return { rows: [] };
+function setCookie(res, name, value, req) {
+  const isSecure =
+    String(req.headers["x-forwarded-proto"] || "").toLowerCase() === "https";
+  const flags = [
+    `${name}=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=86400",
+  ];
+
+  if (isSecure) {
+    flags.push("Secure");
   }
 
-  const { data } = await supabase.from("view_stats").select("*");
-  return { rows: data || [] };
+  res.setHeader("Set-Cookie", flags.join("; "));
 }
 
-function buildMetaAttributionStats(events) {
-  return {
-    rows: events.slice(0, 50).map(e => ({
-      orderId: e.objectId || e.id,
-      status: e.metaAttribution?.status || "Pendente",
-      timestamp: e.receivedAt
-    }))
-  };
-}
-
-// Catch-all Handler for /api/*
 export default async function handler(req, res) {
-  // Set default response headers
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
 
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname;
-
-  // 1. PUBLIC ROUTES
-  
-  // Auth Login
-  if (req.method === "POST" && pathname === "/api/auth/login") {
-    const { email, password } = req.body || {};
-    
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      const token = signToken({ email, loginAt: new Date().toISOString() });
-      res.setHeader("Set-Cookie", `${AUTH_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
-      return res.status(200).json({ ok: true, message: "Login realizado com sucesso." });
-    }
-    
-    return res.status(401).json({ message: "E-mail ou senha incorretos." });
-  }
-
-  // TitansHub Webhook (Public)
-  if (req.method === "POST" && pathname === "/api/titans/webhook") {
-    const config = await loadConfig();
-    const eventRecord = summarizeWebhookPayload(req.body, JSON.stringify(req.body));
-    const pushcutDispatches = await notifyPushcutLinks(config, eventRecord);
-    eventRecord.pushcutDispatches = pushcutDispatches;
-    await saveWebhookEvents([eventRecord]);
-    return res.status(200).json({ ok: true, message: "Webhook recebido." });
-  }
-
-  // Analytics & Internal Tracking (Public)
-  if (req.method === "POST" && pathname === "/api/analytics/attribution") {
-    const session = await upsertAttributionSession(req.body || {});
-    return res.status(200).json({ ok: true, attributionId: session?.attribution_id });
-  }
-
-  if (req.method === "POST" && pathname === "/api/analytics/conversion") {
-    const conversionIntent = await upsertConversionIntent(req.body || {});
-    return res.status(200).json({ ok: true, conversionIntentId: conversionIntent?.id });
-  }
-
-  if (req.method === "POST" && pathname === "/api/analytics/ping") {
-    const { pageId, sessionId } = req.body || {};
-    if (pageId && sessionId) {
-      return res.status(200).json({ ok: true });
-    }
-    return res.status(400).json({ message: "Parametros invalidos." });
-  }
-
-  // Checkout State Sync (Public)
-  if (pathname === "/api/checkout/state") {
-    const attributionId = url.searchParams.get("attributionId") || req.body?.attributionId;
-    if (!attributionId) return res.status(400).json({ message: "attributionId missing" });
-
-    if (req.method === "GET") {
-      const { data } = await supabase
-        .from("conversion_intents")
-        .select("buyer, amount, stage")
-        .eq("attribution_id", attributionId)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
-      return res.status(200).json({ state: data || {} });
-    }
-
-    if (req.method === "POST") {
-      const intent = await upsertConversionIntent(req.body);
-      return res.status(200).json({ ok: true, intent });
-    }
-  }
-
-  // PIX Integration (Public)
-  if (pathname === "/api/pix/create" && req.method === "POST") {
-    const config = await loadConfig();
-    const { attributionId, amount, buyer, items } = req.body || {};
-    
-    if (!attributionId || !amount || !buyer) {
-      return res.status(400).json({ message: "Dados incompletos para criar PIX." });
-    }
-
-    const payload = {
-      amount: Math.round(amount * 100), // convert to cents
-      paymentMethod: "pix",
-      items: items || [{ title: "Drone DJI Mini 3", unitPrice: Math.round(amount * 100), quantity: 1, tangible: true }],
-      customer: {
-        name: buyer.name,
-        email: buyer.email || `${buyer.cpf || randomUUID()}@customer.com`,
-        document: {
-          number: buyer.cpf,
-          type: "cpf"
-        }
-      }
-    };
-
-    try {
-      const transaction = await callTitansApi(config, "/v1/transactions", {
-        method: "POST",
-        body: payload
-      });
-      
-      // Update intent with transaction ID
-      await supabase.from("conversion_intents").update({
-        matched_event_object_id: String(transaction.id),
-        stage: "payment_pending"
-      }).eq("attribution_id", attributionId);
-
-      return res.status(200).json({ ok: true, transaction });
-    } catch (err) {
-      return res.status(500).json({ message: err.message });
-    }
-  }
-
-  if (pathname.startsWith("/api/pix/status/") && req.method === "GET") {
-    const config = await loadConfig();
-    const transactionId = pathname.split("/").pop();
-    try {
-      const transaction = await callTitansApi(config, `/v1/transactions/${transactionId}`, { method: "GET" });
-      return res.status(200).json({ ok: true, status: transaction.status, transaction });
-    } catch (err) {
-      return res.status(500).json({ message: err.message });
-    }
-  }
-
-  // 2. PROTECTED ADMIN ROUTES
-  if (!isAuthenticated(req)) {
-    return res.status(401).json({ message: "Nao autorizado. Faca login primeiro." });
-  }
-
-  const config = await loadConfig();
+  const body = await readRequestBody(req);
 
   try {
-    // Admin API
+    if (req.method === "POST" && pathname === "/api/auth/login") {
+      const email = normalizeText(body.email);
+      const password = normalizeText(body.password);
+
+      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        const token = signToken({ email, loginAt: new Date().toISOString() });
+        setCookie(res, AUTH_COOKIE_NAME, token, req);
+        return res.status(200).json({
+          ok: true,
+          message: "Login realizado com sucesso.",
+        });
+      }
+
+      return res.status(401).json({
+        message: "E-mail ou senha incorretos.",
+      });
+    }
+
+    if (req.method === "GET" && pathname === "/api/public/config") {
+      const config = await loadConfig();
+      return res.status(200).json({
+        ok: true,
+        config: serializePublicConfig(config),
+      });
+    }
+
+    if (req.method === "POST" && pathname === "/api/titans/webhook") {
+      const config = await loadConfig();
+      const eventRecord = summarizeWebhookPayload(body, body?.rawBody || "");
+      const matchInfo = await findMatchingConversionIntent(eventRecord);
+      const matchedIntent = matchInfo?.intent || null;
+      const attributionSession =
+        matchedIntent?.attribution_id
+          ? await loadAttributionSessionByAttributionId(matchedIntent.attribution_id)
+          : null;
+
+      eventRecord.meta_attribution = buildMetaAttribution(
+        matchedIntent,
+        attributionSession,
+        eventRecord,
+        matchInfo,
+      );
+
+      if (matchedIntent) {
+        await markConversionIntentMatched(matchedIntent, eventRecord, matchInfo);
+      }
+
+      const pushcutDispatches = await notifyPushcutLinks(
+        config,
+        eventRecord,
+        matchedIntent,
+      );
+      eventRecord.pushcut_dispatches = pushcutDispatches;
+
+      await saveWebhookEvent(eventRecord);
+      return res.status(200).json({ ok: true, message: "Webhook recebido." });
+    }
+
+    if (req.method === "POST" && pathname === "/api/analytics/attribution") {
+      const session = await upsertAttributionSession(body || {});
+      return res.status(200).json({
+        ok: true,
+        attributionId: session?.attribution_id || null,
+      });
+    }
+
+    if (req.method === "POST" && pathname === "/api/analytics/conversion") {
+      const conversionIntent = await upsertConversionIntent(body || {});
+      return res.status(200).json({
+        ok: true,
+        conversionIntentId: conversionIntent?.id || null,
+      });
+    }
+
+    if (req.method === "POST" && pathname === "/api/analytics/ping") {
+      const touched = await touchSessionPresence(body || {});
+      if (!normalizeText(body.pageId) || !normalizeText(body.sessionId)) {
+        return res.status(400).json({ message: "Parametros invalidos." });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        touched: Boolean(touched),
+      });
+    }
+
+    if (pathname === "/api/checkout/state") {
+      const attributionId =
+        url.searchParams.get("attributionId") || normalizeText(body.attributionId);
+      const sessionId = normalizeText(body.sessionId);
+
+      if (!attributionId) {
+        return res.status(400).json({ message: "attributionId missing" });
+      }
+
+      if (req.method === "GET") {
+        const intent = await loadLatestConversionIntentByAttributionId(attributionId);
+        return res.status(200).json({
+          ok: true,
+          state: buildCheckoutState(intent, attributionId, sessionId),
+        });
+      }
+
+      if (req.method === "POST") {
+        const intent = await upsertConversionIntent(body || {});
+        return res.status(200).json({
+          ok: true,
+          intent,
+          state: buildCheckoutState(intent, attributionId, sessionId),
+        });
+      }
+    }
+
+    if (req.method === "POST" && pathname === "/api/pix/create") {
+      const config = await loadConfig();
+      const attributionId = normalizeText(body.attributionId);
+      const sessionId = normalizeText(body.sessionId) || normalizeText(body.session_id);
+      const buyer = normalizeCheckoutSnapshot(body.buyer || {});
+      const amount = amountToCents(body.amount ?? body.amountCents);
+
+      if (!attributionId || !amount || !buyer.name || !buyer.cpf) {
+        return res.status(400).json({
+          message: "Dados incompletos para criar PIX.",
+        });
+      }
+
+      const intent =
+        (await upsertConversionIntent({
+          attributionId,
+          sessionId: sessionId || attributionId,
+          pageId: normalizeText(body.pageId) || "checkout_5",
+          stage: "pix_requested",
+          amount,
+          buyer,
+          capturedAt: new Date().toISOString(),
+          landingPage: normalizeText(body.landingPage),
+          pageUrl: normalizeText(body.pageUrl),
+        })) || {};
+
+      const itemTitle = pickFirstFilled(
+        getNestedValue(body, "items.0.title"),
+        buyer.productName,
+        "Drone Profissional 4K Amazon",
+      );
+      const itemPayload =
+        Array.isArray(body.items) && body.items.length
+          ? body.items.map((item) => ({
+              title: normalizeText(item.title) || itemTitle,
+              unitPrice: amountToCents(item.unitPrice || item.unit_price || amount),
+              quantity: Math.max(1, Number(item.quantity || 1) || 1),
+              tangible: item.tangible !== false,
+            }))
+          : [
+              {
+                title: itemTitle,
+                unitPrice: amount,
+                quantity: 1,
+                tangible: true,
+              },
+            ];
+
+      const payload = {
+        amount,
+        paymentMethod: "pix",
+        externalRef: intent.id,
+        items: itemPayload,
+        customer: {
+          name: buyer.name,
+          email: buyer.email || `${buyer.cpf || randomUUID()}@cliente.local`,
+          document: {
+            number: buyer.cpf,
+            type: "cpf",
+          },
+          phone: buyer.phone || undefined,
+        },
+      };
+
+      const rawTransaction = await callTitansApi(config, "/v1/transactions", {
+        method: "POST",
+        body: payload,
+      });
+      const transaction = normalizePixTransaction(rawTransaction);
+
+      await saveConversionIntentRow({
+        ...intent,
+        matched_event_object_id: transaction.id || intent.matched_event_object_id || null,
+        stage: "payment_pending",
+        updated_at: new Date().toISOString(),
+      });
+
+      return res.status(200).json({
+        ok: true,
+        transaction,
+      });
+    }
+
+    if (req.method === "GET" && pathname.startsWith("/api/pix/status/")) {
+      const config = await loadConfig();
+      const transactionId = pathname.split("/").pop();
+
+      if (!transactionId) {
+        return res.status(400).json({ message: "transactionId missing" });
+      }
+
+      const rawTransaction = await callTitansApi(
+        config,
+        `/v1/transactions/${transactionId}`,
+        { method: "GET" },
+      );
+      const transaction = normalizePixTransaction(rawTransaction);
+
+      if (transaction.id && isPaidStatus(transaction.status)) {
+        const intents = await loadConversionIntents();
+        const intent = intents.find(
+          (item) => String(item.matched_event_object_id || "") === String(transaction.id),
+        );
+
+        if (intent) {
+          await saveConversionIntentRow({
+            ...intent,
+            stage: "paid",
+            matched_event_object_id: transaction.id,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      return res.status(200).json({
+        ok: true,
+        status: transaction.status,
+        transaction,
+      });
+    }
+
+    if (!isAuthenticated(req)) {
+      return res.status(401).json({
+        message: "Nao autorizado. Faca login primeiro.",
+      });
+    }
+
     if (req.method === "GET" && pathname === "/api/admin/config") {
-      return res.status(200).json({ config: serializeConfigForClient(config, req) });
+      const config = await loadConfig();
+      return res.status(200).json({
+        config: serializeConfigForClient(config, req),
+      });
     }
 
     if (req.method === "POST" && pathname === "/api/admin/config") {
-      const nextConfig = await saveConfig(req.body);
-      return res.status(200).json({ config: serializeConfigForClient(nextConfig, req), message: "Configuracao salva." });
+      const nextConfig = await saveConfig(body || {});
+      return res.status(200).json({
+        config: serializeConfigForClient(nextConfig, req),
+        message: "Configuracao salva.",
+      });
     }
 
+    if (req.method === "POST" && pathname === "/api/pushcut/test") {
+      const item = normalizePushcutItem(body.item || {}, 0);
+      const validation = validatePushcutItemsInput(item ? [item] : []);
 
-    // Dashboard Metrics
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.message });
+      }
+
+      const payload = buildTestPushcutPayload(validation.items[0]);
+      const dispatch = await dispatchPushcutLink(validation.items[0], payload);
+
+      if (!dispatch.ok) {
+        return res.status(502).json({
+          message: dispatch.error || "Falha ao enviar a notificacao de teste.",
+          dispatch,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        message: `Teste enviado para ${validation.items[0].name}.`,
+        dispatch,
+      });
+    }
+
     if (req.method === "GET" && pathname === "/api/titans/metrics") {
+      const config = await loadConfig();
       const webhookEvents = await loadWebhookEvents(50);
-      const salesData = await fetchTransactionsPage(config, 1, 50);
-      const salesStats = buildSalesStats(salesData.data || []);
-      
+      let transactions = [];
+      let remoteWarning = "";
+
+      if (config.publicKey && config.secretKey) {
+        try {
+          const salesData = await fetchTransactionsPage(config, 1, metricsPageSize);
+          const payload = Array.isArray(salesData?.data)
+            ? salesData.data
+            : Array.isArray(salesData)
+              ? salesData
+              : [];
+          transactions = payload;
+        } catch (error) {
+          console.error("fetchTransactionsPage error:", error);
+          remoteWarning =
+            error?.message ||
+            "Nao foi possivel carregar as transacoes remotas agora.";
+        }
+      }
+
+      if (!transactions.length) {
+        transactions = webhookEvents.map((event) => ({
+          id: event.object_id || event.id,
+          created_at: event.received_at,
+          status: event.status,
+          amount: event.amount,
+          paid_amount: event.paid_amount,
+          refunded_amount: event.refunded_amount,
+          payment_method: event.payment_method,
+          external_ref: event.external_ref,
+        }));
+      }
+
+      const salesStats = buildSalesStats(transactions);
+      const analytics = await buildAnalyticsStats();
+      const serializedWebhooks = webhookEvents.map(serializeWebhookForClient);
+
       return res.status(200).json({
         generatedAt: new Date().toISOString(),
         config: serializeConfigForClient(config, req),
         salesStats,
-        webhookStats: { recentEvents: webhookEvents },
+        webhookStats: {
+          receivedCount: webhookEvents.length,
+          recentEvents: serializedWebhooks,
+        },
         metaAttributionStats: buildMetaAttributionStats(webhookEvents),
-        analytics: await buildAnalyticsStats(),
+        analytics,
         transactions: salesStats.recentTransactions,
-        webhooks: webhookEvents
+        webhooks: serializedWebhooks,
+        warning: remoteWarning || null,
       });
     }
 
-    // 404 for other API routes
-    return res.status(404).json({ message: `Rota de API ${pathname} nao encontrada.` });
-
+    return res.status(404).json({
+      message: `Rota de API ${pathname} nao encontrada.`,
+    });
   } catch (error) {
     console.error("API Error:", error);
     return res.status(error.status || 500).json({
       message: error.message || "Erro interno do servidor.",
-      details: error.details || null
+      details: error.details || null,
     });
   }
 }

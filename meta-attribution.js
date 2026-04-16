@@ -172,6 +172,12 @@
   function saveSnapshot(snapshot) {
     const serialized = JSON.stringify(snapshot);
     writeStorage(window.sessionStorage, STORAGE_KEYS.attributionSnapshot, serialized);
+    if (snapshot && snapshot.attributionId) {
+      writeStorage(window.sessionStorage, "amz_attribution_id", snapshot.attributionId);
+      try {
+        window.localStorage.setItem("amz_attribution_id", snapshot.attributionId);
+      } catch (error) {}
+    }
   }
 
   function buildOrUpdateSnapshot(pageId) {
@@ -246,7 +252,10 @@
       amount: amountCents,
       buyer: {
         name: readStorage(window.sessionStorage, "user_name") || address.nome || "",
-        fullAddress: readStorage(window.sessionStorage, "user_full_address") || "",
+        fullAddress:
+          readStorage(window.sessionStorage, "user_full_address") ||
+          address.full_address ||
+          "",
         cpf: address.cpf || "",
         phone: address.telefone || "",
         zipCode: address.cep || "",

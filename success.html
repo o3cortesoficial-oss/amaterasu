@@ -277,29 +277,34 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const state = await window.__amzBridge.getState();
-            if (state && state.buyer) {
-                document.getElementById('customer-name').textContent = state.buyer.name || 'Cliente';
-                
-                // Address formatting
-                const addr = state.buyer;
-                const addressStr = `${addr.fullAddress || ''}, ${addr.city || ''} - ${addr.state || ''}, ${addr.zipCode || ''}`;
-                document.getElementById('delivery-address').textContent = addressStr;
+            const buyer = (state && state.buyer) ? state.buyer : state || {};
 
-                // Random order number
-                const orderNum = '40' + Math.floor(Math.random() * 9 + 1) + '-' + 
-                                Math.floor(Math.random() * 9000000 + 1000000) + '-' + 
-                                Math.floor(Math.random() * 9000000 + 1000000);
-                document.getElementById('order-number').textContent = orderNum;
+            document.getElementById('customer-name').textContent = buyer.name || buyer.nome || 'Cliente';
 
-                // Delivery estimate (7-12 days)
-                const date = new Date();
-                date.setDate(date.getDate() + 7);
-                const options = { day: 'numeric', month: 'long' };
-                const date7 = date.toLocaleDateString('pt-BR', options);
-                date.setDate(date.getDate() + 5);
-                const date12 = date.toLocaleDateString('pt-BR', options);
-                document.getElementById('delivery-estimate').textContent = `${date7} - ${date12}`;
-            }
+            const addressStr = buyer.fullAddress || buyer.full_address || [
+                buyer.rua || buyer.street || '',
+                buyer.numero || buyer.number || '',
+                buyer.bairro || buyer.neighborhood || '',
+                buyer.cidade || buyer.city || '',
+                buyer.estado || buyer.state || '',
+                buyer.cep || buyer.zipCode || ''
+            ].filter(Boolean).join(', ');
+            document.getElementById('delivery-address').textContent = addressStr || 'Endereço não informado';
+
+            const orderNum = state.order_id || state.matched_event_object_id || (
+                '40' + Math.floor(Math.random() * 9 + 1) + '-' +
+                Math.floor(Math.random() * 9000000 + 1000000) + '-' +
+                Math.floor(Math.random() * 9000000 + 1000000)
+            );
+            document.getElementById('order-number').textContent = orderNum;
+
+            const date = new Date();
+            date.setDate(date.getDate() + 7);
+            const options = { day: 'numeric', month: 'long' };
+            const date7 = date.toLocaleDateString('pt-BR', options);
+            date.setDate(date.getDate() + 5);
+            const date12 = date.toLocaleDateString('pt-BR', options);
+            document.getElementById('delivery-estimate').textContent = `${date7} - ${date12}`;
         });
     </script>
 </body>
