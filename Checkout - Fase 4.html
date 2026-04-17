@@ -2837,6 +2837,29 @@ document.addEventListener('DOMContentLoaded', async function() {
         deliverToName.innerText = `Entrega para ${data.nome || data.name}`;
     }
 
+    (function updateDeliveryDateFromProductPageLogic() {
+        const daysToAdd = 9;
+        const date = new Date();
+        date.setDate(date.getDate() + daysToAdd);
+
+        const weekdays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+        const shortMonths = ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+        const day = date.getDate();
+        const month = shortMonths[date.getMonth()];
+        const year = date.getFullYear();
+        const weekday = weekdays[date.getDay()].toLowerCase();
+
+        const arrivalText = document.querySelector('h2.address-promise-text .break-word');
+        if (arrivalText) {
+            arrivalText.innerText = `Chega ${day} de ${month} de ${year}`;
+        }
+
+        const promiseText = document.getElementById('std-2PromiseReferenceForRadioLabel');
+        if (promiseText) {
+            promiseText.innerText = `${weekday}, ${day} de ${month}`;
+        }
+    })();
+
     const primeUpsell = document.getElementById('prime-spc-stripe-recommendations');
     if (primeUpsell) {
         primeUpsell.style.display = 'none';
