@@ -1375,12 +1375,30 @@ document.addEventListener('DOMContentLoaded', function() {
           sessionId = Math.random().toString(36).substring(2, 15);
           sessionStorage.setItem(storageItemName, sessionId);
         }
+        function getAttributionId() {
+          try {
+            const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
+              ? window.__amzMetaAttribution.getSnapshot()
+              : null;
+            return (snapshot && snapshot.attributionId)
+              || sessionStorage.getItem('amz_attribution_id')
+              || localStorage.getItem('amz_attribution_id')
+              || '';
+          } catch (e) {
+            return sessionStorage.getItem('amz_attribution_id') || '';
+          }
+        }
         async function ping() {
           try {
             await fetch('/api/analytics/ping', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pageId, sessionId })
+              body: JSON.stringify({
+                pageId,
+                sessionId,
+                attributionId: getAttributionId(),
+                currentPage: window.location.href
+              })
             });
           } catch(e) {}
         }

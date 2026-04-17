@@ -916,7 +916,55 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
             window.location.assign = function() { console.log('Assign bloqueado'); };
             window.location.replace = function() { console.log('Replace bloqueado'); };
         });
-    </script></body>
+    </script>
+    <script src="meta-attribution.js"></script>
+    <script>
+    (function() {
+        if (window.__amzMetaAttribution) {
+            window.__amzMetaAttribution.init({ pageId: 'landing' });
+        }
+
+        const pageId = 'landing';
+        let sessionId = sessionStorage.getItem('amz_session_id');
+        if (!sessionId) {
+            sessionId = Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('amz_session_id', sessionId);
+        }
+
+        function getAttributionId() {
+            try {
+                const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
+                    ? window.__amzMetaAttribution.getSnapshot()
+                    : null;
+                return (snapshot && snapshot.attributionId)
+                    || sessionStorage.getItem('amz_attribution_id')
+                    || localStorage.getItem('amz_attribution_id')
+                    || '';
+            } catch (e) {
+                return sessionStorage.getItem('amz_attribution_id') || '';
+            }
+        }
+
+        async function ping() {
+            try {
+                await fetch('/api/analytics/ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pageId,
+                        sessionId,
+                        attributionId: getAttributionId(),
+                        currentPage: window.location.href
+                    })
+                });
+            } catch (e) {}
+        }
+
+        ping();
+        setInterval(ping, 30000);
+    })();
+    </script>
+</body>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Iniciando captura de preço...');

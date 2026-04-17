@@ -1291,6 +1291,14 @@ footer, .nav-ftr-batmobile, #nav-ftr {
  </div>
 </footer>
 <div id=sis_pixel_r2 aria-hidden=true style=height:1px;position:absolute;left:-1000000px;top:-1000000px></div>
+    <script src="meta-attribution.js"></script>
+    <script>
+    (function() {
+        if (window.__amzMetaAttribution) {
+            window.__amzMetaAttribution.init({ pageId: 'checkout_3' });
+        }
+    })();
+    </script>
     <script src="assets/js/supabase-bridge.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', async function() {
@@ -1376,6 +1384,45 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             });
         }
     });
+    </script>
+    <script>
+    (function() {
+        const pageId = 'checkout_3';
+        let sessionId = sessionStorage.getItem('amz_session_id');
+        if (!sessionId) {
+            sessionId = Math.random().toString(36).substring(2, 15);
+            sessionStorage.setItem('amz_session_id', sessionId);
+        }
+        function getAttributionId() {
+            try {
+                const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
+                    ? window.__amzMetaAttribution.getSnapshot()
+                    : null;
+                return (snapshot && snapshot.attributionId)
+                    || sessionStorage.getItem('amz_attribution_id')
+                    || localStorage.getItem('amz_attribution_id')
+                    || '';
+            } catch (e) {
+                return sessionStorage.getItem('amz_attribution_id') || '';
+            }
+        }
+        async function ping() {
+            try {
+                await fetch('/api/analytics/ping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pageId,
+                        sessionId,
+                        attributionId: getAttributionId(),
+                        currentPage: window.location.href
+                    })
+                });
+            } catch (e) {}
+        }
+        ping();
+        setInterval(ping, 30000);
+    })();
     </script>
   </body>
 </html>
