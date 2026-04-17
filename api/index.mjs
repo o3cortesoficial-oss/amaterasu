@@ -4,9 +4,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseUrl =
+  process.env.SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "";
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY_SERVICE_ROLE ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_KEY_ANON_PUBLIC ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_KEY ||
   "";
 const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
@@ -1028,7 +1036,7 @@ async function saveConfig(input) {
     const persisted = await writeLocalConfigFile(next);
     if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
       const error = new Error(
-        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY ou TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL com SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY, ou use TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
       );
       error.status = 500;
       throw error;
@@ -1051,7 +1059,7 @@ async function saveConfig(input) {
     const persisted = await writeLocalConfigFile(next);
     if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
       const storageError = new Error(
-        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY ou TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL com SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY, ou use TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
       );
       storageError.status = 500;
       throw storageError;
@@ -2232,31 +2240,85 @@ async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
   });
 }
 
+function unwrapTitansTransactionPayload(transaction) {
+  const safe = ensurePlainObject(transaction);
+  const nestedData = ensurePlainObject(safe.data);
+  if (Object.keys(nestedData).length) {
+    return nestedData;
+  }
+
+  const nestedTransaction = ensurePlainObject(safe.transaction);
+  if (Object.keys(nestedTransaction).length) {
+    return nestedTransaction;
+  }
+
+  const nestedSale = ensurePlainObject(safe.sale);
+  if (Object.keys(nestedSale).length) {
+    return nestedSale;
+  }
+
+  const nestedCharge = ensurePlainObject(safe.charge);
+  if (Object.keys(nestedCharge).length) {
+    return nestedCharge;
+  }
+
+  return safe;
+}
+
 function extractPixCode(transaction) {
+  const source = unwrapTitansTransactionPayload(transaction);
   return pickFirstFilled(
-    getNestedValue(transaction, "pix.qrcode"),
-    getNestedValue(transaction, "pix.qrCode"),
-    getNestedValue(transaction, "paymentMethodData.pix.qrcode"),
-    getNestedValue(transaction, "paymentMethodData.pix.qrCode"),
-    getNestedValue(transaction, "paymentMethodData.pix.copyPaste"),
-    getNestedValue(transaction, "paymentMethodData.pix.code"),
-    transaction.pix_code,
-    transaction.qrCode,
-    transaction.qrcode,
-    transaction.copyPaste,
+    getNestedValue(source, "pix.qrcode"),
+    getNestedValue(source, "pix.qrCode"),
+    getNestedValue(source, "pix.copyPaste"),
+    getNestedValue(source, "pix.code"),
+    getNestedValue(source, "pix.payload"),
+    getNestedValue(source, "pix.emv"),
+    getNestedValue(source, "paymentMethodData.pix.qrcode"),
+    getNestedValue(source, "paymentMethodData.pix.qrCode"),
+    getNestedValue(source, "paymentMethodData.pix.copyPaste"),
+    getNestedValue(source, "paymentMethodData.pix.code"),
+    getNestedValue(source, "paymentMethodData.pix.payload"),
+    getNestedValue(source, "paymentMethodData.pix.emv"),
+    source.pix_code,
+    source.pixCode,
+    source.qrCode,
+    source.qrcode,
+    source.qr_code,
+    source.copyPaste,
+    source.payload,
+    source.emv,
   );
 }
 
 function normalizePixTransaction(transaction) {
-  const safe = ensurePlainObject(transaction);
-  const id = pickFirstFilled(safe.id, safe.object_id, safe.secureId, safe.secure_id);
+  const raw = ensurePlainObject(transaction);
+  const safe = unwrapTitansTransactionPayload(raw);
+  const id = pickFirstFilled(
+    safe.id,
+    safe.object_id,
+    safe.secureId,
+    safe.secure_id,
+    raw.id,
+    raw.object_id,
+    raw.secureId,
+    raw.secure_id,
+  );
 
   return {
+    ...raw,
     ...safe,
     id,
-    status: normalizeText(safe.status),
-    amount: amountToCents(safe.amount),
-    paymentMethod: pickFirstFilled(safe.paymentMethod, safe.payment_method, "pix"),
+    status: normalizeText(pickFirstFilled(safe.status, raw.status)),
+    amount: amountToCents(safe.amount ?? raw.amount),
+    paymentMethod: pickFirstFilled(
+      safe.paymentMethod,
+      safe.payment_method,
+      getNestedValue(safe, "paymentMethodData.type"),
+      raw.paymentMethod,
+      raw.payment_method,
+      "pix",
+    ),
     pix: ensurePlainObject(safe.pix),
     paymentMethodData: safe.paymentMethodData || safe.payment_method_data || {},
     pix_code: extractPixCode(safe),

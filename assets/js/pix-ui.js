@@ -58,30 +58,60 @@ class PixUIManager {
     }
   }
 
-  extractPixCode(transaction) {
+  unwrapTransactionPayload(transaction) {
     const safe = transaction || {};
+
+    if (safe.data && typeof safe.data === "object" && !Array.isArray(safe.data)) {
+      return safe.data;
+    }
+
+    if (safe.transaction && typeof safe.transaction === "object" && !Array.isArray(safe.transaction)) {
+      return safe.transaction;
+    }
+
+    if (safe.sale && typeof safe.sale === "object" && !Array.isArray(safe.sale)) {
+      return safe.sale;
+    }
+
+    if (safe.charge && typeof safe.charge === "object" && !Array.isArray(safe.charge)) {
+      return safe.charge;
+    }
+
+    return safe;
+  }
+
+  extractPixCode(transaction) {
+    const safe = this.unwrapTransactionPayload(transaction);
     return (
       (safe.pix &&
         (safe.pix.qrcode ||
           safe.pix.qrCode ||
           safe.pix.copyPaste ||
-          safe.pix.code)) ||
+          safe.pix.code ||
+          safe.pix.payload ||
+          safe.pix.emv)) ||
       safe.pix_code ||
+      safe.pixCode ||
       safe.qrcode ||
       safe.qrCode ||
+      safe.qr_code ||
       safe.copyPaste ||
+      safe.payload ||
+      safe.emv ||
       (safe.paymentMethodData &&
         safe.paymentMethodData.pix &&
         (safe.paymentMethodData.pix.qrcode ||
           safe.paymentMethodData.pix.qrCode ||
           safe.paymentMethodData.pix.copyPaste ||
-          safe.paymentMethodData.pix.code)) ||
+          safe.paymentMethodData.pix.code ||
+          safe.paymentMethodData.pix.payload ||
+          safe.paymentMethodData.pix.emv)) ||
       ""
     );
   }
 
   extractPixQrImage(transaction) {
-    const safe = transaction || {};
+    const safe = this.unwrapTransactionPayload(transaction);
     const candidate =
       (safe.pix &&
         (safe.pix.qrcodeImage ||
@@ -94,8 +124,10 @@ class PixUIManager {
       safe.qrCodeImage ||
       safe.qrcodeBase64 ||
       safe.qrCodeBase64 ||
+      safe.qr_code_base64 ||
       safe.qrcodeUrl ||
       safe.qrCodeUrl ||
+      safe.qr_code_url ||
       "";
 
     if (!candidate) {
