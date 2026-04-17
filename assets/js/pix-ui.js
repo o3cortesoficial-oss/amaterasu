@@ -153,6 +153,14 @@ class PixUIManager {
     });
   }
 
+  hasUsablePixPayload(transaction) {
+    return Boolean(
+      this.extractPixCode(transaction) ||
+      this.extractPixQrImage(transaction) ||
+      this.readStoredValue("checkout_pix_code")
+    );
+  }
+
   restoreAmountHeading() {
     const heading = document.querySelector('h1[data-testid="heading"]');
     if (!heading) {
@@ -256,6 +264,9 @@ class PixUIManager {
 
     if (this.state.matched_event_object_id) {
       await this.checkStatus(this.state.matched_event_object_id);
+      if (!this.hasUsablePixPayload(this.transaction)) {
+        await this.createTransaction();
+      }
     } else {
       await this.createTransaction();
     }

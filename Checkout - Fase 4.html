@@ -2931,10 +2931,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         await bridge.save(Object.assign({}, data, {
+            resetMatchedEvent: true,
             paymentMethod: 'pix',
             metodo_pagamento: 'pix'
         }));
 
+        sessionStorage.removeItem('checkout_pix_code');
+        try {
+            localStorage.removeItem('checkout_pix_code');
+        } catch (error) {}
         sessionStorage.setItem('checkout_pix_deadline', String(Date.now() + (30 * 60 * 1000)));
 
         if (window.__amzMetaAttribution) {

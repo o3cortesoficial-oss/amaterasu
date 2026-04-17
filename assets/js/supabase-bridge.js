@@ -375,8 +375,20 @@
     save: async function (data) {
       var attrId = this.getAttributionId();
       var sessId = this.getSessionId();
+      var incomingData =
+        data && typeof data === "object" ? Object.assign({}, data) : {};
+      var shouldResetMatchedEvent = incomingData.resetMatchedEvent === true;
 
-      this.state = normalizeState(Object.assign({}, this.state, data || {}));
+      if (Object.prototype.hasOwnProperty.call(incomingData, "resetMatchedEvent")) {
+        delete incomingData.resetMatchedEvent;
+      }
+
+      this.state = normalizeState(Object.assign({}, this.state, incomingData));
+      if (shouldResetMatchedEvent) {
+        this.state.matched_event_id = "";
+        this.state.matched_event_object_id = "";
+        this.state.order_id = "";
+      }
       syncCompatibilityStorage(this.state);
 
       try {
@@ -391,6 +403,7 @@
             amount: this.state.amountCents || this.state.amount || this.state.totalAmount || 0,
             buyer: this.state,
             capturedAt: new Date().toISOString(),
+            resetMatchedEvent: shouldResetMatchedEvent,
           }),
         });
         var payload = await response.json();

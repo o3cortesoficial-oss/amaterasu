@@ -1563,6 +1563,7 @@ async function upsertAttributionSession(payload) {
 async function upsertConversionIntent(payload) {
   const attributionId = normalizeText(payload?.attributionId);
   const sessionId = normalizeText(payload?.sessionId);
+  const resetMatchedEvent = payload?.resetMatchedEvent === true;
 
   if (!attributionId || !sessionId) {
     return null;
@@ -1597,11 +1598,13 @@ async function upsertConversionIntent(payload) {
     created_at: current?.created_at || now,
     captured_at: normalizeIsoTimestamp(payload?.capturedAt, current?.captured_at || now),
     updated_at: now,
-    matched_event_id: current?.matched_event_id || null,
-    matched_event_object_id: current?.matched_event_object_id || null,
-    matched_at: current?.matched_at || null,
-    match_method: current?.match_method || null,
-    match_score: current?.match_score || null,
+    matched_event_id: resetMatchedEvent ? null : current?.matched_event_id || null,
+    matched_event_object_id: resetMatchedEvent
+      ? null
+      : current?.matched_event_object_id || null,
+    matched_at: resetMatchedEvent ? null : current?.matched_at || null,
+    match_method: resetMatchedEvent ? null : current?.match_method || null,
+    match_score: resetMatchedEvent ? null : current?.match_score || null,
   };
 
   await saveConversionIntentRow(next);
