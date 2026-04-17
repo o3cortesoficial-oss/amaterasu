@@ -1153,6 +1153,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
+<script src="assets/js/supabase-bridge.js"></script>
+
 <!-- CONSOLIDATED PHASE 2 LOGIC: PIX & NAVIGATION -->
 <script>
 (function() {
@@ -1254,14 +1256,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // 3. Header & Address Update
     async function updateHeader() {
         const bridge = window.__amzBridge || window.Bridge;
+
+        function readStoredValue(key) {
+            const sessionValue = sessionStorage.getItem(key);
+            if (sessionValue) return sessionValue;
+            try {
+                return localStorage.getItem(key);
+            } catch (err) {
+                return null;
+            }
+        }
+
         let legacyState = {};
         try {
-            legacyState = JSON.parse(sessionStorage.getItem('checkout_address') || '{}') || {};
+            legacyState = JSON.parse(readStoredValue('checkout_address') || '{}') || {};
         } catch (err) {}
 
         let state = Object.assign({}, legacyState, {
-            nome: sessionStorage.getItem('user_name') || legacyState.nome || '',
-            full_address: sessionStorage.getItem('user_full_address') || legacyState.full_address || ''
+            nome: readStoredValue('user_name') || legacyState.nome || '',
+            full_address: readStoredValue('user_full_address') || legacyState.full_address || ''
         });
 
         try {
@@ -1284,14 +1297,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const nome = (
             state.nome ||
             state.name ||
-            sessionStorage.getItem('user_name') ||
+            readStoredValue('user_name') ||
             ''
         ).trim() || 'Cliente';
 
         const endereco = formatAddress(state) ||
             state.full_address ||
             state.fullAddress ||
-            sessionStorage.getItem('user_full_address') ||
+            readStoredValue('user_full_address') ||
             'Endereço não informado';
 
         const nameEl = document.getElementById('deliver-to-customer-text');
