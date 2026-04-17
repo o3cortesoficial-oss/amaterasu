@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  "";
 const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
 const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null;
 
@@ -30,6 +33,7 @@ const JWT_SECRET =
 const runtimeConfigApiHost = process.env.TITANSHUB_API_HOST || "";
 const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
 const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
+const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const apiDirectory = path.dirname(fileURLToPath(import.meta.url));
 const localConfigPath = path.resolve(apiDirectory, "../.admin-data/titans-config.json");
 
@@ -266,9 +270,15 @@ async function writeLocalConfigFile(config) {
       JSON.stringify(normalizePersistedConfig(config), null, 2),
       "utf8",
     );
+    return true;
   } catch (error) {
     console.error("writeLocalConfigFile error:", error);
+    return false;
   }
+}
+
+function hasRuntimeTitansConfig() {
+  return Boolean(runtimeConfigPublicKey && runtimeConfigSecretKey);
 }
 
 function normalizePushcutItem(value, index = 0) {
@@ -1015,7 +1025,14 @@ async function saveConfig(input) {
 
   if (!supabase) {
     memoryStore.config = next;
-    await writeLocalConfigFile(next);
+    const persisted = await writeLocalConfigFile(next);
+    if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
+      const error = new Error(
+        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY ou TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+      );
+      error.status = 500;
+      throw error;
+    }
     return applyRuntimeConfigOverrides(next);
   }
 
@@ -1031,7 +1048,14 @@ async function saveConfig(input) {
   } catch (error) {
     console.error("saveConfig error:", error);
     memoryStore.config = next;
-    await writeLocalConfigFile(next);
+    const persisted = await writeLocalConfigFile(next);
+    if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
+      const storageError = new Error(
+        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY ou TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+      );
+      storageError.status = 500;
+      throw storageError;
+    }
   }
 
   return applyRuntimeConfigOverrides(next);
