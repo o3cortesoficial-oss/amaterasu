@@ -356,6 +356,18 @@ class PixUIManager {
     }
   }
 
+  bindCopyButton(pixCode) {
+    const copyBtn = document.querySelector('[data-testid="Upx-Prepare-PrimaryButton"]');
+    if (!copyBtn) {
+      return;
+    }
+
+    copyBtn.onclick = (event) => {
+      event.preventDefault();
+      this.copyToClipboard(pixCode || this.readStoredValue("checkout_pix_code") || "", copyBtn);
+    };
+  }
+
   renderUI(transaction) {
     const mergedTransaction = Object.assign({}, this.transaction || {}, transaction || {});
     this.transaction = mergedTransaction;
@@ -402,18 +414,14 @@ class PixUIManager {
       }
     }
 
-    const copyBtn = document.querySelector('[data-testid="Upx-Prepare-PrimaryButton"]');
-    if (copyBtn) {
-      copyBtn.onclick = (event) => {
-        event.preventDefault();
-        this.copyToClipboard(pixCode, copyBtn);
-      };
-    }
+    this.bindCopyButton(pixCode);
 
     this.restoreAmountHeading();
   }
 
   setupEventListeners() {
+    this.bindCopyButton(this.readStoredValue("checkout_pix_code") || "");
+
     const checkBtn = document.getElementById("check-payment-btn");
     if (!checkBtn) return;
 
@@ -458,6 +466,8 @@ class PixUIManager {
   }
 
   showError(message) {
+    this.bindCopyButton(this.readStoredValue("checkout_pix_code") || "");
+
     const heading = document.querySelector('h1[data-testid="heading"]');
     if (heading) {
       heading.textContent = "Ops! Algo deu errado.";
