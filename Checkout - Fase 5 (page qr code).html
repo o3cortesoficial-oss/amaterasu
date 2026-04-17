@@ -129,23 +129,21 @@ document.addEventListener('DOMContentLoaded', function() {
       (function() {
         // 1. Inject QR Code Container and "Já paguei" Button
         function injectPaymentElements() {
-            // Find the placeholder SVG or image to replace with our QR container
-            const svgElement = document.querySelector('svg[viewBox="0 0 100 100"]') || 
-                               document.querySelector('div[data-testid="image-container"] svg');
+            // Replace the actual QR placeholder wrapper rendered on this page.
+            const qrWrapper = document.querySelector('[data-testid="qr-code"]');
             
-            if (svgElement) {
+            if (qrWrapper && !document.getElementById('pix-qrcode-container')) {
                 const container = document.createElement('div');
                 container.id = 'pix-qrcode-container';
                 container.style.display = 'flex';
                 container.style.justifyContent = 'center';
                 container.style.alignItems = 'center';
-                container.style.padding = '20px';
-                container.style.background = 'white';
-                container.style.borderRadius = '8px';
-                container.style.margin = '20px auto';
-                container.style.minHeight = '200px';
+                container.style.width = '136px';
+                container.style.height = '136px';
+                container.style.margin = '0 auto';
                 
-                svgElement.parentNode.replaceChild(container, svgElement);
+                qrWrapper.innerHTML = '';
+                qrWrapper.appendChild(container);
             }
 
             // Find the "Copia e Cola" button area to add the "Já paguei" button
