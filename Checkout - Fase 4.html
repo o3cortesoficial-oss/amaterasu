@@ -2780,13 +2780,30 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
 
+    // Helper: Address Formatter
+    function formatAddress(data) {
+        if (!data) return "";
+        let parts = [];
+        let street = data.rua || data.logradouro || "";
+        let num = data.numero || "";
+        if (street && num) parts.push(`${street}, ${num}`);
+        else if (street) parts.push(street);
+        if (data.complemento && data.complemento.trim()) parts.push(data.complemento.trim());
+        if (data.bairro) parts.push(data.bairro);
+        if (data.cidade) {
+            const cidadeLower = data.cidade.trim().toLowerCase();
+            const bairroLower = data.bairro ? data.bairro.trim().toLowerCase() : "";
+            if (cidadeLower !== bairroLower) parts.push(data.cidade.trim());
+        }
+        if (data.estado) parts.push(data.estado.trim());
+        if (data.cep) parts.push(data.cep.trim());
+        parts.push("Brasil");
+        return parts.filter(p => p).join(", ");
+    }
+
     const addressLine = document.getElementById('deliver-to-address-text');
     if (addressLine) {
-        const fullAddr =
-            data.fullAddress ||
-            data.full_address ||
-            `${data.rua || ''}, ${data.numero || ''}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro || ''}, ${data.cidade || ''} - ${data.estado || ''}, ${data.cep || ''}, Brasil`;
-        addressLine.innerText = fullAddr.replace(/\s+,/g, ',').replace(/,\s+,/g, ', ').trim();
+        addressLine.innerText = formatAddress(data);
     }
 
     const deliverToName = document.getElementById('deliver-to-customer-text');

