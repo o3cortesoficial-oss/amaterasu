@@ -1070,6 +1070,7 @@ function serializeConfigForClient(config, req) {
     apiHost: config.apiHost,
     publicKey: config.publicKey,
     hasSecretKey: Boolean(config.secretKey),
+    secretKeyMasked: config.secretKey ? "••••••••••••" : "",
     isConfigured: Boolean(config.publicKey && config.secretKey),
     pixels: config.pixels,
     pushcut: {

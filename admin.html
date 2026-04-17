@@ -1503,6 +1503,16 @@
             const cForm = document.getElementById('configForm');
             if (cForm && cForm.apiHost) cForm.apiHost.value = data.config.apiHost || '';
             if (cForm && cForm.publicKey) cForm.publicKey.value = data.config.publicKey || '';
+            if (cForm && cForm.secretKey) {
+              cForm.secretKey.value = '';
+              cForm.secretKey.placeholder = data.config.hasSecretKey
+                ? (data.config.secretKeyMasked || '••••••••••••')
+                : '••••••••';
+              cForm.secretKey.dataset.hasPersistedSecret = data.config.hasSecretKey ? 'true' : 'false';
+              cForm.secretKey.title = data.config.hasSecretKey
+                ? 'Secret Key já salva no backend. Preencha apenas se quiser substituir.'
+                : '';
+            }
             
             const pForm = document.getElementById('pixelsForm');
             if (pForm) {
