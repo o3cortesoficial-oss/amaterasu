@@ -2781,6 +2781,51 @@ document.addEventListener('DOMContentLoaded', async function() {
         full_address: readStoredValue('user_full_address') || legacyState.full_address || ''
     });
 
+    function parsePositiveAmount(value) {
+        if (value === null || value === undefined || value === '') return 0;
+        const normalized = String(value)
+            .trim()
+            .replace(/[^\d,.-]/g, '')
+            .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+            .replace(',', '.');
+        const parsed = Number(normalized);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+
+    function buildFormattedPrice(snapshotData) {
+        const storedWhole = readStoredValue('checkout_price_whole');
+        const storedFraction = readStoredValue('checkout_price_fraction');
+        const storedAmount = readStoredValue('amz_total_amount');
+        const defaultLineItemText = Array.from(document.querySelectorAll('.lineitem-price-text, .grand-total-price, .a-color-price.a-text-bold'))
+            .map(function(el) {
+                return (el.textContent || '').replace(/\u00a0/g, ' ').trim();
+            })
+            .find(function(text) {
+                return /R\$\s*\d/.test(text);
+            }) || '';
+
+        const wholeDigits = (storedWhole || '').replace(/[^\d.]/g, '').trim();
+        const fractionDigits = (storedFraction || '').replace(/\D/g, '').trim();
+        if (wholeDigits && Number(wholeDigits.replace(/\D/g, '')) > 0) {
+            return `R$ ${wholeDigits},${(fractionDigits || '00').padStart(2, '0')}`;
+        }
+
+        const storedAmountValue = parsePositiveAmount(storedAmount);
+        if (storedAmountValue > 0) {
+            return `R$ ${storedAmountValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        const snapshotAmount = parsePositiveAmount(
+            (snapshotData && snapshotData.productPrice) ||
+            (((snapshotData && snapshotData.checkout_price_whole) || '') + ',' + ((snapshotData && snapshotData.checkout_price_fraction) || ''))
+        );
+        if (snapshotAmount > 0) {
+            return `R$ ${snapshotAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        return defaultLineItemText;
+    }
+
     const snapshot = await bridge.init('checkout_4');
     const data = Object.assign(
         {},
@@ -2789,12 +2834,13 @@ document.addEventListener('DOMContentLoaded', async function() {
             : (bridge.state || {}),
         storedState
     );
-    const priceValue = data.productPrice || ((data.checkout_price_whole || '138') + ',' + (data.checkout_price_fraction || '50'));
-    const formatted = String(priceValue).includes('R$') ? String(priceValue) : `R$ ${priceValue}`;
+    const formatted = buildFormattedPrice(data);
 
-    document.querySelectorAll('.lineitem-price-text, .grand-total-price, .a-color-price.a-text-bold').forEach(function(el) {
-        el.innerHTML = formatted;
-    });
+    if (formatted) {
+        document.querySelectorAll('.lineitem-price-text, .grand-total-price, .a-color-price.a-text-bold').forEach(function(el) {
+            el.innerHTML = formatted;
+        });
+    }
 
     document.querySelectorAll('#subtotals-marketplace-table .a-row, #subtotals-grid .a-row').forEach(function(row) {
         const labelEl = row.querySelector('.a-span7');
