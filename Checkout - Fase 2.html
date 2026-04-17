@@ -1272,10 +1272,11 @@ document.addEventListener('DOMContentLoaded', function() {
             legacyState = JSON.parse(readStoredValue('checkout_address') || '{}') || {};
         } catch (err) {}
 
-        let state = Object.assign({}, legacyState, {
+        const storedState = Object.assign({}, legacyState, {
             nome: readStoredValue('user_name') || legacyState.nome || '',
             full_address: readStoredValue('user_full_address') || legacyState.full_address || ''
         });
+        let state = Object.assign({}, storedState);
 
         try {
             if (bridge && bridge.init) {
@@ -1286,10 +1287,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const snapshot = bridge.getState ? await bridge.getState() : await bridge.load();
                 state = Object.assign(
                     {},
-                    state,
                     snapshot && typeof snapshot === 'object'
                         ? (snapshot.data || snapshot.buyer || snapshot)
-                        : {}
+                        : {},
+                    storedState
                 );
             }
         } catch(e) {}
