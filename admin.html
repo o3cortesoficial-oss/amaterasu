@@ -1453,6 +1453,26 @@
       }
 
       // Refresh Logic
+      let dashboardRefreshTimer = null;
+
+      function isDashboardSectionActive() {
+        const hash = window.location.hash || '#dashboardSection';
+        return hash === '#dashboardSection' && !document.hidden;
+      }
+
+      function syncDashboardAutoRefresh() {
+        if (dashboardRefreshTimer) {
+          clearInterval(dashboardRefreshTimer);
+          dashboardRefreshTimer = null;
+        }
+
+        if (isDashboardSectionActive()) {
+          dashboardRefreshTimer = setInterval(() => {
+            refreshDashboard();
+          }, 10000);
+        }
+      }
+
       async function refreshDashboard() {
         const dot = document.getElementById('connectionDot');
         const statusText = document.getElementById('connectionText');
@@ -1696,8 +1716,29 @@
         }
       });
 
+      window.addEventListener('hashchange', () => {
+        if ((window.location.hash || '#dashboardSection') === '#dashboardSection') {
+          refreshDashboard();
+        }
+        syncDashboardAutoRefresh();
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && isDashboardSectionActive()) {
+          refreshDashboard();
+        }
+        syncDashboardAutoRefresh();
+      });
+
+      window.addEventListener('focus', () => {
+        if (isDashboardSectionActive()) {
+          refreshDashboard();
+        }
+      });
+
       // Init Load
       refreshDashboard();
+      syncDashboardAutoRefresh();
     </script>
   </body>
 </html>
