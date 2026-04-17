@@ -1525,6 +1525,18 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             return sessionStorage.getItem('amz_attribution_id') || '';
           }
         }
+        function getPresenceId() {
+          if (window.__amzMetaAttribution && window.__amzMetaAttribution.getPresenceId) {
+            return window.__amzMetaAttribution.getPresenceId(pageId);
+          }
+          const storageKey = 'amz_page_presence_' + pageId;
+          let presenceId = sessionStorage.getItem(storageKey);
+          if (!presenceId) {
+            presenceId = 'presence-' + pageId + '-' + Math.random().toString(36).slice(2, 10);
+            sessionStorage.setItem(storageKey, presenceId);
+          }
+          return presenceId;
+        }
         async function ping() {
           try {
             await fetch('/api/analytics/ping', {
@@ -1533,6 +1545,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
               body: JSON.stringify({
                 pageId,
                 sessionId,
+                presenceId: getPresenceId(),
                 attributionId: getAttributionId(),
                 currentPage: window.location.href
               })

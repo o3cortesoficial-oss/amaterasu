@@ -173,11 +173,6 @@
     getAttributionId: function () {
       var id = sessionStorage.getItem("amz_attribution_id");
       if (!id) {
-        try {
-          id = localStorage.getItem("amz_attribution_id");
-        } catch (error) {}
-      }
-      if (!id) {
         var snapshot = readJson(sessionStorage.getItem("amz_meta_attribution_snapshot"));
         if (snapshot && snapshot.attributionId) {
           id = snapshot.attributionId;
@@ -189,7 +184,7 @@
 
       sessionStorage.setItem("amz_attribution_id", id);
       try {
-        localStorage.setItem("amz_attribution_id", id);
+        localStorage.removeItem("amz_attribution_id");
       } catch (error) {}
       return id;
     },

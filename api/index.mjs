@@ -1048,16 +1048,103 @@ async function incrementViewStat(pageId) {
   }
 }
 
+function buildPresenceViewStatId(pageId, presenceId) {
+  const normalizedPageId = normalizeText(pageId);
+  const normalizedPresenceId = normalizeText(presenceId);
+
+  if (!normalizedPageId || !normalizedPresenceId) {
+    return "";
+  }
+
+  return `${normalizedPageId}::${normalizedPresenceId}`;
+}
+
+function parseViewStatPageId(rawPageId) {
+  const normalized = normalizeText(rawPageId);
+  const markerIndex = normalized.indexOf("::");
+
+  if (markerIndex === -1) {
+    return {
+      pageId: normalized,
+      presenceId: "",
+      isPresence: false,
+    };
+  }
+
+  return {
+    pageId: normalized.slice(0, markerIndex),
+    presenceId: normalized.slice(markerIndex + 2),
+    isPresence: true,
+  };
+}
+
+async function touchPagePresence(pageId, presenceId) {
+  const statId = buildPresenceViewStatId(pageId, presenceId);
+  if (!statId) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+
+  if (!supabase) {
+    const current =
+      memoryStore.viewStats.get(statId) || {
+        page_id: statId,
+        cumulative_views: 0,
+        active_sessions: 1,
+        updated_at: now,
+      };
+
+    const next = {
+      ...current,
+      active_sessions: 1,
+      updated_at: now,
+    };
+
+    memoryStore.viewStats.set(statId, next);
+    return next;
+  }
+
+  try {
+    const next = {
+      page_id: statId,
+      cumulative_views: 0,
+      active_sessions: 1,
+      updated_at: now,
+    };
+
+    const { error } = await supabase.from("view_stats").upsert(next);
+    if (error) {
+      throw error;
+    }
+
+    return next;
+  } catch (error) {
+    console.error("touchPagePresence error:", error);
+    const fallback = {
+      page_id: statId,
+      cumulative_views: 0,
+      active_sessions: 1,
+      updated_at: now,
+    };
+    memoryStore.viewStats.set(statId, fallback);
+    return fallback;
+  }
+}
+
 async function touchSessionPresence(payload) {
   const attributionId = normalizeText(payload?.attributionId);
   const sessionId = normalizeText(payload?.sessionId);
   const pageId = normalizeText(payload?.pageId);
+  const presenceId = normalizeText(payload?.presenceId);
   const currentPage = normalizeText(payload?.currentPage);
   const now = new Date().toISOString();
 
   if (!sessionId || !pageId) {
     return null;
   }
+
+  await touchPagePresence(pageId, presenceId);
 
   const current =
     (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
@@ -1078,12 +1165,6 @@ async function touchSessionPresence(payload) {
     created_at: current?.created_at || now,
     updated_at: now,
   };
-
-  if (!current?.page_id && pageId) {
-    await incrementViewStat(pageId);
-  } else if (current?.page_id && pageId && current.page_id !== pageId) {
-    await incrementViewStat(pageId);
-  }
 
   await saveAttributionSessionRow(next);
   return next;
@@ -1663,41 +1744,26 @@ async function buildAnalyticsStats() {
 
   const viewStats = await loadViewStats();
   viewStats.forEach((row) => {
-    const pageId = normalizeText(row.page_id);
-    if (pageId) {
-      cumulative[pageId] = Number(row.cumulative_views || 0);
+    const parsed = parseViewStatPageId(row.page_id);
+    if (!parsed.pageId || !Object.prototype.hasOwnProperty.call(cumulative, parsed.pageId)) {
+      return;
+    }
+
+    if (!parsed.isPresence) {
+      cumulative[parsed.pageId] = Number(row.cumulative_views || 0);
     }
   });
 
-  let activeSessions = [];
-  if (!supabase) {
-    activeSessions = Array.from(memoryStore.attributionSessions.values());
-  } else {
-    try {
-      const cutoff = new Date(Date.now() - activeSessionWindowMs).toISOString();
-      const { data, error } = await supabase
-        .from("attribution_sessions")
-        .select("page_id, updated_at")
-        .gte("updated_at", cutoff);
-
-      if (error) {
-        throw error;
-      }
-
-      activeSessions = data || [];
-    } catch (error) {
-      console.error("buildAnalyticsStats activeSessions error:", error);
-      activeSessions = Array.from(memoryStore.attributionSessions.values());
-    }
-  }
-
   const cutoffTime = Date.now() - activeSessionWindowMs;
-  activeSessions.forEach((session) => {
-    const updatedAt = new Date(session.updated_at || 0).getTime();
-    const pageId = normalizeText(session.page_id);
+  viewStats.forEach((row) => {
+    const parsed = parseViewStatPageId(row.page_id);
+    if (!parsed.isPresence || !Object.prototype.hasOwnProperty.call(active, parsed.pageId)) {
+      return;
+    }
 
-    if (pageId && Number.isFinite(updatedAt) && updatedAt >= cutoffTime) {
-      active[pageId] = (active[pageId] || 0) + 1;
+    const updatedAt = new Date(row.updated_at || 0).getTime();
+    if (Number.isFinite(updatedAt) && updatedAt >= cutoffTime) {
+      active[parsed.pageId] = (active[parsed.pageId] || 0) + 1;
     }
   });
 

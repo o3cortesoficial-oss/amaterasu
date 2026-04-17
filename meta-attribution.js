@@ -2,6 +2,7 @@
   const STORAGE_KEYS = {
     sessionId: "amz_session_id",
     attributionSnapshot: "amz_meta_attribution_snapshot",
+    pagePresencePrefix: "amz_page_presence_",
   };
 
   const TRACKING_KEYS = [
@@ -90,6 +91,25 @@
     return sessionId;
   }
 
+  function ensurePagePresenceId(pageId) {
+    const normalizedPageId = String(pageId || "unknown").trim() || "unknown";
+    const storageKey = STORAGE_KEYS.pagePresencePrefix + normalizedPageId;
+    let presenceId = readStorage(window.sessionStorage, storageKey);
+
+    if (!presenceId) {
+      presenceId =
+        "presence-" +
+        normalizedPageId +
+        "-" +
+        Math.random().toString(36).slice(2, 10) +
+        "-" +
+        Date.now().toString(36);
+      writeStorage(window.sessionStorage, storageKey, presenceId);
+    }
+
+    return presenceId;
+  }
+
   function getQueryParams() {
     const url = new URL(window.location.href);
     const all = {};
@@ -175,7 +195,7 @@
     if (snapshot && snapshot.attributionId) {
       writeStorage(window.sessionStorage, "amz_attribution_id", snapshot.attributionId);
       try {
-        window.localStorage.setItem("amz_attribution_id", snapshot.attributionId);
+        window.localStorage.removeItem("amz_attribution_id");
       } catch (error) {}
     }
   }
@@ -328,5 +348,6 @@
     syncAttribution: syncAttribution,
     registerConversionIntent: registerConversionIntent,
     getSnapshot: loadSnapshot,
+    getPresenceId: ensurePagePresenceId,
   };
 })();
