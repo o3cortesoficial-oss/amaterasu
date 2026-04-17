@@ -14,6 +14,10 @@ const maxPageSize = 50;
 const pushcutTimeoutMs = 8000;
 const conversionMatchWindowMs = 12 * 60 * 60 * 1000;
 const activeSessionWindowMs = 2 * 60 * 1000;
+const trackingPixelBuffer = Buffer.from(
+  "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
+  "base64",
+);
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "saidlabsglobal@gmail.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "530348Home10";
@@ -54,6 +58,20 @@ function ensureMemoryConfig() {
 
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function readPingPayload(req, url, body) {
+  if (req.method === "GET") {
+    return {
+      pageId: url.searchParams.get("pageId") || "",
+      sessionId: url.searchParams.get("sessionId") || "",
+      presenceId: url.searchParams.get("presenceId") || "",
+      attributionId: url.searchParams.get("attributionId") || "",
+      currentPage: url.searchParams.get("currentPage") || "",
+    };
+  }
+
+  return body || {};
 }
 
 function normalizeDigits(value) {
@@ -2030,10 +2048,30 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method === "POST" && pathname === "/api/analytics/ping") {
-      const touched = await touchSessionPresence(body || {});
-      if (!normalizeText(body.pageId) || !normalizeText(body.sessionId)) {
+    if (
+      (req.method === "POST" || req.method === "GET") &&
+      (pathname === "/api/analytics/ping" || pathname === "/api/analytics/ping.gif")
+    ) {
+      const pingPayload = readPingPayload(req, url, body);
+      const touched = await touchSessionPresence(pingPayload);
+
+      if (
+        !normalizeText(pingPayload.pageId) ||
+        !normalizeText(pingPayload.sessionId)
+      ) {
+        if (req.method === "GET" || pathname === "/api/analytics/ping.gif") {
+          res.setHeader("Content-Type", "image/gif");
+          res.setHeader("Cache-Control", "no-store, max-age=0");
+          return res.status(400).end(trackingPixelBuffer);
+        }
+
         return res.status(400).json({ message: "Parametros invalidos." });
+      }
+
+      if (req.method === "GET" || pathname === "/api/analytics/ping.gif") {
+        res.setHeader("Content-Type", "image/gif");
+        res.setHeader("Cache-Control", "no-store, max-age=0");
+        return res.status(200).end(trackingPixelBuffer);
       }
 
       return res.status(200).json({

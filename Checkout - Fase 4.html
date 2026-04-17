@@ -2920,9 +2920,31 @@ document.addEventListener('DOMContentLoaded', async function() {
             currentPage: window.location.href
           };
         }
+        function sendImagePing(payload) {
+          try {
+            const params = new URLSearchParams();
+            Object.keys(payload || {}).forEach(function(key) {
+              const value = payload[key];
+              if (value !== undefined && value !== null && value !== '') {
+                params.set(key, String(value));
+              }
+            });
+            params.set('_ts', String(Date.now()));
+            const img = new Image();
+            window.__amzTrafficPixels = window.__amzTrafficPixels || [];
+            window.__amzTrafficPixels.push(img);
+            img.onload = img.onerror = function() {
+              const list = window.__amzTrafficPixels || [];
+              const index = list.indexOf(img);
+              if (index >= 0) list.splice(index, 1);
+            };
+            img.src = '/api/analytics/ping.gif?' + params.toString();
+          } catch (e) {}
+        }
         async function ping(useKeepalive) {
           try {
             const payload = buildPingPayload();
+            sendImagePing(payload);
             if (useKeepalive && navigator.sendBeacon) {
               const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
               if (navigator.sendBeacon('/api/analytics/ping', blob)) {
