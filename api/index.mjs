@@ -1,4 +1,7 @@
 import crypto, { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -24,6 +27,11 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "530348Home10";
 const AUTH_COOKIE_NAME = "amz_admin_session";
 const JWT_SECRET =
   process.env.JWT_SECRET || "amazon-seller-central-secret-key-123";
+const runtimeConfigApiHost = process.env.TITANSHUB_API_HOST || "";
+const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
+const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
+const apiDirectory = path.dirname(fileURLToPath(import.meta.url));
+const localConfigPath = path.resolve(apiDirectory, "../.admin-data/titans-config.json");
 
 const PAID_STATUSES = new Set([
   "approved",
@@ -171,6 +179,96 @@ function createDefaultConfig() {
     },
     updatedAt: null,
   };
+}
+
+function normalizePersistedConfig(input, fallback = createDefaultConfig()) {
+  const source = ensurePlainObject(input);
+  const base = fallback && typeof fallback === "object" ? fallback : createDefaultConfig();
+
+  return {
+    apiHost: normalizeApiHost(source.apiHost || base.apiHost),
+    publicKey:
+      typeof source.publicKey === "string" ? source.publicKey.trim() : base.publicKey,
+    secretKey:
+      typeof source.secretKey === "string" ? source.secretKey.trim() : base.secretKey,
+    pixels: {
+      metaPixelId:
+        "metaPixelId" in ensurePlainObject(source.pixels)
+          ? normalizeMultilineList(source?.pixels?.metaPixelId)
+          : normalizeMultilineList(base?.pixels?.metaPixelId),
+      googleTagManagerId:
+        "googleTagManagerId" in ensurePlainObject(source.pixels)
+          ? normalizeMultilineList(source?.pixels?.googleTagManagerId)
+          : normalizeMultilineList(base?.pixels?.googleTagManagerId),
+      googleAdsId:
+        "googleAdsId" in ensurePlainObject(source.pixels)
+          ? normalizeMultilineList(source?.pixels?.googleAdsId)
+          : normalizeMultilineList(base?.pixels?.googleAdsId),
+      tiktokPixelId:
+        "tiktokPixelId" in ensurePlainObject(source.pixels)
+          ? normalizeMultilineList(source?.pixels?.tiktokPixelId)
+          : normalizeMultilineList(base?.pixels?.tiktokPixelId),
+      headTag:
+        typeof source?.pixels?.headTag === "string"
+          ? source.pixels.headTag
+          : base?.pixels?.headTag || "",
+      bodyTag:
+        typeof source?.pixels?.bodyTag === "string"
+          ? source.pixels.bodyTag
+          : base?.pixels?.bodyTag || "",
+    },
+    pushcut: {
+      items:
+        "pushcut" in source
+          ? normalizePushcutItems(
+              source?.pushcut?.items || source?.pushcut?.urls || source?.pushcutUrls || [],
+            )
+          : normalizePushcutItems(
+              base?.pushcut?.items || base?.pushcut?.urls || base?.pushcutUrls || [],
+            ),
+    },
+    updatedAt: source.updatedAt || base.updatedAt || null,
+  };
+}
+
+function applyRuntimeConfigOverrides(config) {
+  const base = normalizePersistedConfig(config);
+
+  return normalizePersistedConfig(
+    {
+      ...base,
+      apiHost: runtimeConfigApiHost || base.apiHost,
+      publicKey: runtimeConfigPublicKey || base.publicKey,
+      secretKey: runtimeConfigSecretKey || base.secretKey,
+    },
+    base,
+  );
+}
+
+async function readLocalConfigFile() {
+  try {
+    const raw = await fs.readFile(localConfigPath, "utf8");
+    const parsed = JSON.parse(raw);
+    return normalizePersistedConfig(parsed);
+  } catch (error) {
+    if (error && error.code !== "ENOENT") {
+      console.error("readLocalConfigFile error:", error);
+    }
+    return null;
+  }
+}
+
+async function writeLocalConfigFile(config) {
+  try {
+    await fs.mkdir(path.dirname(localConfigPath), { recursive: true });
+    await fs.writeFile(
+      localConfigPath,
+      JSON.stringify(normalizePersistedConfig(config), null, 2),
+      "utf8",
+    );
+  } catch (error) {
+    console.error("writeLocalConfigFile error:", error);
+  }
 }
 
 function normalizePushcutItem(value, index = 0) {
@@ -830,7 +928,13 @@ function getWebhookUrl(req) {
 
 async function loadConfig() {
   if (!supabase) {
-    return ensureMemoryConfig();
+    const fileConfig = await readLocalConfigFile();
+    if (fileConfig) {
+      memoryStore.config = fileConfig;
+      return applyRuntimeConfigOverrides(fileConfig);
+    }
+
+    return applyRuntimeConfigOverrides(ensureMemoryConfig());
   }
 
   try {
@@ -844,32 +948,18 @@ async function loadConfig() {
       throw error;
     }
 
-    const configData = data?.data || {};
-
-    return {
-      apiHost: normalizeApiHost(configData.apiHost),
-      publicKey: String(configData.publicKey || ""),
-      secretKey: String(configData.secretKey || ""),
-      pixels: {
-        metaPixelId: normalizeMultilineList(configData?.pixels?.metaPixelId),
-        googleTagManagerId: normalizeMultilineList(configData?.pixels?.googleTagManagerId),
-        googleAdsId: normalizeMultilineList(configData?.pixels?.googleAdsId),
-        tiktokPixelId: normalizeMultilineList(configData?.pixels?.tiktokPixelId),
-        headTag:
-          typeof configData?.pixels?.headTag === "string" ? configData.pixels.headTag : "",
-        bodyTag:
-          typeof configData?.pixels?.bodyTag === "string" ? configData.pixels.bodyTag : "",
-      },
-      pushcut: {
-        items: normalizePushcutItems(
-          configData?.pushcut?.items || configData?.pushcut?.urls || configData?.pushcutUrls || [],
-        ),
-      },
-      updatedAt: configData.updatedAt || null,
-    };
+    const config = normalizePersistedConfig(data?.data || {});
+    memoryStore.config = config;
+    return applyRuntimeConfigOverrides(config);
   } catch (error) {
     console.error("loadConfig error:", error);
-    return ensureMemoryConfig();
+    const fileConfig = await readLocalConfigFile();
+    if (fileConfig) {
+      memoryStore.config = fileConfig;
+      return applyRuntimeConfigOverrides(fileConfig);
+    }
+
+    return applyRuntimeConfigOverrides(ensureMemoryConfig());
   }
 }
 
@@ -925,7 +1015,8 @@ async function saveConfig(input) {
 
   if (!supabase) {
     memoryStore.config = next;
-    return next;
+    await writeLocalConfigFile(next);
+    return applyRuntimeConfigOverrides(next);
   }
 
   try {
@@ -940,9 +1031,10 @@ async function saveConfig(input) {
   } catch (error) {
     console.error("saveConfig error:", error);
     memoryStore.config = next;
+    await writeLocalConfigFile(next);
   }
 
-  return next;
+  return applyRuntimeConfigOverrides(next);
 }
 
 function serializeConfigForClient(config, req) {
