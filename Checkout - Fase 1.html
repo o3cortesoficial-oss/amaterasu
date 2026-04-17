@@ -1442,6 +1442,17 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         }
 
         // 4. Form Interception & Bridge Sync
+        function persistPhaseOneData(data) {
+            try {
+                sessionStorage.setItem('checkout_address', JSON.stringify(data));
+                sessionStorage.setItem('user_name', data.nome || '');
+                sessionStorage.setItem('user_full_address', data.full_address || '');
+                localStorage.setItem('checkout_address', JSON.stringify(data));
+                localStorage.setItem('user_name', data.nome || '');
+                localStorage.setItem('user_full_address', data.full_address || '');
+            } catch (storageError) {}
+        }
+
         async function handleContinue(e) {
             if (e) {
                 e.preventDefault();
@@ -1463,16 +1474,10 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             // Build full address string for storage
             data.full_address = `${data.rua}, ${data.numero}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro}, ${data.cidade} - ${data.estado}, ${data.cep}`;
 
-            try {
-                sessionStorage.setItem('checkout_address', JSON.stringify(data));
-                sessionStorage.setItem('user_name', data.nome || '');
-                sessionStorage.setItem('user_full_address', data.full_address || '');
-                localStorage.setItem('checkout_address', JSON.stringify(data));
-                localStorage.setItem('user_name', data.nome || '');
-                localStorage.setItem('user_full_address', data.full_address || '');
-            } catch (storageError) {}
+            persistPhaseOneData(data);
             
             await bridge.save(data);
+            persistPhaseOneData(data);
             window.location.href = 'Checkout - Fase 2.html';
         }
 
