@@ -2474,7 +2474,9 @@ export default async function handler(req, res) {
         const intent = await loadLatestConversionIntentByAttributionId(attributionId);
         return res.status(200).json({
           ok: true,
-          state: buildCheckoutState(intent, attributionId, sessionId),
+          state: intent
+            ? buildCheckoutState(intent, attributionId, sessionId)
+            : null,
         });
       }
 

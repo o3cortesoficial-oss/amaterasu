@@ -72,6 +72,23 @@
     };
   }
 
+  function hasMeaningfulCheckoutData(state) {
+    var snapshot = normalizeState(state);
+    return Boolean(
+      snapshot.nome ||
+        snapshot.name ||
+        snapshot.cpf ||
+        snapshot.cep ||
+        snapshot.rua ||
+        snapshot.numero ||
+        snapshot.bairro ||
+        snapshot.cidade ||
+        snapshot.estado ||
+        snapshot.full_address ||
+        snapshot.amountCents
+    );
+  }
+
   function normalizeState(raw) {
     var source = raw && typeof raw === "object" ? raw : {};
     var buyer = source.buyer && typeof source.buyer === "object" ? source.buyer : source;
@@ -352,6 +369,7 @@
 
     load: async function () {
       var attrId = this.getAttributionId();
+      var legacyState = readLegacyState();
       this.ensurePublicTracking();
       try {
         var response = await fetch(
@@ -359,14 +377,14 @@
           { cache: "no-store" }
         );
         var payload = await response.json();
-        if (payload && payload.state) {
-          this.state = normalizeState(payload.state);
+        if (payload && payload.state && hasMeaningfulCheckoutData(payload.state)) {
+          this.state = normalizeState(Object.assign({}, legacyState, payload.state));
         } else {
-          this.state = readLegacyState();
+          this.state = legacyState;
         }
       } catch (error) {
         console.warn("Bridge: Load failed", error);
-        this.state = readLegacyState();
+        this.state = legacyState;
       }
 
       return decorateState(this.state, this);
