@@ -22,6 +22,30 @@
       "destination": "/api/index.mjs"
     },
     {
+      "source": "/Checkout - Fase 1",
+      "destination": "/Checkout - Fase 1.html"
+    },
+    {
+      "source": "/Checkout - Fase 2",
+      "destination": "/Checkout - Fase 2.html"
+    },
+    {
+      "source": "/Checkout - Fase 3",
+      "destination": "/Checkout - Fase 3.html"
+    },
+    {
+      "source": "/Checkout - Fase 4",
+      "destination": "/Checkout - Fase 4.html"
+    },
+    {
+      "source": "/Checkout - Fase 5 (page qr code)",
+      "destination": "/Checkout - Fase 5 (page qr code).html"
+    },
+    {
+      "source": "/success",
+      "destination": "/success.html"
+    },
+    {
       "source": "/",
       "destination": "/Landpagedrone.html"
     },
