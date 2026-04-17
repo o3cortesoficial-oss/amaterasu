@@ -2778,6 +2778,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const storedState = Object.assign({}, legacyState, {
         nome: readStoredValue('user_name') || legacyState.nome || '',
+        cpf: readStoredValue('user_cpf') || legacyState.cpf || '',
         full_address: readStoredValue('user_full_address') || legacyState.full_address || ''
     });
 

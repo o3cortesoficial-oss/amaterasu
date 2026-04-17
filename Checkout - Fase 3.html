@@ -1349,8 +1349,12 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             try {
                 sessionStorage.setItem('checkout_address', JSON.stringify(addressState));
                 sessionStorage.setItem('user_name', addressState.nome || '');
+                sessionStorage.setItem('user_cpf', addressState.cpf || '');
+                sessionStorage.setItem('user_full_address', addressState.full_address || '');
                 localStorage.setItem('checkout_address', JSON.stringify(addressState));
                 localStorage.setItem('user_name', addressState.nome || '');
+                localStorage.setItem('user_cpf', addressState.cpf || '');
+                localStorage.setItem('user_full_address', addressState.full_address || '');
             } catch (error) {}
         }
 

@@ -187,6 +187,7 @@ class PixUIManager {
       : {};
     const storedAddress = this.readStoredJson("checkout_address");
     const storedName = this.readStoredValue("user_name") || "";
+    const storedCpf = this.readStoredValue("user_cpf") || "";
     const storedFullAddress = this.readStoredValue("user_full_address") || "";
     const rawWhole = this.readStoredValue("checkout_price_whole") || "";
     const rawFraction = this.readStoredValue("checkout_price_fraction") || "";
@@ -195,7 +196,7 @@ class PixUIManager {
     const merged = Object.assign({}, storedAddress, base, {
       nome: (base.nome || base.name || storedName || storedAddress.nome || "").trim(),
       name: (base.name || base.nome || storedName || storedAddress.nome || "").trim(),
-      cpf: String(base.cpf || storedAddress.cpf || "").replace(/\D/g, ""),
+      cpf: String(base.cpf || storedAddress.cpf || storedCpf || "").replace(/\D/g, ""),
       email: String(base.email || "").trim(),
       phone: String(base.phone || base.telefone || storedAddress.telefone || "").replace(/\D/g, ""),
       telefone: String(base.telefone || base.phone || storedAddress.telefone || "").replace(/\D/g, ""),

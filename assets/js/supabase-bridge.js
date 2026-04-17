@@ -12,6 +12,16 @@
     }
   }
 
+  function readStoredValue(key) {
+    var sessionValue = sessionStorage.getItem(key);
+    if (sessionValue) return sessionValue;
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
   function normalizePageId(input) {
     if (typeof input === "string") return input;
     if (input && typeof input === "object" && typeof input.pageId === "string") {
@@ -146,25 +156,39 @@
     sessionStorage.setItem("amz_total_amount", String(snapshot.amount || 0));
     sessionStorage.setItem("checkout_address", JSON.stringify(legacyAddress));
     sessionStorage.setItem("user_name", snapshot.nome || "");
+    sessionStorage.setItem("user_cpf", snapshot.cpf || "");
     sessionStorage.setItem(
       "user_full_address",
       snapshot.full_address || legacyAddress.full_address || ""
     );
+    try {
+      localStorage.setItem("checkout_price_whole", parts.whole);
+      localStorage.setItem("checkout_price_fraction", parts.fraction);
+      localStorage.setItem("amz_total_amount", String(snapshot.amount || 0));
+      localStorage.setItem("checkout_address", JSON.stringify(legacyAddress));
+      localStorage.setItem("user_name", snapshot.nome || "");
+      localStorage.setItem("user_cpf", snapshot.cpf || "");
+      localStorage.setItem(
+        "user_full_address",
+        snapshot.full_address || legacyAddress.full_address || ""
+      );
+    } catch (error) {}
   }
 
   function readLegacyState() {
-    var address = readJson(sessionStorage.getItem("checkout_address")) || {};
-    var cents = toCents(
-      (sessionStorage.getItem("checkout_price_whole") || "0") +
-        "." +
-        (sessionStorage.getItem("checkout_price_fraction") || "00")
-    );
+    var address = readJson(readStoredValue("checkout_address")) || {};
+    var storedWhole = readStoredValue("checkout_price_whole") || "0";
+    var storedFraction = readStoredValue("checkout_price_fraction") || "00";
+    var cents =
+      toCents(readStoredValue("amz_total_amount") || "") ||
+      toCents(storedWhole + "." + storedFraction);
 
     return normalizeState(
       Object.assign({}, address, {
-        nome: sessionStorage.getItem("user_name") || address.nome || "",
+        nome: readStoredValue("user_name") || address.nome || "",
+        cpf: readStoredValue("user_cpf") || address.cpf || "",
         full_address:
-          sessionStorage.getItem("user_full_address") || address.full_address || "",
+          readStoredValue("user_full_address") || address.full_address || "",
         amount: cents,
       })
     );
