@@ -482,7 +482,7 @@ function verifyToken(token) {
 
 function isAuthenticated(req) {
   if (!hasAdminAuthConfig) {
-    return false;
+    return true;
   }
 
   const token = getCookie(req, AUTH_COOKIE_NAME);
@@ -2391,8 +2391,10 @@ export default async function handler(req, res) {
     if (req.method === "POST" && pathname === "/api/auth/login") {
       if (!hasAdminAuthConfig) {
         return res.status(503).json({
+          ok: true,
+          authDisabled: true,
           message:
-            "Login do admin indisponivel. Configure ADMIN_EMAIL, ADMIN_PASSWORD e JWT_SECRET no ambiente.",
+            "Autenticacao do admin nao configurada neste ambiente. Acesse o painel diretamente.",
         });
       }
 

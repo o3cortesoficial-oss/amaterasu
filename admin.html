@@ -1098,6 +1098,9 @@
         const res = await fetch(url, options);
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
+          if (res.status === 401 && window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
           throw new Error(body.message || `Status: ${res.status}`);
         }
         return res.json();
@@ -1645,6 +1648,10 @@
         } catch (err) {
           console.error(err);
           if (dot) dot.className = 'dot';
+          const generatedAtText = document.getElementById('generatedAtText');
+          const summaryLine = document.getElementById('summaryLine');
+          if (generatedAtText) generatedAtText.textContent = 'Falha ao carregar mÃ©tricas';
+          if (summaryLine) summaryLine.textContent = err.message || 'Nao foi possivel carregar os dados do painel.';
           if (statusText) statusText.textContent = 'Erro de Conexão';
         }
       }
