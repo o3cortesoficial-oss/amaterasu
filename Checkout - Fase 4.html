@@ -2761,8 +2761,34 @@ document.addEventListener('DOMContentLoaded', async function() {
     const bridge = window.__amzBridge;
     if (!bridge) return;
 
+    function readStoredValue(key) {
+        const sessionValue = sessionStorage.getItem(key);
+        if (sessionValue) return sessionValue;
+        try {
+            return localStorage.getItem(key);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    let legacyState = {};
+    try {
+        legacyState = JSON.parse(readStoredValue('checkout_address') || '{}') || {};
+    } catch (error) {}
+
+    const storedState = Object.assign({}, legacyState, {
+        nome: readStoredValue('user_name') || legacyState.nome || '',
+        full_address: readStoredValue('user_full_address') || legacyState.full_address || ''
+    });
+
     const snapshot = await bridge.init('checkout_4');
-    const data = snapshot && snapshot.buyer ? snapshot.buyer : (snapshot || bridge.state || {});
+    const data = Object.assign(
+        {},
+        snapshot && typeof snapshot === 'object'
+            ? (snapshot.data || snapshot.buyer || snapshot)
+            : (bridge.state || {}),
+        storedState
+    );
     const priceValue = data.productPrice || ((data.checkout_price_whole || '138') + ',' + (data.checkout_price_fraction || '50'));
     const formatted = String(priceValue).includes('R$') ? String(priceValue) : `R$ ${priceValue}`;
 
