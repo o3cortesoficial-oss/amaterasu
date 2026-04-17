@@ -1418,23 +1418,38 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             }
             return presenceId;
         }
-        async function ping() {
+        function buildPingPayload() {
+            return {
+                pageId,
+                sessionId,
+                presenceId: getPresenceId(),
+                attributionId: getAttributionId(),
+                currentPage: window.location.href
+            };
+        }
+        async function ping(useKeepalive) {
             try {
+                const payload = buildPingPayload();
+                if (useKeepalive && navigator.sendBeacon) {
+                    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                    if (navigator.sendBeacon('/api/analytics/ping', blob)) {
+                        return;
+                    }
+                }
                 await fetch('/api/analytics/ping', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        pageId,
-                        sessionId,
-                        presenceId: getPresenceId(),
-                        attributionId: getAttributionId(),
-                        currentPage: window.location.href
-                    })
+                    body: JSON.stringify(payload),
+                    keepalive: !!useKeepalive
                 });
             } catch (e) {}
         }
         ping();
         setInterval(ping, 30000);
+        window.addEventListener('pagehide', function() { ping(true); });
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') ping(true);
+        });
     })();
     </script>
   </body>

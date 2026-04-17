@@ -1371,9 +1371,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let sessionId = sessionStorage.getItem('amz_session_id');
         if (!sessionId) {
           sessionId = Math.random().toString(36).substring(2, 15);
-          storageItemName = 'amz_session_id';
-          sessionId = Math.random().toString(36).substring(2, 15);
-          sessionStorage.setItem(storageItemName, sessionId);
+          sessionStorage.setItem('amz_session_id', sessionId);
         }
         function getAttributionId() {
           try {
@@ -1400,23 +1398,38 @@ document.addEventListener('DOMContentLoaded', function() {
           }
           return presenceId;
         }
-        async function ping() {
+        function buildPingPayload() {
+          return {
+            pageId,
+            sessionId,
+            presenceId: getPresenceId(),
+            attributionId: getAttributionId(),
+            currentPage: window.location.href
+          };
+        }
+        async function ping(useKeepalive) {
           try {
+            const payload = buildPingPayload();
+            if (useKeepalive && navigator.sendBeacon) {
+              const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+              if (navigator.sendBeacon('/api/analytics/ping', blob)) {
+                return;
+              }
+            }
             await fetch('/api/analytics/ping', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                pageId,
-                sessionId,
-                presenceId: getPresenceId(),
-                attributionId: getAttributionId(),
-                currentPage: window.location.href
-              })
+              body: JSON.stringify(payload),
+              keepalive: !!useKeepalive
             });
           } catch(e) {}
         }
         ping();
         setInterval(ping, 30000);
+        window.addEventListener('pagehide', function() { ping(true); });
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'hidden') ping(true);
+        });
       })();
     </script>
     <script>
