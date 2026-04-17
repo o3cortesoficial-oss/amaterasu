@@ -1258,13 +1258,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const bridge = window.__amzBridge || window.Bridge;
 
         function readStoredValue(key) {
-            const sessionValue = sessionStorage.getItem(key);
-            if (sessionValue) return sessionValue;
-            try {
-                return localStorage.getItem(key);
-            } catch (err) {
-                return null;
-            }
+            return sessionStorage.getItem(key);
         }
 
         let legacyState = {};
@@ -1381,7 +1375,6 @@ document.addEventListener('DOMContentLoaded', function() {
               : null;
             return (snapshot && snapshot.attributionId)
               || sessionStorage.getItem('amz_attribution_id')
-              || localStorage.getItem('amz_attribution_id')
               || '';
           } catch (e) {
             return sessionStorage.getItem('amz_attribution_id') || '';

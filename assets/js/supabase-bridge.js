@@ -3,6 +3,7 @@
  * Keeps legacy sessionStorage keys alive while syncing the real state with the API.
  */
 (function () {
+
   function readJson(value) {
     if (!value) return null;
     try {
@@ -13,13 +14,7 @@
   }
 
   function readStoredValue(key) {
-    var sessionValue = sessionStorage.getItem(key);
-    if (sessionValue) return sessionValue;
-    try {
-      return localStorage.getItem(key);
-    } catch (error) {
-      return null;
-    }
+    return sessionStorage.getItem(key);
   }
 
   function normalizePageId(input) {
@@ -158,21 +153,13 @@
     sessionStorage.setItem("user_name", snapshot.nome || "");
     sessionStorage.setItem("user_cpf", snapshot.cpf || "");
     sessionStorage.setItem(
+      "amz_product_name",
+      snapshot.productName || snapshot.product_name || ""
+    );
+    sessionStorage.setItem(
       "user_full_address",
       snapshot.full_address || legacyAddress.full_address || ""
     );
-    try {
-      localStorage.setItem("checkout_price_whole", parts.whole);
-      localStorage.setItem("checkout_price_fraction", parts.fraction);
-      localStorage.setItem("amz_total_amount", String(snapshot.amount || 0));
-      localStorage.setItem("checkout_address", JSON.stringify(legacyAddress));
-      localStorage.setItem("user_name", snapshot.nome || "");
-      localStorage.setItem("user_cpf", snapshot.cpf || "");
-      localStorage.setItem(
-        "user_full_address",
-        snapshot.full_address || legacyAddress.full_address || ""
-      );
-    } catch (error) {}
   }
 
   function readLegacyState() {
@@ -187,6 +174,7 @@
       Object.assign({}, address, {
         nome: readStoredValue("user_name") || address.nome || "",
         cpf: readStoredValue("user_cpf") || address.cpf || "",
+        productName: readStoredValue("amz_product_name") || "",
         full_address:
           readStoredValue("user_full_address") || address.full_address || "",
         amount: cents,
@@ -224,9 +212,6 @@
       }
 
       sessionStorage.setItem("amz_attribution_id", id);
-      try {
-        localStorage.removeItem("amz_attribution_id");
-      } catch (error) {}
       return id;
     },
 

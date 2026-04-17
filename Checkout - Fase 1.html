@@ -1317,13 +1317,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             : Promise.resolve(null);
 
         function readStoredValue(key) {
-            const sessionValue = sessionStorage.getItem(key);
-            if (sessionValue) return sessionValue;
-            try {
-                return localStorage.getItem(key);
-            } catch (error) {
-                return null;
-            }
+            return sessionStorage.getItem(key);
         }
 
         function parsePositiveAmount(value) {
@@ -1357,7 +1351,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             }
 
             if (!data.productName) {
-                data.productName = 'Drone Profissional 4K Amazon';
+                data.productName = readStoredValue('amz_product_name') || data.product_name || '';
             }
         }
 
@@ -1503,18 +1497,6 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                 if (data.checkout_price_fraction) {
                     sessionStorage.setItem('checkout_price_fraction', data.checkout_price_fraction);
                 }
-                localStorage.setItem('checkout_address', JSON.stringify(data));
-                localStorage.setItem('user_name', data.nome || '');
-                localStorage.setItem('user_full_address', data.full_address || '');
-                if (data.amount > 0) {
-                    localStorage.setItem('amz_total_amount', String(data.amount));
-                }
-                if (data.checkout_price_whole) {
-                    localStorage.setItem('checkout_price_whole', data.checkout_price_whole);
-                }
-                if (data.checkout_price_fraction) {
-                    localStorage.setItem('checkout_price_fraction', data.checkout_price_fraction);
-                }
             } catch (storageError) {}
         }
 
@@ -1596,9 +1578,8 @@ footer, .nav-ftr-batmobile, #nav-ftr {
               ? window.__amzMetaAttribution.getSnapshot()
               : null;
             return (snapshot && snapshot.attributionId)
-              || sessionStorage.getItem('amz_attribution_id')
-              || localStorage.getItem('amz_attribution_id')
-              || '';
+                || sessionStorage.getItem('amz_attribution_id')
+                || '';
           } catch (e) {
             return sessionStorage.getItem('amz_attribution_id') || '';
           }

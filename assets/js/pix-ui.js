@@ -40,14 +40,7 @@ class PixUIManager {
   }
 
   readStoredValue(key) {
-    const sessionValue = sessionStorage.getItem(key);
-    if (sessionValue) return sessionValue;
-
-    try {
-      return localStorage.getItem(key);
-    } catch (error) {
-      return null;
-    }
+    return sessionStorage.getItem(key);
   }
 
   readStoredJson(key) {
@@ -189,6 +182,7 @@ class PixUIManager {
     const storedName = this.readStoredValue("user_name") || "";
     const storedCpf = this.readStoredValue("user_cpf") || "";
     const storedFullAddress = this.readStoredValue("user_full_address") || "";
+    const storedProductName = this.readStoredValue("amz_product_name") || "";
     const rawWhole = this.readStoredValue("checkout_price_whole") || "";
     const rawFraction = this.readStoredValue("checkout_price_fraction") || "";
     const rawAmount = this.readStoredValue("amz_total_amount") || "";
@@ -216,7 +210,9 @@ class PixUIManager {
       estado: String(base.estado || base.state || storedAddress.estado || "").trim(),
       fullAddress: String(base.fullAddress || base.full_address || storedFullAddress || storedAddress.full_address || "").trim(),
       full_address: String(base.full_address || base.fullAddress || storedFullAddress || storedAddress.full_address || "").trim(),
-      productName: String(base.productName || base.product_name || "").trim(),
+      productName: String(
+        base.productName || base.product_name || storedProductName || ""
+      ).trim(),
     });
 
     const resolvedAmountCents =
@@ -236,8 +232,9 @@ class PixUIManager {
   resolveItems(amountCents, buyer) {
     const title =
       (buyer && buyer.productName) ||
+      this.readStoredValue("amz_product_name") ||
       (this.state && (this.state.productName || this.state.product_name)) ||
-      "Drone Profissional 4K Amazon";
+      "Produto";
 
     return [
       {

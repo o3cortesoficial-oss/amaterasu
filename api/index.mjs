@@ -33,11 +33,11 @@ const trackingPixelBuffer = Buffer.from(
   "base64",
 );
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "saidlabsglobal@gmail.com";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "530348Home10";
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
 const AUTH_COOKIE_NAME = "amz_admin_session";
-const JWT_SECRET =
-  process.env.JWT_SECRET || "amazon-seller-central-secret-key-123";
+const JWT_SECRET = (process.env.JWT_SECRET || "").trim();
+const hasAdminAuthConfig = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && JWT_SECRET);
 const runtimeConfigApiHost = process.env.TITANSHUB_API_HOST || "";
 const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
 const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
@@ -163,14 +163,25 @@ function normalizeApiHost(value) {
 }
 
 function normalizeMultilineList(value) {
+  const placeholderValues = new Set([
+    "META1",
+    "META2",
+    "GTM1",
+    "ID DO PIXEL / TAG",
+  ]);
+
   if (Array.isArray(value)) {
-    return value.map((entry) => normalizeText(entry)).filter(Boolean);
+    return value
+      .map((entry) => normalizeText(entry))
+      .filter(Boolean)
+      .filter((entry) => !placeholderValues.has(entry.toUpperCase()));
   }
 
   return String(value || "")
     .split(/\r?\n/)
     .map((entry) => normalizeText(entry))
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((entry) => !placeholderValues.has(entry.toUpperCase()));
 }
 
 function createDefaultConfig() {
@@ -258,6 +269,10 @@ function applyRuntimeConfigOverrides(config) {
 }
 
 async function readLocalConfigFile() {
+  if (isServerlessRuntime) {
+    return null;
+  }
+
   try {
     const raw = await fs.readFile(localConfigPath, "utf8");
     const parsed = JSON.parse(raw);
@@ -271,6 +286,10 @@ async function readLocalConfigFile() {
 }
 
 async function writeLocalConfigFile(config) {
+  if (isServerlessRuntime) {
+    return false;
+  }
+
   try {
     await fs.mkdir(path.dirname(localConfigPath), { recursive: true });
     await fs.writeFile(
@@ -423,6 +442,10 @@ function getCookie(req, name) {
 }
 
 function signToken(payload) {
+  if (!hasAdminAuthConfig) {
+    throw new Error("ADMIN_AUTH_NOT_CONFIGURED");
+  }
+
   const data = Buffer.from(JSON.stringify(payload)).toString("base64");
   const signature = crypto
     .createHmac("sha256", JWT_SECRET)
@@ -432,6 +455,10 @@ function signToken(payload) {
 }
 
 function verifyToken(token) {
+  if (!hasAdminAuthConfig || !JWT_SECRET) {
+    return null;
+  }
+
   try {
     const [data, signature] = token.split(".");
     if (!data || !signature) {
@@ -454,6 +481,10 @@ function verifyToken(token) {
 }
 
 function isAuthenticated(req) {
+  if (!hasAdminAuthConfig) {
+    return false;
+  }
+
   const token = getCookie(req, AUTH_COOKIE_NAME);
   if (!token) {
     return false;
@@ -2017,9 +2048,11 @@ async function notifyPushcutLinks(config, eventRecord, intent = null) {
 }
 
 function buildTestPushcutPayload(item) {
-  const title = "Nova venda recebida";
-  const body = "Venda teste aprovada no valor de R$ 197,90";
-  const detail = "Pedido #TESTE123 | Origem: Demo";
+  const receivedAt = new Date().toISOString();
+  const orderId = `PUSHCUT-${Date.now().toString(36).toUpperCase()}`;
+  const title = "Notificacao Pushcut";
+  const body = `Teste enviado para ${item.name || "dispositivo"}.`;
+  const detail = `Gerado em ${receivedAt}`;
 
   return {
     title,
@@ -2033,10 +2066,10 @@ function buildTestPushcutPayload(item) {
     event: {
       test: true,
       device: item.name,
-      orderId: "TESTE123",
+      orderId,
       status: "approved",
-      amount: 19790,
-      receivedAt: new Date().toISOString(),
+      amount: 0,
+      receivedAt,
     },
   };
 }
@@ -2356,6 +2389,13 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "POST" && pathname === "/api/auth/login") {
+      if (!hasAdminAuthConfig) {
+        return res.status(503).json({
+          message:
+            "Login do admin indisponivel. Configure ADMIN_EMAIL, ADMIN_PASSWORD e JWT_SECRET no ambiente.",
+        });
+      }
+
       const email = normalizeText(body.email);
       const password = normalizeText(body.password);
 
@@ -2527,7 +2567,9 @@ export default async function handler(req, res) {
       const itemTitle = pickFirstFilled(
         getNestedValue(body, "items.0.title"),
         buyer.productName,
-        "Drone Profissional 4K Amazon",
+        existingIntent?.buyer?.productName,
+        existingIntent?.buyer?.product_name,
+        "Produto",
       );
       const itemPayload =
         Array.isArray(body.items) && body.items.length

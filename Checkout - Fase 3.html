@@ -1305,13 +1305,7 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         const bridge = window.__amzBridge || window.Bridge || null;
 
         function readStoredValue(key) {
-            const sessionValue = sessionStorage.getItem(key);
-            if (sessionValue) return sessionValue;
-            try {
-                return localStorage.getItem(key);
-            } catch (error) {
-                return null;
-            }
+            return sessionStorage.getItem(key);
         }
 
         function readStoredAddress() {
@@ -1351,10 +1345,6 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                 sessionStorage.setItem('user_name', addressState.nome || '');
                 sessionStorage.setItem('user_cpf', addressState.cpf || '');
                 sessionStorage.setItem('user_full_address', addressState.full_address || '');
-                localStorage.setItem('checkout_address', JSON.stringify(addressState));
-                localStorage.setItem('user_name', addressState.nome || '');
-                localStorage.setItem('user_cpf', addressState.cpf || '');
-                localStorage.setItem('user_full_address', addressState.full_address || '');
             } catch (error) {}
         }
 
@@ -1480,10 +1470,9 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                 const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
                     ? window.__amzMetaAttribution.getSnapshot()
                     : null;
-                return (snapshot && snapshot.attributionId)
-                    || sessionStorage.getItem('amz_attribution_id')
-                    || localStorage.getItem('amz_attribution_id')
-                    || '';
+            return (snapshot && snapshot.attributionId)
+              || sessionStorage.getItem('amz_attribution_id')
+              || '';
             } catch (e) {
                 return sessionStorage.getItem('amz_attribution_id') || '';
             }

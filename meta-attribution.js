@@ -194,9 +194,6 @@
     writeStorage(window.sessionStorage, STORAGE_KEYS.attributionSnapshot, serialized);
     if (snapshot && snapshot.attributionId) {
       writeStorage(window.sessionStorage, "amz_attribution_id", snapshot.attributionId);
-      try {
-        window.localStorage.removeItem("amz_attribution_id");
-      } catch (error) {}
     }
   }
 

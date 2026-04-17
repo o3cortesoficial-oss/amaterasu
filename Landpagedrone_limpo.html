@@ -936,10 +936,9 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
                 const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
                     ? window.__amzMetaAttribution.getSnapshot()
                     : null;
-                return (snapshot && snapshot.attributionId)
-                    || sessionStorage.getItem('amz_attribution_id')
-                    || localStorage.getItem('amz_attribution_id')
-                    || '';
+            return (snapshot && snapshot.attributionId)
+              || sessionStorage.getItem('amz_attribution_id')
+              || '';
             } catch (e) {
                 return sessionStorage.getItem('amz_attribution_id') || '';
             }
@@ -1001,8 +1000,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log('Preço capturado:', priceWhole + ',' + priceFraction);
         
-        localStorage.setItem('checkout_price_whole', priceWhole);
-        localStorage.setItem('checkout_price_fraction', priceFraction);
         
     } catch (e) {
         console.error('Erro ao capturar preço:', e);

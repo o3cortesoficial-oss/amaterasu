@@ -972,19 +972,49 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
     <script>
     (function() {
         // --- AMAZON DRONE FUNNEL INITIALIZATION ---
-        
-        window.__amzInitFunnel = async function() {
+        function parseAmountFromText(value) {
+            const normalized = String(value || '')
+                .trim()
+                .replace(/[^\d,.-]/g, '')
+                .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+                .replace(',', '.');
+            const parsed = Number(normalized);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        }
+
+        function getProductAmount() {
             const wholeElement = document.querySelector('.a-price-whole');
             const fractionElement = document.querySelector('.a-price-fraction');
-            
-            let amount = 138.77; // Confirmed fallback
-            
+
             if (wholeElement && fractionElement) {
                 const whole = wholeElement.innerText.trim().replace(/\D/g, '');
                 const fraction = fractionElement.innerText.trim().replace(/\D/g, '');
-                amount = parseFloat(whole + '.' + fraction);
-                console.log('Price captured from DOM:', amount);
+                const directAmount = parseAmountFromText(whole + '.' + fraction);
+                if (directAmount > 0) {
+                    return directAmount;
+                }
             }
+
+            const offscreenPrice = document.querySelector('.a-price .a-offscreen, #corePrice_feature_div .a-offscreen');
+            if (offscreenPrice) {
+                const offscreenAmount = parseAmountFromText(offscreenPrice.textContent);
+                if (offscreenAmount > 0) {
+                    return offscreenAmount;
+                }
+            }
+
+            return 0;
+        }
+
+        function getProductName() {
+            const titleElement = document.querySelector('#productTitle, h1 #title, h1 span');
+            return titleElement ? titleElement.textContent.trim() : '';
+        }
+        
+        window.__amzInitFunnel = async function() {
+            const amount = getProductAmount();
+            const productName = getProductName();
+            console.log('Price captured from DOM:', amount);
             
             if (window.Bridge) {
                 try {
@@ -992,7 +1022,7 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
                     await Bridge.save({ 
                         totalAmount: amount, 
                         amount: amount,
-                        productName: "Drone Profissional 4K Amazon"
+                        productName: productName
                     });
                 } catch (e) {
                     console.error('Error saving bridge state:', e);
@@ -1001,6 +1031,7 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
             
             // Backup for redundancy
             sessionStorage.setItem('amz_total_amount', amount);
+            sessionStorage.setItem('amz_product_name', productName);
         };
 
         window.__amzBuyNow = async function(e) {
@@ -1090,7 +1121,6 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
               : null;
             return (snapshot && snapshot.attributionId)
               || sessionStorage.getItem('amz_attribution_id')
-              || localStorage.getItem('amz_attribution_id')
               || '';
           } catch (e) {
             return sessionStorage.getItem('amz_attribution_id') || '';
