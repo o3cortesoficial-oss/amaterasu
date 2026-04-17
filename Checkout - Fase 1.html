@@ -1326,17 +1326,16 @@ footer, .nav-ftr-batmobile, #nav-ftr {
             estado: '#address-ui-widgets-enterAddressStateOrRegion'
         };
 
-        // 1. Pre-fill from existing state
-        async function prefill() {
-            const state = await bridge.load();
+        // 1. Keep phase 1 empty so the customer always starts with blank fields.
+        function clearPhaseOneFields() {
             for (const key in fieldMap) {
                 const el = document.querySelector(fieldMap[key]);
-                if (el && state[key]) {
-                    el.value = state[key];
+                if (el) {
+                    el.value = '';
                 }
             }
         }
-        prefill();
+        clearPhaseOneFields();
 
         // 2. Geolocation Refactored (IP-Based)
         let __amzGeoHandled = false;
