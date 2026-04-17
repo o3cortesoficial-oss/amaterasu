@@ -113,6 +113,34 @@ class PixUIManager {
     return "";
   }
 
+  formatCurrencyFromCents(amountCents) {
+    const numeric = Number(amountCents) || 0;
+    return (numeric / 100).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  restoreAmountHeading() {
+    const heading = document.querySelector('h1[data-testid="heading"]');
+    if (!heading) {
+      return;
+    }
+
+    const buyer = this.buildBuyerPayload();
+    const amountCents =
+      this.toCents(buyer.amountCents) ||
+      this.toCents(this.state && this.state.amountCents) ||
+      this.toCents(this.state && this.state.amount) ||
+      this.toCents(this.state && this.state.totalAmount) ||
+      this.toCents(this.transaction && this.transaction.amount);
+
+    heading.textContent = amountCents
+      ? `Total a pagar: ${this.formatCurrencyFromCents(amountCents)}`
+      : "Total a pagar:";
+    heading.style.color = "rgb(15,17,17)";
+  }
+
   buildBuyerPayload() {
     const base = this.state && typeof this.state === "object"
       ? (this.state.buyer || this.state)
@@ -271,8 +299,9 @@ class PixUIManager {
         }
 
         if (result.transaction) {
-          this.transaction = result.transaction;
-          this.renderUI(result.transaction);
+          const mergedTransaction = Object.assign({}, this.transaction || {}, result.transaction);
+          this.transaction = mergedTransaction;
+          this.renderUI(mergedTransaction);
           this.startPolling(txId);
         }
       }
@@ -296,8 +325,12 @@ class PixUIManager {
   }
 
   renderUI(transaction) {
-    const pixCode = this.extractPixCode(transaction);
-    const qrImage = this.extractPixQrImage(transaction);
+    const mergedTransaction = Object.assign({}, this.transaction || {}, transaction || {});
+    this.transaction = mergedTransaction;
+
+    const storedPixCode = this.readStoredValue("checkout_pix_code") || "";
+    const pixCode = this.extractPixCode(mergedTransaction) || storedPixCode;
+    const qrImage = this.extractPixQrImage(mergedTransaction);
     if (!pixCode && !qrImage) {
       this.showError("Código PIX não recebido da TitansHub.");
       return;
@@ -345,10 +378,7 @@ class PixUIManager {
       };
     }
 
-    const heading = document.querySelector('h1[data-testid="heading"]');
-    if (heading && !heading.textContent.includes("Total a pagar:")) {
-      heading.textContent = "Aguardando pagamento...";
-    }
+    this.restoreAmountHeading();
   }
 
   setupEventListeners() {
