@@ -1398,6 +1398,13 @@ document.addEventListener('DOMContentLoaded', function() {
             let parent = input.closest('.a-button');
             if (parent) {
               parent.classList.remove('a-button-disabled');
+              parent.style.background = '#FFD814';
+              parent.style.borderColor = '#FCD200';
+              parent.style.opacity = '1';
+              const inner = parent.querySelector('.a-button-inner');
+              if (inner) inner.style.background = '#FFD814';
+              const text = parent.querySelector('.a-button-text');
+              if (text) text.style.color = '#0F1111';
             }
             input.addEventListener('click', function(e) {
               e.preventDefault();
