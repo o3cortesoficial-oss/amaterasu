@@ -1322,16 +1322,27 @@ footer, .nav-ftr-batmobile, #nav-ftr {
         const description = document.querySelector('#pagelet-layout-section .a-size-base.a-spacing-none.a-text-normal');
         const tipsItems = Array.from(document.querySelectorAll('#pagelet-layout-section ul.a-unordered-list .a-list-item'));
         const nameError = document.getElementById('fullName-error-message');
-        const storedName = typeof state.nome === 'string' ? state.nome.trim() : '';
-        const nameFieldRow = nameInput ? nameInput.closest('.a-row.a-spacing-none') : null;
+        const checkoutAddress = (() => {
+            try {
+                return JSON.parse(sessionStorage.getItem('checkout_address') || localStorage.getItem('checkout_address') || '{}');
+            } catch (error) {
+                return {};
+            }
+        })();
+        const storedName = [
+            state.nome,
+            state.name,
+            sessionStorage.getItem('user_name'),
+            checkoutAddress.nome,
+            localStorage.getItem('user_name')
+        ].find((value) => typeof value === 'string' && value.trim())?.trim() || '';
 
         // Pre-fill if we have data from state
         if (cpfInput && state.cpf) cpfInput.value = state.cpf;
         if (nameInput && storedName) nameInput.value = storedName;
 
-        // Se o nome ja foi capturado na fase 1, nao pedimos novamente.
-        if (storedName && nameFieldRow) {
-            nameFieldRow.style.display = 'none';
+        // Se o nome ja foi capturado na fase 1, preenchemos o campo, mas ele continua editavel.
+        if (storedName) {
             if (nameError) {
                 nameError.style.display = 'none';
             }
@@ -1374,7 +1385,8 @@ footer, .nav-ftr-batmobile, #nav-ftr {
                 const isValid = bridge.validateFields(fieldsToValidate);
 
                 if (isValid) {
-                    const resolvedName = storedName || (nameInput ? nameInput.value.trim() : '');
+                    const editedName = nameInput ? nameInput.value.trim() : '';
+                    const resolvedName = editedName || storedName;
                     await bridge.save({
                         cpf: cpfInput.value.trim(),
                         nome: resolvedName
