@@ -597,6 +597,202 @@ function normalizeCheckoutSnapshot(input) {
   return snapshot;
 }
 
+function mergeCheckoutSnapshots(...inputs) {
+  const merged = {};
+  let resolvedAmountCents = 0;
+
+  inputs.forEach((input) => {
+    const snapshot = normalizeCheckoutSnapshot(input);
+
+    Object.entries(snapshot).forEach(([key, value]) => {
+      if (key === "buyer") {
+        return;
+      }
+
+      if (typeof value === "string") {
+        if (normalizeText(value)) {
+          merged[key] = value;
+        }
+        return;
+      }
+
+      if (typeof value === "number") {
+        if (Number.isFinite(value) && value > 0) {
+          merged[key] = value;
+        }
+        return;
+      }
+
+      if (value !== undefined && value !== null) {
+        merged[key] = value;
+      }
+    });
+
+    const snapshotAmountCents = amountToCents(
+      snapshot.amountCents ?? snapshot.amount ?? snapshot.totalAmount,
+    );
+    if (snapshotAmountCents > 0) {
+      resolvedAmountCents = snapshotAmountCents;
+    }
+  });
+
+  if (resolvedAmountCents > 0) {
+    merged.amountCents = resolvedAmountCents;
+    merged.amount = centsToCurrencyValue(resolvedAmountCents);
+    merged.totalAmount = centsToCurrencyValue(resolvedAmountCents);
+  }
+
+  return normalizeCheckoutSnapshot(merged);
+}
+
+const BRAZILIAN_STATE_CODES = new Map(
+  [
+    ["AC", "AC"],
+    ["ACRE", "AC"],
+    ["AL", "AL"],
+    ["ALAGOAS", "AL"],
+    ["AP", "AP"],
+    ["AMAPA", "AP"],
+    ["AMAPÁ", "AP"],
+    ["AM", "AM"],
+    ["AMAZONAS", "AM"],
+    ["BA", "BA"],
+    ["BAHIA", "BA"],
+    ["CE", "CE"],
+    ["CEARA", "CE"],
+    ["CEARÁ", "CE"],
+    ["DF", "DF"],
+    ["DISTRITOFEDERAL", "DF"],
+    ["ES", "ES"],
+    ["ESPIRITOSANTO", "ES"],
+    ["ESPÍRITOSANTO", "ES"],
+    ["GO", "GO"],
+    ["GOIAS", "GO"],
+    ["GOIÁS", "GO"],
+    ["MA", "MA"],
+    ["MARANHAO", "MA"],
+    ["MARANHÃO", "MA"],
+    ["MT", "MT"],
+    ["MATOGROSSO", "MT"],
+    ["MS", "MS"],
+    ["MATOGROSSODOSUL", "MS"],
+    ["MG", "MG"],
+    ["MINASGERAIS", "MG"],
+    ["PA", "PA"],
+    ["PARA", "PA"],
+    ["PARÁ", "PA"],
+    ["PB", "PB"],
+    ["PARAIBA", "PB"],
+    ["PARAÍBA", "PB"],
+    ["PR", "PR"],
+    ["PARANA", "PR"],
+    ["PARANÁ", "PR"],
+    ["PE", "PE"],
+    ["PERNAMBUCO", "PE"],
+    ["PI", "PI"],
+    ["PIAUI", "PI"],
+    ["PIAUÍ", "PI"],
+    ["RJ", "RJ"],
+    ["RIODEJANEIRO", "RJ"],
+    ["RN", "RN"],
+    ["RIOGRANDEDONORTE", "RN"],
+    ["RS", "RS"],
+    ["RIOGRANDEDOSUL", "RS"],
+    ["RO", "RO"],
+    ["RONDONIA", "RO"],
+    ["RONDÔNIA", "RO"],
+    ["RR", "RR"],
+    ["RORAIMA", "RR"],
+    ["SC", "SC"],
+    ["SANTACATARINA", "SC"],
+    ["SP", "SP"],
+    ["SAOPAULO", "SP"],
+    ["SÃOPAULO", "SP"],
+    ["SE", "SE"],
+    ["SERGIPE", "SE"],
+    ["TO", "TO"],
+    ["TOCANTINS", "TO"],
+  ].map(([label, code]) => [
+    label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ""),
+    code,
+  ]),
+);
+
+function normalizeBrazilStateCode(value) {
+  const text = normalizeText(value).toUpperCase();
+  if (!text) {
+    return "";
+  }
+
+  const normalizedKey = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+
+  if (BRAZILIAN_STATE_CODES.has(normalizedKey)) {
+    return BRAZILIAN_STATE_CODES.get(normalizedKey);
+  }
+
+  return text.length === 2 ? text : text.slice(0, 2);
+}
+
+function buildTitansCustomerPayload(buyer) {
+  const safeBuyer = normalizeCheckoutSnapshot(buyer);
+  const emailSeed =
+    normalizeDigits(safeBuyer.cpf) ||
+    normalizeDigits(safeBuyer.phone) ||
+    randomUUID().replace(/-/g, "");
+
+  return {
+    name: safeBuyer.name,
+    email: normalizeText(safeBuyer.email) || `${emailSeed}@checkout.amaterasu.app`,
+    document: {
+      number: safeBuyer.cpf,
+      type: "cpf",
+    },
+    ...(safeBuyer.phone ? { phone: safeBuyer.phone } : {}),
+  };
+}
+
+function buildTitansShippingPayload(items, buyer) {
+  const hasTangibleItem = (items || []).some((item) => item && item.tangible !== false);
+  if (!hasTangibleItem) {
+    return null;
+  }
+
+  const safeBuyer = normalizeCheckoutSnapshot(buyer);
+  const address = {
+    street: normalizeText(safeBuyer.street || safeBuyer.rua),
+    streetNumber: normalizeText(safeBuyer.number || safeBuyer.numero),
+    neighborhood: normalizeText(safeBuyer.neighborhood || safeBuyer.bairro),
+    city: normalizeText(safeBuyer.city || safeBuyer.cidade),
+    state: normalizeBrazilStateCode(safeBuyer.state || safeBuyer.estado),
+    zipCode: normalizeDigits(safeBuyer.zipCode || safeBuyer.cep),
+    country: "BR",
+    complement: normalizeText(safeBuyer.complement || safeBuyer.complemento),
+  };
+
+  if (
+    !address.street ||
+    !address.streetNumber ||
+    !address.neighborhood ||
+    !address.city ||
+    !address.state ||
+    !address.zipCode
+  ) {
+    return null;
+  }
+
+  if (!address.complement) {
+    delete address.complement;
+  }
+
+  return {
+    fee: 0,
+    address,
+  };
+}
+
 function buildCheckoutState(intent, fallbackAttributionId = "", fallbackSessionId = "") {
   const source = ensurePlainObject(intent);
   const buyer = normalizeCheckoutSnapshot(source.buyer);
@@ -1921,6 +2117,8 @@ async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
 
 function extractPixCode(transaction) {
   return pickFirstFilled(
+    getNestedValue(transaction, "pix.qrcode"),
+    getNestedValue(transaction, "pix.qrCode"),
     getNestedValue(transaction, "paymentMethodData.pix.qrcode"),
     getNestedValue(transaction, "paymentMethodData.pix.qrCode"),
     getNestedValue(transaction, "paymentMethodData.pix.copyPaste"),
@@ -1942,6 +2140,7 @@ function normalizePixTransaction(transaction) {
     status: normalizeText(safe.status),
     amount: amountToCents(safe.amount),
     paymentMethod: pickFirstFilled(safe.paymentMethod, safe.payment_method, "pix"),
+    pix: ensurePlainObject(safe.pix),
     paymentMethodData: safe.paymentMethodData || safe.payment_method_data || {},
     pix_code: extractPixCode(safe),
   };
@@ -2110,9 +2309,17 @@ export default async function handler(req, res) {
     if (req.method === "POST" && pathname === "/api/pix/create") {
       const config = await loadConfig();
       const attributionId = normalizeText(body.attributionId);
-      const sessionId = normalizeText(body.sessionId) || normalizeText(body.session_id);
-      const buyer = normalizeCheckoutSnapshot(body.buyer || {});
-      const amount = amountToCents(body.amount ?? body.amountCents);
+      const existingIntent = attributionId
+        ? await loadLatestConversionIntentByAttributionId(attributionId)
+        : null;
+      const sessionId =
+        normalizeText(body.sessionId) ||
+        normalizeText(body.session_id) ||
+        normalizeText(existingIntent?.session_id);
+      const buyer = mergeCheckoutSnapshots(existingIntent?.buyer || {}, body.buyer || {});
+      const amount = amountToCents(
+        body.amount ?? body.amountCents ?? existingIntent?.amount ?? buyer.amountCents,
+      );
 
       if (!attributionId || !amount || !buyer.name || !buyer.cpf) {
         return res.status(400).json({
@@ -2155,20 +2362,27 @@ export default async function handler(req, res) {
               },
             ];
 
+      const shippingPayload = buildTitansShippingPayload(itemPayload, buyer);
+      if (itemPayload.some((item) => item.tangible !== false) && !shippingPayload) {
+        return res.status(400).json({
+          message:
+            "Endereco incompleto para gerar PIX da TitansHub. Preencha rua, numero, bairro, cidade, estado e CEP na fase 1.",
+        });
+      }
+
       const payload = {
         amount,
         paymentMethod: "pix",
         externalRef: intent.id,
+        postbackUrl: getWebhookUrl(req),
         items: itemPayload,
-        customer: {
-          name: buyer.name,
-          email: buyer.email || `${buyer.cpf || randomUUID()}@cliente.local`,
-          document: {
-            number: buyer.cpf,
-            type: "cpf",
-          },
-          phone: buyer.phone || undefined,
-        },
+        customer: buildTitansCustomerPayload(buyer),
+        shipping: shippingPayload || undefined,
+        metadata: JSON.stringify({
+          attributionId,
+          sessionId: sessionId || attributionId,
+          pageId: normalizeText(body.pageId) || "checkout_5",
+        }),
       };
 
       const rawTransaction = await callTitansApi(config, "/v1/transactions", {
@@ -2177,16 +2391,19 @@ export default async function handler(req, res) {
       });
       const transaction = normalizePixTransaction(rawTransaction);
 
-      await saveConversionIntentRow({
+      const updatedIntent = {
         ...intent,
         matched_event_object_id: transaction.id || intent.matched_event_object_id || null,
         stage: "payment_pending",
         updated_at: new Date().toISOString(),
-      });
+      };
+
+      await saveConversionIntentRow(updatedIntent);
 
       return res.status(200).json({
         ok: true,
         transaction,
+        state: buildCheckoutState(updatedIntent, attributionId, sessionId || attributionId),
       });
     }
 

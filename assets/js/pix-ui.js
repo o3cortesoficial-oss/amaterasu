@@ -1,9 +1,11 @@
 /**
  * PIX payment manager for the QR page.
+ * Uses the real TitansHub transaction response for both the QR code and the copy/paste key.
  */
 class PixUIManager {
   constructor() {
     this.config = {
+      pageId: "checkout_5",
       createUrl: "/api/pix/create",
       statusUrl: "/api/pix/status/",
       pollInterval: 5000,
@@ -37,9 +39,33 @@ class PixUIManager {
     return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
   }
 
+  readStoredValue(key) {
+    const sessionValue = sessionStorage.getItem(key);
+    if (sessionValue) return sessionValue;
+
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  readStoredJson(key) {
+    try {
+      return JSON.parse(this.readStoredValue(key) || "{}") || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
   extractPixCode(transaction) {
     const safe = transaction || {};
     return (
+      (safe.pix &&
+        (safe.pix.qrcode ||
+          safe.pix.qrCode ||
+          safe.pix.copyPaste ||
+          safe.pix.code)) ||
       safe.pix_code ||
       safe.qrcode ||
       safe.qrCode ||
@@ -54,8 +80,114 @@ class PixUIManager {
     );
   }
 
+  extractPixQrImage(transaction) {
+    const safe = transaction || {};
+    const candidate =
+      (safe.pix &&
+        (safe.pix.qrcodeImage ||
+          safe.pix.qrCodeImage ||
+          safe.pix.qrcodeBase64 ||
+          safe.pix.qrCodeBase64 ||
+          safe.pix.image ||
+          safe.pix.imageUrl)) ||
+      safe.qrcodeImage ||
+      safe.qrCodeImage ||
+      safe.qrcodeBase64 ||
+      safe.qrCodeBase64 ||
+      safe.qrcodeUrl ||
+      safe.qrCodeUrl ||
+      "";
+
+    if (!candidate) {
+      return "";
+    }
+
+    if (/^data:image\//i.test(candidate) || /^https?:\/\//i.test(candidate)) {
+      return candidate;
+    }
+
+    if (/^[A-Za-z0-9+/=]+$/.test(candidate)) {
+      return `data:image/png;base64,${candidate}`;
+    }
+
+    return "";
+  }
+
+  buildBuyerPayload() {
+    const base = this.state && typeof this.state === "object"
+      ? (this.state.buyer || this.state)
+      : {};
+    const storedAddress = this.readStoredJson("checkout_address");
+    const storedName = this.readStoredValue("user_name") || "";
+    const storedFullAddress = this.readStoredValue("user_full_address") || "";
+    const rawWhole = this.readStoredValue("checkout_price_whole") || "";
+    const rawFraction = this.readStoredValue("checkout_price_fraction") || "";
+    const rawAmount = this.readStoredValue("amz_total_amount") || "";
+
+    const merged = Object.assign({}, storedAddress, base, {
+      nome: (base.nome || base.name || storedName || storedAddress.nome || "").trim(),
+      name: (base.name || base.nome || storedName || storedAddress.nome || "").trim(),
+      cpf: String(base.cpf || storedAddress.cpf || "").replace(/\D/g, ""),
+      email: String(base.email || "").trim(),
+      phone: String(base.phone || base.telefone || storedAddress.telefone || "").replace(/\D/g, ""),
+      telefone: String(base.telefone || base.phone || storedAddress.telefone || "").replace(/\D/g, ""),
+      zipCode: String(base.zipCode || base.cep || storedAddress.cep || "").replace(/\D/g, ""),
+      cep: String(base.cep || base.zipCode || storedAddress.cep || "").replace(/\D/g, ""),
+      street: String(base.street || base.rua || storedAddress.rua || "").trim(),
+      rua: String(base.rua || base.street || storedAddress.rua || "").trim(),
+      number: String(base.number || base.numero || storedAddress.numero || "").trim(),
+      numero: String(base.numero || base.number || storedAddress.numero || "").trim(),
+      complement: String(base.complement || base.complemento || storedAddress.complemento || "").trim(),
+      complemento: String(base.complemento || base.complement || storedAddress.complemento || "").trim(),
+      neighborhood: String(base.neighborhood || base.bairro || storedAddress.bairro || "").trim(),
+      bairro: String(base.bairro || base.neighborhood || storedAddress.bairro || "").trim(),
+      city: String(base.city || base.cidade || storedAddress.cidade || "").trim(),
+      cidade: String(base.cidade || base.city || storedAddress.cidade || "").trim(),
+      state: String(base.state || base.estado || storedAddress.estado || "").trim(),
+      estado: String(base.estado || base.state || storedAddress.estado || "").trim(),
+      fullAddress: String(base.fullAddress || base.full_address || storedFullAddress || storedAddress.full_address || "").trim(),
+      full_address: String(base.full_address || base.fullAddress || storedFullAddress || storedAddress.full_address || "").trim(),
+      productName: String(base.productName || base.product_name || "").trim(),
+    });
+
+    const resolvedAmountCents =
+      this.toCents(base.amountCents) ||
+      this.toCents(base.amount) ||
+      this.toCents(base.totalAmount) ||
+      this.toCents(`${rawWhole},${rawFraction}`) ||
+      this.toCents(rawAmount);
+
+    merged.amountCents = resolvedAmountCents;
+    merged.amount = resolvedAmountCents / 100;
+    merged.totalAmount = resolvedAmountCents / 100;
+
+    return merged;
+  }
+
+  resolveItems(amountCents, buyer) {
+    const title =
+      (buyer && buyer.productName) ||
+      (this.state && (this.state.productName || this.state.product_name)) ||
+      "Drone Profissional 4K Amazon";
+
+    return [
+      {
+        title,
+        unitPrice: amountCents,
+        quantity: 1,
+        tangible: true,
+      },
+    ];
+  }
+
   async init() {
-    this.state = await window.__amzBridge.getState();
+    const bridge = window.__amzBridge;
+
+    if (bridge && bridge.init) {
+      this.state = await bridge.init(this.config.pageId);
+    } else if (bridge && bridge.getState) {
+      this.state = await bridge.getState();
+    }
 
     if (!this.state || !this.state.attribution_id) {
       this.showError("Não foi possível carregar os dados do pedido.");
@@ -73,12 +205,18 @@ class PixUIManager {
 
   async createTransaction() {
     try {
+      const buyer = this.buildBuyerPayload();
       const amountCents =
+        this.toCents(buyer.amountCents) ||
         this.toCents(this.state.amountCents) ||
         this.toCents(this.state.amount) ||
         this.toCents(this.state.totalAmount) ||
-        13850;
-      const buyer = this.state.buyer || this.state;
+        0;
+
+      if (!amountCents || !buyer.name || !buyer.cpf) {
+        this.showError("Dados do cliente incompletos para gerar o PIX.");
+        return;
+      }
 
       const response = await fetch(this.config.createUrl, {
         method: "POST",
@@ -86,16 +224,25 @@ class PixUIManager {
         body: JSON.stringify({
           attributionId: this.state.attribution_id,
           sessionId: this.state.session_id,
+          pageId: this.config.pageId,
           amount: amountCents,
           buyer,
+          items: this.resolveItems(amountCents, buyer),
+          landingPage: this.state.landing_page || this.state.landingPage || "",
+          pageUrl: window.location.href,
         }),
       });
 
       const result = await response.json();
       if (result.ok && result.transaction) {
         this.transaction = result.transaction;
+        if (result.state) {
+          this.state = result.state;
+        }
         this.renderUI(result.transaction);
-        this.startPolling(result.transaction.id);
+        if (result.transaction.id) {
+          this.startPolling(result.transaction.id);
+        }
       } else {
         this.showError("Erro ao gerar PIX: " + (result.message || "Erro desconhecido"));
       }
@@ -137,7 +284,7 @@ class PixUIManager {
   }
 
   startPolling(txId) {
-    if (this.statusInterval) return;
+    if (this.statusInterval || !txId) return;
     this.statusInterval = setInterval(() => this.checkStatus(txId), this.config.pollInterval);
   }
 
@@ -150,26 +297,43 @@ class PixUIManager {
 
   renderUI(transaction) {
     const pixCode = this.extractPixCode(transaction);
-    if (!pixCode) {
-      this.showError("Código PIX não recebido do servidor.");
+    const qrImage = this.extractPixQrImage(transaction);
+    if (!pixCode && !qrImage) {
+      this.showError("Código PIX não recebido da TitansHub.");
       return;
     }
 
-    const qrContainer = document.getElementById("pix-qrcode-container");
-    if (qrContainer && window.QRCode) {
-      qrContainer.innerHTML = "";
-      new QRCode(qrContainer, {
-        text: pixCode,
-        width: 200,
-        height: 200,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H,
-      });
+    if (pixCode) {
+      sessionStorage.setItem("checkout_pix_code", pixCode);
+    }
 
-      const image = qrContainer.querySelector("img");
-      if (image) {
+    const qrContainer = document.getElementById("pix-qrcode-container");
+    if (qrContainer) {
+      qrContainer.innerHTML = "";
+
+      if (qrImage) {
+        const image = document.createElement("img");
+        image.src = qrImage;
+        image.alt = "QR Code PIX";
+        image.style.width = "200px";
+        image.style.height = "200px";
+        image.style.objectFit = "contain";
         image.style.margin = "auto";
+        qrContainer.appendChild(image);
+      } else if (pixCode && window.QRCode) {
+        new QRCode(qrContainer, {
+          text: pixCode,
+          width: 200,
+          height: 200,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+
+        const image = qrContainer.querySelector("img");
+        if (image) {
+          image.style.margin = "auto";
+        }
       }
     }
 
@@ -208,6 +372,11 @@ class PixUIManager {
   }
 
   copyToClipboard(text, button) {
+    if (!text) {
+      alert("Código PIX indisponível no momento.");
+      return;
+    }
+
     const originalText = button.textContent;
     navigator.clipboard
       .writeText(text)
