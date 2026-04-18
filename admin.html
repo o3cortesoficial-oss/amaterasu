@@ -983,9 +983,9 @@
           <div class="amz-card widget-box">
             <span class="widget-sub">ALERTAS DE CLONAGEM</span>
             <span class="widget-val" id="heroPushcutText">0</span>
-            <span class="dashboard-card-note">DomÃ­nios suspeitos detectados</span>
+            <span class="dashboard-card-note">Domínios suspeitos detectados</span>
             <div class="dashboard-inline-list" id="cloneAlertsLinks">
-              <span class="dashboard-card-note">Nenhum domÃ­nio suspeito encontrado.</span>
+              <span class="dashboard-card-note">Nenhum domínio suspeito encontrado.</span>
             </div>
           </div>
         </div>
@@ -1810,11 +1810,11 @@
       function formatDashboardFilterSummary(filters = {}) {
         const parts = [formatDashboardOriginLabel(filters.origin || 'all')];
         if (filters.dateFrom && filters.dateTo) {
-          parts.push(`${filters.dateFrom} atÃ© ${filters.dateTo}`);
+          parts.push(`${filters.dateFrom} até ${filters.dateTo}`);
         } else if (filters.dateFrom) {
           parts.push(`desde ${filters.dateFrom}`);
         } else if (filters.dateTo) {
-          parts.push(`atÃ© ${filters.dateTo}`);
+          parts.push(`até ${filters.dateTo}`);
         } else {
           parts.push('todo o perÃ­odo');
         }
@@ -1840,7 +1840,7 @@
 
         const rows = Array.isArray(cloneAlerts.rows) ? cloneAlerts.rows : [];
         if (!rows.length) {
-          listEl.innerHTML = '<span class="dashboard-card-note">Nenhum domÃ­nio suspeito encontrado.</span>';
+          listEl.innerHTML = '<span class="dashboard-card-note">Nenhum domínio suspeito encontrado.</span>';
           return;
         }
 
@@ -1858,7 +1858,7 @@ function buildPendingPixCardHtml(stats = {}) {
             <span class="widget-val">${formatMoney(stats.totalVolume || 0)}</span>
           </div>
           <div class="amz-card widget-box">
-            <span class="widget-sub">PIX GERADOS NÃƒO PAGOS</span>
+            <span class="widget-sub">PIX GERADOS NÃO PAGOS</span>
             <span class="widget-val">${formatMoney(stats.pendingAmount || 0)}</span>
           </div>
         `;
