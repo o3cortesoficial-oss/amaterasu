@@ -517,11 +517,56 @@
         padding-top: 16px;
         border-top: 1px solid #f1f2f2;
       }
+      .pedidos-page {
+        padding: 18px 18px 8px;
+      }
+      .pedidos-page .pedidos-header {
+        margin-bottom: 16px !important;
+      }
+      .pedidos-page .pedidos-header h1 {
+        line-height: 1.2;
+      }
+      .pedidos-page .pedidos-table-card {
+        padding: 22px;
+        margin-bottom: 16px;
+      }
+      .pedidos-page .pedidos-table-card .amz-card-title {
+        margin-bottom: 18px;
+        padding-bottom: 8px;
+      }
+      .pedidos-page .pedidos-table-wrap {
+        margin: 0 -2px;
+      }
+      .pedidos-page #detailedOrdersTable th,
+      .pedidos-page #detailedOrdersTable td {
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      .pedidos-page .pedidos-pagination {
+        margin-top: 16px !important;
+        padding-top: 12px !important;
+      }
       @media (max-width: 768px) {
         .notificacoes-page .pushcut-item-header,
         .notificacoes-page .pushcut-item-footer {
           align-items: flex-start;
           flex-direction: column;
+        }
+        .pedidos-page {
+          padding: 18px 16px 8px;
+        }
+        .pedidos-page .pedidos-header {
+          gap: 10px;
+          align-items: flex-start !important;
+          flex-direction: column;
+        }
+        .pedidos-page .pedidos-table-card {
+          padding: 20px;
+        }
+        .pedidos-page .pedidos-pagination {
+          align-items: flex-start !important;
+          flex-direction: column;
+          gap: 10px;
         }
       }
       @keyframes fade-in {
@@ -1036,27 +1081,27 @@
       </section>
 
       <!-- Detailed Orders Section -->
-      <section id="ordersSection" class="section">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
-          <h1 style="font-size: 24px;">Pedidos Detalhados</h1>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <label style="font-size: 13px; font-weight: 700;">Filtrar por:</label>
-            <select id="ordersPlatformFilter" class="amz-btn" style="height: 31px; width: 150px; padding: 0 10px;" onchange="changeOrderFilter()">
-              <option value="">Todas as Vendas</option>
+      <section id="ordersSection" class="section pedidos-page">
+          <div class="pedidos-header" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+            <h1 style="font-size: 24px;">Pedidos Detalhados</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <label style="font-size: 13px; font-weight: 700;">Filtrar por:</label>
+              <select id="ordersPlatformFilter" class="amz-btn" style="height: 31px; width: 150px; padding: 0 10px;" onchange="changeOrderFilter()">
+                <option value="">Todas as Vendas</option>
               <option value="amazon_drone">Amazon (Drone)</option>
               <option value="shopee">Shopee (Outras)</option>
             </select>
           </div>
         </div>
 
-        <div class="amz-card">
-          <div class="amz-card-title">Listagem de Transações</div>
-          <div style="overflow-x: auto;">
-            <table id="detailedOrdersTable">
-              <thead>
-                <tr>
-                  <th>Data/Hora</th>
-                  <th>Cliente</th>
+          <div class="amz-card pedidos-table-card">
+            <div class="amz-card-title">Listagem de Transações</div>
+            <div class="pedidos-table-wrap" style="overflow-x: auto;">
+              <table id="detailedOrdersTable">
+                <thead>
+                  <tr>
+                    <th>Data/Hora</th>
+                    <th>Cliente</th>
                   <th>Produto</th>
                   <th>Plataforma</th>
                   <th>Valor</th>
@@ -1070,11 +1115,11 @@
             </table>
           </div>
           
-          <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
-            <div style="font-size: 13px; color: var(--amz-muted);" id="ordersPaginationInfo"> Mostrando 0 de 0 pedidos </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="amz-btn" id="btn-orders-prev" onclick="changeOrderPage(-1)" disabled>Anterior</button>
-              <button class="amz-btn" id="btn-orders-next" onclick="changeOrderPage(1)" disabled>Próxima</button>
+            <div class="pedidos-pagination" style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
+              <div style="font-size: 13px; color: var(--amz-muted);" id="ordersPaginationInfo"> Mostrando 0 de 0 pedidos </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="amz-btn" id="btn-orders-prev" onclick="changeOrderPage(-1)" disabled>Anterior</button>
+                <button class="amz-btn" id="btn-orders-next" onclick="changeOrderPage(1)" disabled>Próxima</button>
             </div>
           </div>
         </div>
