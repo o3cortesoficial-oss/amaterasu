@@ -1057,17 +1057,6 @@
 
     <!-- Scripts Logic -->
     <script>
-      // Navigation Handler (Amazon Style)
-      (function() {
-        const sections = document.querySelectorAll('.section');
-        const navLinks = document.querySelectorAll('.nav-link');
-
-        function router() {
-          const hash = window.location.hash || '#dashboardSection';
-        window.addEventListener('hashchange', updateNav);
-        updateNav();
-      })();
-
       // Modal Handlers
       window.openGatewayModal = function(id) {
         document.getElementById(id).classList.add('active');
