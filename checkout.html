@@ -404,6 +404,7 @@
 @keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
 </style>
 
+<script src="meta-attribution.js"></script>
 <script>
     // 1. Dynamic Price & Image Inheritance
     const urlParams = new URLSearchParams(window.location.search);
@@ -480,31 +481,56 @@
 
     // Titans Analytics & Attribution
     let attributionId = storage.get('amz_attribution_id');
-    const sessionId = storage.get('amz_session_id') || ('sess_' + Math.random().toString(36).substr(2, 9));
+    let sessionId = storage.get('amz_session_id') || ('sess_' + Math.random().toString(36).substr(2, 9));
+    let presenceId = sessionId;
     storage.set('amz_session_id', sessionId);
+
+    function getMetaTracker() {
+        return window.__amzMetaAttribution || null;
+    }
+
+    function getAttributionSnapshot() {
+        const tracker = getMetaTracker();
+        if (tracker && typeof tracker.getSnapshot === 'function') {
+            return tracker.getSnapshot() || null;
+        }
+        return null;
+    }
     
     async function initAttribution() {
-        if (!attributionId) {
+        const tracker = getMetaTracker();
+
+        if (tracker && typeof tracker.syncAttribution === 'function') {
             try {
-                const res = await fetch('/api/analytics/attribution', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: window.location.href,
-                        referrer: document.referrer,
-                        userAgent: navigator.userAgent
-                    })
-                });
-                const data = await res.json();
-                if (data.attributionId) {
-                    attributionId = data.attributionId;
-                    storage.set('amz_attribution_id', attributionId);
-                }
+                await tracker.syncAttribution('checkout_unified');
             } catch (e) {
-                console.error('Attribution error:', e);
-                attributionId = 'manual_' + Date.now();
+                console.error('Attribution sync error:', e);
+            }
+        }
+
+        const snapshot = getAttributionSnapshot();
+        if (snapshot) {
+            if (snapshot.attributionId) {
+                attributionId = snapshot.attributionId;
                 storage.set('amz_attribution_id', attributionId);
             }
+            if (snapshot.sessionId) {
+                sessionId = snapshot.sessionId;
+                storage.set('amz_session_id', sessionId);
+            }
+        } else if (!attributionId) {
+            attributionId = 'manual_' + Date.now();
+            storage.set('amz_attribution_id', attributionId);
+        }
+
+        if (tracker && typeof tracker.getPresenceId === 'function') {
+            try {
+                presenceId = tracker.getPresenceId('checkout_unified') || sessionId;
+            } catch (error) {
+                presenceId = sessionId;
+            }
+        } else {
+            presenceId = sessionId;
         }
         
         // Ping for analytics
@@ -515,7 +541,7 @@
                 pageId: 'checkout_unified',
                 stageId: 'checkout_unified',
                 sessionId,
-                presenceId: sessionId,
+                presenceId,
                 attributionId,
                 currentPage: 'checkout_unified'
             })
@@ -557,7 +583,7 @@
                 pageId: 'checkout_unified',
                 stageId,
                 sessionId,
-                presenceId: sessionId,
+                presenceId,
                 attributionId,
                 currentPage: 'checkout_unified'
             })
@@ -657,6 +683,7 @@
 
         markFilledStages();
         overlay.style.display = 'flex';
+        const attributionSnapshot = getAttributionSnapshot();
 
         const buyerName = document.getElementById('full-name').value.trim();
         const buyerEmail = document.getElementById('email').value.trim();
@@ -718,7 +745,10 @@
                     items: [{ title: productName, unitPrice: amountValue, quantity: 1, tangible: true }],
                     pageId: 'checkout_unified',
                     origin: 'amazon_drone',
-                    landingPage: document.referrer || '',
+                    landingPage: (attributionSnapshot && attributionSnapshot.entryPage) || document.referrer || window.location.href,
+                    firstTouch: attributionSnapshot ? attributionSnapshot.firstTouch : null,
+                    lastTouch: attributionSnapshot ? attributionSnapshot.lastTouch : null,
+                    capturedAt: new Date().toISOString(),
                     pageUrl: window.location.href
                 })
             });
