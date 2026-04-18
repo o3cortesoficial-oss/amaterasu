@@ -769,12 +769,10 @@
       .order-receipt-preview {
         margin-bottom: 18px;
       }
-      .order-receipt-frame {
-        width: 100%;
-        min-height: 420px;
-        border: 1px solid #e3e6e6;
-        border-radius: 10px;
-        background: #fff;
+      .order-receipt-note {
+        font-size: 13px;
+        color: #565959;
+        line-height: 1.6;
       }
       .order-raw-box {
         background: #0f1111;
@@ -1098,7 +1096,7 @@
     <div id="orderDetailsModal" class="modal-overlay order-details-modal">
       <div class="modal-container">
         <div class="modal-header">
-          <h2>Detalhes da transaÃ§Ã£o</h2>
+          <h2>Detalhes da transa&ccedil;&atilde;o</h2>
           <button class="close-modal" onclick="closeGatewayModal()">&times;</button>
         </div>
         <div class="modal-body" id="orderDetailsContent">
@@ -1985,7 +1983,10 @@
           ${receiptPreviewUrl ? `
             <div class="order-detail-card order-receipt-preview">
               <h3>Comprovante / prova visual da transação</h3>
-              <iframe src="${escapeHtml(receiptPreviewUrl)}" class="order-receipt-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
+              <div class="order-receipt-note">
+                A visualização embutida desta URL foi desativada porque a página externa pode bloquear abertura em iframe.
+                Use os botões acima para abrir o comprovante real ou a URL segura da transação em nova aba, sem interferência do painel.
+              </div>
             </div>
           ` : ''}
 
