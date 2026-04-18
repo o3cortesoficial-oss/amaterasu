@@ -715,6 +715,79 @@
         background: none;
         border: none;
       }
+      .order-details-modal .modal-container {
+        max-width: 980px;
+        max-height: calc(100vh - 40px);
+        display: flex;
+        flex-direction: column;
+      }
+      .order-details-modal .modal-body {
+        overflow-y: auto;
+      }
+      .order-details-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .order-detail-card {
+        background: #fcfcfc;
+        border: 1px solid #eceeee;
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .order-detail-card h3 {
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      .order-detail-line {
+        font-size: 13px;
+        color: var(--amz-text);
+        line-height: 1.5;
+        margin-bottom: 4px;
+        word-break: break-word;
+      }
+      .order-detail-line strong {
+        color: #565959;
+      }
+      .order-items-list {
+        display: grid;
+        gap: 10px;
+      }
+      .order-item-box {
+        background: #fcfcfc;
+        border: 1px solid #eceeee;
+        border-radius: 10px;
+        padding: 12px 14px;
+      }
+      .order-proof-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+      .order-receipt-preview {
+        margin-bottom: 18px;
+      }
+      .order-receipt-frame {
+        width: 100%;
+        min-height: 420px;
+        border: 1px solid #e3e6e6;
+        border-radius: 10px;
+        background: #fff;
+      }
+      .order-raw-box {
+        background: #0f1111;
+        color: #f3f3f3;
+        border-radius: 10px;
+        padding: 14px;
+        overflow: auto;
+        max-height: 320px;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
 
       /* Tracking Tabs */
       .tabs-nav {
@@ -1022,6 +1095,21 @@
       </div>
     </div>
 
+    <div id="orderDetailsModal" class="modal-overlay order-details-modal">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>Detalhes da transaÃ§Ã£o</h2>
+          <button class="close-modal" onclick="closeGatewayModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="orderDetailsContent">
+          <div style="font-size: 13px; color: #565959;">Selecione um pedido para ver os detalhes.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="amz-btn" onclick="closeGatewayModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+
       <!-- Pixels Section -->
       <section id="pixelsSection" class="section trackeamento-page">
         <div class="trackeamento-header">
@@ -1219,6 +1307,35 @@
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#39;');
+      }
+
+      function formatDocument(value) {
+        const digits = String(value || '').replace(/\D/g, '');
+        if (digits.length === 11) {
+          return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        }
+        return value || '-';
+      }
+
+      function formatAddress(address = {}) {
+        const parts = [
+          [address.street, address.streetNumber].filter(Boolean).join(', '),
+          address.complement,
+          address.neighborhood,
+          [address.city, address.state].filter(Boolean).join(' - '),
+          address.zipCode,
+          address.country
+        ].filter(Boolean);
+
+        return parts.length ? parts.join(' | ') : '-';
+      }
+
+      function formatJson(value) {
+        try {
+          return JSON.stringify(value ?? {}, null, 2);
+        } catch (error) {
+          return String(value ?? '');
+        }
       }
 
       const TRAFFIC_CARD_DEFS = [
@@ -1775,12 +1892,14 @@
       // --- Detailed Orders Management ---
       let currentOrdersPage = 1;
       let currentOrdersFilter = '';
+      let currentDetailedOrdersMap = new Map();
 
       async function fetchDetailedOrders(page) {
         const tbody = document.querySelector('#detailedOrdersTable tbody');
         if (!tbody) return;
 
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">Carregando pedidos...</td></tr>';
+        currentDetailedOrdersMap = new Map();
 
         try {
           const url = `/api/admin/detailed-orders?page=${page}&limit=50` + (currentOrdersFilter ? `&origin=${currentOrdersFilter}` : '');
@@ -1794,9 +1913,10 @@
 
           tbody.innerHTML = '';
           data.orders.forEach(order => {
+            currentDetailedOrdersMap.set(String(order.id), order);
             const tr = document.createElement('tr');
             const originLabel = order.origin === 'amazon_drone' ? 'Amazon' : (order.origin === 'shopee' ? 'Shopee' : 'Outro');
-            const originClass = order.origin === 'amazon_drone' ? 'badge-success' : 'badge-pending';
+            const originClass = order.origin === 'amazon_drone' ? 'badge-success' : (order.origin === 'shopee' ? 'badge-pending' : 'badge-warning');
             
             tr.innerHTML = `
               <td>${formatDate(order.date)}</td>
@@ -1838,7 +1958,98 @@
         fetchDetailedOrders(currentOrdersPage);
       };
 
-      window.viewOrderDetails = (id) => alert('ID: ' + id);
+      window.viewOrderDetails = (id) => {
+        const order = currentDetailedOrdersMap.get(String(id));
+        const content = document.getElementById('orderDetailsContent');
+        const modal = document.getElementById('orderDetailsModal');
+
+        if (!order || !content || !modal) {
+          alert('Detalhes da transação indisponíveis no momento.');
+          return;
+        }
+
+        const details = order.details || {};
+        const customer = details.customer || {};
+        const address = customer.address || {};
+        const pix = details.pix || {};
+        const items = Array.isArray(details.items) ? details.items : [];
+        const metadata = details.metadata || {};
+        const receiptPreviewUrl = details.receiptUrl || details.secureUrl || '';
+
+        content.innerHTML = `
+          <div class="order-proof-actions">
+            ${details.receiptUrl ? `<a href="${escapeHtml(details.receiptUrl)}" target="_blank" rel="noopener noreferrer" class="amz-btn amz-btn-primary">Abrir comprovante real</a>` : `<span class="amz-badge badge-warning">Comprovante indisponível na resposta da gateway</span>`}
+            ${details.secureUrl ? `<a href="${escapeHtml(details.secureUrl)}" target="_blank" rel="noopener noreferrer" class="amz-btn">Abrir URL segura da transação</a>` : ''}
+          </div>
+
+          ${receiptPreviewUrl ? `
+            <div class="order-detail-card order-receipt-preview">
+              <h3>Comprovante / prova visual da transação</h3>
+              <iframe src="${escapeHtml(receiptPreviewUrl)}" class="order-receipt-frame" loading="lazy" referrerpolicy="no-referrer"></iframe>
+            </div>
+          ` : ''}
+
+          <div class="order-details-grid">
+            <div class="order-detail-card">
+              <h3>Prova da transação</h3>
+              <div class="order-detail-line"><strong>ID interno:</strong> ${escapeHtml(order.id || '-')}</div>
+              <div class="order-detail-line"><strong>Object ID:</strong> ${escapeHtml(details.objectId || '-')}</div>
+              <div class="order-detail-line"><strong>External Ref:</strong> ${escapeHtml(details.externalRef || '-')}</div>
+              <div class="order-detail-line"><strong>Secure ID:</strong> ${escapeHtml(details.secureId || '-')}</div>
+              <div class="order-detail-line"><strong>Status:</strong> ${escapeHtml(order.status || '-')}</div>
+              <div class="order-detail-line"><strong>Método:</strong> ${escapeHtml(details.paymentMethod || '-')}</div>
+              <div class="order-detail-line"><strong>Valor:</strong> ${formatMoney(order.amount || 0)}</div>
+              <div class="order-detail-line"><strong>Data:</strong> ${escapeHtml(formatDate(order.date))}</div>
+              <div class="order-detail-line"><strong>Pago em:</strong> ${escapeHtml(formatDate(details.paidAt))}</div>
+            </div>
+
+            <div class="order-detail-card">
+              <h3>Cliente</h3>
+              <div class="order-detail-line"><strong>Nome:</strong> ${escapeHtml(customer.name || '-')}</div>
+              <div class="order-detail-line"><strong>E-mail:</strong> ${escapeHtml(customer.email || '-')}</div>
+              <div class="order-detail-line"><strong>Telefone:</strong> ${escapeHtml(customer.phone || '-')}</div>
+              <div class="order-detail-line"><strong>Documento:</strong> ${escapeHtml(formatDocument(customer.document || ''))}</div>
+              <div class="order-detail-line"><strong>Endereço:</strong> ${escapeHtml(formatAddress(address))}</div>
+            </div>
+
+            <div class="order-detail-card">
+              <h3>PIX / comprovante</h3>
+              <div class="order-detail-line"><strong>Receipt URL:</strong> ${escapeHtml(details.receiptUrl || '-')}</div>
+              <div class="order-detail-line"><strong>Secure URL:</strong> ${escapeHtml(details.secureUrl || '-')}</div>
+              <div class="order-detail-line"><strong>End2End:</strong> ${escapeHtml(pix.end2EndId || '-')}</div>
+              <div class="order-detail-line"><strong>Expiração:</strong> ${escapeHtml(pix.expirationDate || '-')}</div>
+              <div class="order-detail-line"><strong>Origem:</strong> ${escapeHtml(order.origin || '-')}</div>
+              <div class="order-detail-line"><strong>Produto principal:</strong> ${escapeHtml(order.product || '-')}</div>
+            </div>
+          </div>
+
+          <div class="order-detail-card" style="margin-bottom: 18px;">
+            <h3>Itens enviados para a gateway</h3>
+            <div class="order-items-list">
+              ${items.length ? items.map(item => `
+                <div class="order-item-box">
+                  <div class="order-detail-line"><strong>Título:</strong> ${escapeHtml(item.title || '-')}</div>
+                  <div class="order-detail-line"><strong>Quantidade:</strong> ${escapeHtml(String(item.quantity || 1))}</div>
+                  <div class="order-detail-line"><strong>Valor unitário:</strong> ${formatMoney(item.unitPrice || 0)}</div>
+                  <div class="order-detail-line"><strong>Físico:</strong> ${item.tangible === false ? 'Não' : 'Sim'}</div>
+                </div>
+              `).join('') : '<div class="order-detail-line">Nenhum item detalhado retornado.</div>'}
+            </div>
+          </div>
+
+          <div class="order-detail-card" style="margin-bottom: 18px;">
+            <h3>Metadata da transação</h3>
+            <div class="order-raw-box">${escapeHtml(formatJson(metadata))}</div>
+          </div>
+
+          <div class="order-detail-card">
+            <h3>Payload bruto da gateway</h3>
+            <div class="order-raw-box">${escapeHtml(formatJson(details.raw || {}))}</div>
+          </div>
+        `;
+
+        modal.classList.add('active');
+      };
 
       // --- Initialization ---
       ensureTrafficGridCards();

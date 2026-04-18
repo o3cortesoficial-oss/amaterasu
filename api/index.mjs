@@ -1907,12 +1907,38 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
   const productTitle =
     pickFirstFilled(titles[0], getNestedValue(normalized, "raw.items.0.title")) || "Venda Externa";
   const rawCustomer = ensurePlainObject(record?.customer || normalized.raw?.customer);
+  const rawAddress = ensurePlainObject(rawCustomer?.address || normalized.raw?.customer?.address);
   const customerDocument = pickFirstFilled(
     rawCustomer?.document?.number,
     rawCustomer?.document,
     normalized.raw?.customer?.document?.number,
     normalized.raw?.customer?.document,
   );
+  const gatewayReceiptUrl = pickFirstFilled(
+    getNestedValue(normalized.raw, "pix.receiptUrl"),
+    getNestedValue(normalized.raw, "pix.receipt_url"),
+    getNestedValue(normalized.raw, "receiptUrl"),
+    getNestedValue(normalized.raw, "receipt_url"),
+  );
+  const pixData = ensurePlainObject(normalized.raw?.pix);
+  const metadataRaw = getNestedValue(normalized.raw, "metadata");
+  const metadata =
+    typeof metadataRaw === "string"
+      ? (() => {
+          try {
+            return JSON.parse(metadataRaw);
+          } catch {
+            return { raw: metadataRaw };
+          }
+        })()
+      : ensurePlainObject(metadataRaw);
+  const items = (Array.isArray(record?.items) ? record.items : Array.isArray(normalized.raw?.items) ? normalized.raw.items : [])
+    .map((item) => ({
+      title: normalizeText(item?.title || item?.name || item?.productName) || "Item",
+      quantity: Math.max(1, Number(item?.quantity || 1) || 1),
+      unitPrice: amountToCents(item?.unitPrice || item?.unit_price || 0),
+      tangible: item?.tangible !== false,
+    }));
 
   return {
     id: pickFirstFilled(
@@ -1932,12 +1958,65 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     status: normalized.status,
     origin: resolveOrderOriginFromTitles(titles, fallbackOrigin),
     product: productTitle,
-    receipt_url: pickFirstFilled(
-      getNestedValue(normalized.raw, "pix.receiptUrl"),
-      getNestedValue(normalized.raw, "pix.receipt_url"),
-      getNestedValue(normalized.raw, "receiptUrl"),
-      getNestedValue(normalized.raw, "receipt_url"),
-    ),
+    receipt_url: gatewayReceiptUrl,
+    details: {
+      transactionId: normalized.id,
+      objectId: normalized.objectId,
+      externalRef: normalized.externalRef,
+      secureId: pickFirstFilled(
+        getNestedValue(normalized.raw, "secureId"),
+        getNestedValue(normalized.raw, "secure_id"),
+      ),
+      secureUrl: pickFirstFilled(
+        getNestedValue(normalized.raw, "secureUrl"),
+        getNestedValue(normalized.raw, "secure_url"),
+      ),
+      createdAt: normalized.createdAt,
+      updatedAt: normalizeIsoTimestamp(
+        getNestedValue(normalized.raw, "updatedAt") || getNestedValue(normalized.raw, "updated_at"),
+      ),
+      paidAt: normalizeIsoTimestamp(
+        getNestedValue(normalized.raw, "paidAt") || getNestedValue(normalized.raw, "paid_at"),
+      ),
+      paymentMethod: normalized.paymentMethod,
+      paidAmount: normalized.paidAmount,
+      refundedAmount: normalized.refundedAmount,
+      receiptUrl: gatewayReceiptUrl,
+      pix: {
+        qrcode: pickFirstFilled(
+          getNestedValue(pixData, "qrcode"),
+          getNestedValue(pixData, "qrCode"),
+        ),
+        receiptUrl: gatewayReceiptUrl,
+        end2EndId: pickFirstFilled(
+          getNestedValue(pixData, "end2EndId"),
+          getNestedValue(pixData, "endToEndId"),
+        ),
+        expirationDate: pickFirstFilled(
+          getNestedValue(pixData, "expirationDate"),
+          getNestedValue(pixData, "expiration_date"),
+        ),
+      },
+      customer: {
+        name: normalizeText(rawCustomer?.name),
+        email: normalizeText(rawCustomer?.email),
+        phone: normalizeText(rawCustomer?.phone),
+        document: normalizeDigits(customerDocument),
+        address: {
+          street: normalizeText(rawAddress?.street),
+          streetNumber: normalizeText(rawAddress?.streetNumber || rawAddress?.street_number),
+          complement: normalizeText(rawAddress?.complement),
+          neighborhood: normalizeText(rawAddress?.neighborhood),
+          city: normalizeText(rawAddress?.city),
+          state: normalizeText(rawAddress?.state),
+          zipCode: normalizeDigits(rawAddress?.zipCode || rawAddress?.zip_code),
+          country: normalizeText(rawAddress?.country),
+        },
+      },
+      items,
+      metadata,
+      raw: normalized.raw,
+    },
   };
 }
 
