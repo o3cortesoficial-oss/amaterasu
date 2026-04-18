@@ -511,10 +511,81 @@
         fetch('/api/analytics/ping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pageId: 'checkout_unified', sessionId, attributionId })
-        });
+            body: JSON.stringify({
+                pageId: 'checkout_unified',
+                stageId: 'checkout_unified',
+                sessionId,
+                presenceId: sessionId,
+                attributionId,
+                currentPage: 'checkout_unified'
+            })
+        }).catch((error) => console.error('Analytics ping error:', error));
     }
     initAttribution();
+
+    const FIELD_STAGE_MAP = {
+        'full-name': 'checkout_name',
+        'cpf': 'checkout_cpf',
+        'email': 'checkout_email',
+        'phone': 'checkout_phone',
+        'cep': 'checkout_cep',
+        'address': 'checkout_street',
+        'number': 'checkout_number',
+        'complement': 'checkout_complement',
+        'neighborhood': 'checkout_neighborhood',
+        'city': 'checkout_city',
+        'state': 'checkout_state'
+    };
+
+    async function markCheckoutStage(stageId) {
+        if (!stageId) return;
+
+        const touchedKey = `checkout_stage_${stageId}`;
+        if (storage.get(touchedKey) === '1') {
+            return;
+        }
+
+        if (!attributionId) {
+            await initAttribution();
+        }
+
+        storage.set(touchedKey, '1');
+        fetch('/api/analytics/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageId: 'checkout_unified',
+                stageId,
+                sessionId,
+                presenceId: sessionId,
+                attributionId,
+                currentPage: 'checkout_unified'
+            })
+        }).catch((error) => console.error('Stage ping error:', error));
+    }
+
+    function watchCheckoutField(fieldId, stageId) {
+        const element = document.getElementById(fieldId);
+        if (!element || !stageId) return;
+
+        const evaluateField = () => {
+            if (String(element.value || '').trim()) {
+                markCheckoutStage(stageId);
+            }
+        };
+
+        element.addEventListener('blur', evaluateField);
+        element.addEventListener('change', evaluateField);
+    }
+
+    function markFilledStages() {
+        Object.entries(FIELD_STAGE_MAP).forEach(([fieldId, stageId]) => {
+            const element = document.getElementById(fieldId);
+            if (element && String(element.value || '').trim()) {
+                markCheckoutStage(stageId);
+            }
+        });
+    }
 
     // 2. Input Masking
     const mask = (id, fn) => {
@@ -532,6 +603,7 @@
     mask('cpf', cpfMask);
     mask('cep', cepMask);
     mask('phone', phoneMask);
+    Object.entries(FIELD_STAGE_MAP).forEach(([fieldId, stageId]) => watchCheckoutField(fieldId, stageId));
 
     // 3. ViaCEP Autocomplete
     document.getElementById('cep').addEventListener('blur', function() {
@@ -545,6 +617,11 @@
                         document.getElementById('neighborhood').value = data.bairro;
                         document.getElementById('city').value = data.localidade;
                         document.getElementById('state').value = data.uf;
+                        markCheckoutStage('checkout_cep');
+                        if (data.logradouro) markCheckoutStage('checkout_street');
+                        if (data.bairro) markCheckoutStage('checkout_neighborhood');
+                        if (data.localidade) markCheckoutStage('checkout_city');
+                        if (data.uf) markCheckoutStage('checkout_state');
                         document.getElementById('number').focus();
                     }
                 });
@@ -578,6 +655,7 @@
             await initAttribution();
         }
 
+        markFilledStages();
         overlay.style.display = 'flex';
 
         const buyerName = document.getElementById('full-name').value.trim();
@@ -656,6 +734,7 @@
                 document.getElementById('pix-qr').src = qrUrl;
                 document.getElementById('pix-code').innerText = pixCode;
                 document.getElementById('pix-container').style.display = 'flex';
+                markCheckoutStage('checkout_pix_generated');
                 storage.set('checkout_pix_code', pixCode);
                 if (data.transaction.id) {
                     storage.set('checkout_transaction_id', data.transaction.id);

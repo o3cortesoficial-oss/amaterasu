@@ -1125,6 +1125,37 @@
           .replace(/'/g, '&#39;');
       }
 
+      const TRAFFIC_CARD_DEFS = [
+        { page: 'landing', label: 'PÁGINA DO PRODUTO' },
+        { page: 'checkout_unified', label: 'CHECKOUT ABERTO' },
+        { page: 'checkout_name', label: 'NOME PREENCHIDO' },
+        { page: 'checkout_cpf', label: 'CPF PREENCHIDO' },
+        { page: 'checkout_email', label: 'E-MAIL PREENCHIDO' },
+        { page: 'checkout_phone', label: 'CELULAR PREENCHIDO' },
+        { page: 'checkout_cep', label: 'CEP PREENCHIDO' },
+        { page: 'checkout_street', label: 'ENDEREÇO PREENCHIDO' },
+        { page: 'checkout_number', label: 'NÚMERO PREENCHIDO' },
+        { page: 'checkout_complement', label: 'COMPLEMENTO' },
+        { page: 'checkout_neighborhood', label: 'BAIRRO PREENCHIDO' },
+        { page: 'checkout_city', label: 'CIDADE PREENCHIDA' },
+        { page: 'checkout_state', label: 'ESTADO SELECIONADO' },
+        { page: 'checkout_pix_generated', label: 'PIX GERADO' }
+      ];
+
+      function ensureTrafficGridCards() {
+        const grid = document.getElementById('trafficGrid');
+        if (!grid) return;
+
+        grid.innerHTML = TRAFFIC_CARD_DEFS.map(item => `
+          <div class="traffic-item" data-page="${item.page}">
+            <span class="live-pulse"></span>
+            <span style="font-size: 11px; font-weight: 700; color: #555;">${item.label}</span>
+            <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
+            <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
+          </div>
+        `).join('');
+      }
+
       // Tracking Helpers
       window.switchTab = function(e, tabId) {
         const container = e.target.closest('.amz-card');
@@ -1532,10 +1563,10 @@
 
           // Analytics
           if (data.analytics) {
+            ensureTrafficGridCards();
             document.getElementById('totalActiveTitle').textContent = data.analytics.totalActive + ' Usuários Ativos';
-            const pages = ['landing', 'checkout_1', 'checkout_2', 'checkout_3', 'checkout_4', 'checkout_5'];
-            pages.forEach(pid => {
-              const item = document.querySelector(`.traffic-item[data-page="${pid}"]`);
+            document.querySelectorAll('.traffic-item[data-page]').forEach(item => {
+              const pid = item.dataset.page;
               if (item) {
                 const active = data.analytics.active[pid] || 0;
                 const cum = data.analytics.cumulative[pid] || 0;
@@ -1754,6 +1785,7 @@
       });
 
       // Init Load
+      ensureTrafficGridCards();
       refreshDashboard();
       syncDashboardAutoRefresh();
     </script>

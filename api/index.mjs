@@ -60,6 +60,23 @@ const REFUND_STATUSES = new Set([
   "canceled",
 ]);
 
+const TRAFFIC_ANALYTICS_PAGE_IDS = [
+  "landing",
+  "checkout_unified",
+  "checkout_name",
+  "checkout_cpf",
+  "checkout_email",
+  "checkout_phone",
+  "checkout_cep",
+  "checkout_street",
+  "checkout_number",
+  "checkout_complement",
+  "checkout_neighborhood",
+  "checkout_city",
+  "checkout_state",
+  "checkout_pix_generated",
+];
+
 const memoryStore = {
   config: null,
   attributionSessions: new Map(),
@@ -84,6 +101,7 @@ function readPingPayload(req, url, body) {
   if (req.method === "GET") {
     return {
       pageId: url.searchParams.get("pageId") || "",
+      stageId: url.searchParams.get("stageId") || "",
       sessionId: url.searchParams.get("sessionId") || "",
       presenceId: url.searchParams.get("presenceId") || "",
       attributionId: url.searchParams.get("attributionId") || "",
@@ -1506,15 +1524,16 @@ async function touchSessionPresence(payload) {
   const attributionId = normalizeText(payload?.attributionId);
   const sessionId = normalizeText(payload?.sessionId);
   const pageId = normalizeText(payload?.pageId);
+  const stageId = normalizeText(payload?.stageId);
   const presenceId = normalizeText(payload?.presenceId);
   const currentPage = normalizeText(payload?.currentPage);
-  const now = new Date().toISOString();
+  const trackedPageId = stageId || pageId;
 
   if (!sessionId || !pageId) {
     return null;
   }
 
-  await touchPagePresence(pageId, presenceId);
+  await touchPagePresence(trackedPageId, presenceId);
 
   const current =
     (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
@@ -2105,17 +2124,11 @@ function buildSalesStats(transactions) {
 }
 
 async function buildAnalyticsStats() {
-  const pageIds = [
-    "landing",
-    "checkout_1",
-    "checkout_2",
-    "checkout_3",
-    "checkout_4",
-    "checkout_5",
-  ];
-
+  const pageIds = TRAFFIC_ANALYTICS_PAGE_IDS;
   const cumulative = Object.fromEntries(pageIds.map((pageId) => [pageId, 0]));
   const active = Object.fromEntries(pageIds.map((pageId) => [pageId, 0]));
+  const presenceTotals = Object.fromEntries(pageIds.map((pageId) => [pageId, 0]));
+  const uniqueActivePresenceIds = new Set();
 
   const viewStats = await loadViewStats();
   viewStats.forEach((row) => {
@@ -2136,14 +2149,25 @@ async function buildAnalyticsStats() {
       return;
     }
 
+    presenceTotals[parsed.pageId] = (presenceTotals[parsed.pageId] || 0) + 1;
+
     const updatedAt = new Date(row.updated_at || 0).getTime();
     if (Number.isFinite(updatedAt) && updatedAt >= cutoffTime) {
       active[parsed.pageId] = (active[parsed.pageId] || 0) + 1;
+      if (parsed.presenceId) {
+        uniqueActivePresenceIds.add(parsed.presenceId);
+      }
+    }
+  });
+
+  pageIds.forEach((pageId) => {
+    if ((presenceTotals[pageId] || 0) > (cumulative[pageId] || 0)) {
+      cumulative[pageId] = presenceTotals[pageId];
     }
   });
 
   return {
-    totalActive: Object.values(active).reduce((sum, value) => sum + value, 0),
+    totalActive: uniqueActivePresenceIds.size,
     active,
     cumulative,
   };
