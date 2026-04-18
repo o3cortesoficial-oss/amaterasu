@@ -2390,7 +2390,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "POST" && pathname === "/api/auth/login") {
       if (!hasAdminAuthConfig) {
-        return res.status(503).json({
+        return res.status(200).json({
           ok: true,
           authDisabled: true,
           message:
