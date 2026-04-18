@@ -2698,6 +2698,71 @@ export default async function handler(req, res) {
       });
     }
 
+    // --- NEW: Detailed Orders Route ---
+    if (req.method === "GET" && pathname === "/api/admin/detailed-orders") {
+      if (!isAuthenticated(req)) return res.status(401).json({ message: "Não autorizado." });
+
+      const page = Math.max(1, parseInt(url.searchParams.get("page")) || 1);
+      const limit = Math.max(1, parseInt(url.searchParams.get("limit")) || 50);
+      const offset = (page - 1) * limit;
+      const originFilter = normalizeText(url.searchParams.get("origin"));
+
+      try {
+        let events = [];
+        let totalCount = 0;
+
+        if (supabase) {
+          let dbQuery = supabase.from("webhook_events").select("*", { count: "exact" });
+          if (originFilter) dbQuery = dbQuery.filter("raw->metadata->>origin", "eq", originFilter);
+
+          const { data, count, error } = await dbQuery
+            .order("received_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+
+          if (error) throw error;
+          events = data || [];
+          totalCount = count || 0;
+        } else {
+          events = Array.from(memoryStore.webhookEvents.values())
+            .filter(e => {
+              if (!originFilter) return true;
+              const meta = typeof e.raw?.metadata === 'string' ? JSON.parse(e.raw.metadata) : (e.raw?.metadata || {});
+              return meta.origin === originFilter;
+            })
+            .sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
+          totalCount = events.length;
+          events = events.slice(offset, offset + limit);
+        }
+
+        const intents = await loadConversionIntents();
+        const enriched = events.map(ev => {
+          const raw = typeof ev.raw === 'string' ? JSON.parse(ev.raw) : (ev.raw || {});
+          const meta = typeof raw.metadata === 'string' ? JSON.parse(raw.metadata) : (raw.metadata || {});
+          const intent = intents.find(i => i.id === ev.external_ref || i.matched_event_object_id === ev.object_id);
+          
+          return {
+            id: ev.id,
+            date: ev.received_at,
+            customer: ev.customer,
+            amount: ev.amount,
+            status: ev.status,
+            origin: meta.origin || 'shopee',
+            product: intent?.buyer?.productName || meta.productName || 'Venda Externa',
+            receipt_url: raw.receipt_url || raw.data?.receipt_url || null
+          };
+        });
+
+        return res.status(200).json({
+          ok: true,
+          orders: enriched,
+          pagination: { page, limit, totalCount, totalPages: Math.ceil(totalCount / limit) }
+        });
+      } catch (error) {
+        console.error("Detailed orders error:", error);
+        return res.status(500).json({ message: "Erro ao carregar pedidos detalhados." });
+      }
+    }
+
     if (!isAuthenticated(req)) {
       return res.status(401).json({
         message: "Nao autorizado. Faca login primeiro.",

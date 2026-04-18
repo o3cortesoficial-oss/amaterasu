@@ -1723,13 +1723,11 @@
           syncDashboardAutoRefresh();
         }
 
-        window.addEventListener('hashchange', router);
-        
         // Initial route
-        window.addEventListener('DOMContentLoaded', () => {
-          ensureTrafficGridCards();
-          router(); 
-        });
+        ensureTrafficGridCards();
+        router(); 
+        
+        window.addEventListener('hashchange', router);
 
         // Expose global functions for pagination/filter
         window.changeOrderFilter = () => {
