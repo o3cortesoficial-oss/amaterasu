@@ -1914,12 +1914,6 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     normalized.raw?.customer?.document?.number,
     normalized.raw?.customer?.document,
   );
-  const gatewayReceiptUrl = pickFirstFilled(
-    getNestedValue(normalized.raw, "pix.receiptUrl"),
-    getNestedValue(normalized.raw, "pix.receipt_url"),
-    getNestedValue(normalized.raw, "receiptUrl"),
-    getNestedValue(normalized.raw, "receipt_url"),
-  );
   const pixData = ensurePlainObject(normalized.raw?.pix);
   const metadataRaw = getNestedValue(normalized.raw, "metadata");
   const metadata =
@@ -1932,6 +1926,23 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
           }
         })()
       : ensurePlainObject(metadataRaw);
+  const normalizeNavigableUrl = (value) => {
+    const text = normalizeText(value);
+    if (!text) {
+      return "";
+    }
+    if (/^https?:\/\//i.test(text)) {
+      return text;
+    }
+    if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(text)) {
+      return `https://${text}`;
+    }
+    return "";
+  };
+  const metadataCheckoutUrl = pickFirstFilled(
+    normalizeNavigableUrl(metadata?.checkout_url),
+    normalizeNavigableUrl(metadata?.checkoutUrl),
+  );
   const items = (Array.isArray(record?.items) ? record.items : Array.isArray(normalized.raw?.items) ? normalized.raw.items : [])
     .map((item) => ({
       title: normalizeText(item?.title || item?.name || item?.productName) || "Item",
@@ -1939,6 +1950,17 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
       unitPrice: amountToCents(item?.unitPrice || item?.unit_price || 0),
       tangible: item?.tangible !== false,
     }));
+  const gatewayReceiptUrl = pickFirstFilled(
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "pix.receiptUrl")),
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "pix.receipt_url")),
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "receiptUrl")),
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "receipt_url")),
+  );
+  const gatewaySecureUrl = pickFirstFilled(
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "secureUrl")),
+    normalizeNavigableUrl(getNestedValue(normalized.raw, "secure_url")),
+    metadataCheckoutUrl,
+  );
 
   return {
     id: pickFirstFilled(
@@ -1968,8 +1990,7 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
         getNestedValue(normalized.raw, "secure_id"),
       ),
       secureUrl: pickFirstFilled(
-        getNestedValue(normalized.raw, "secureUrl"),
-        getNestedValue(normalized.raw, "secure_url"),
+        gatewaySecureUrl,
       ),
       createdAt: normalized.createdAt,
       updatedAt: normalizeIsoTimestamp(
