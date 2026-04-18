@@ -722,6 +722,7 @@
         <span style="font-size: 16px;">☰</span> Dashboard Central
       </a>
       <a href="#apiSection" class="nav-link" id="nav-api">Gateway</a>
+      <a href="#ordersSection" class="nav-link" id="nav-orders">📦 Pedidos</a>
       <a href="#pixelsSection" class="nav-link" id="nav-pixels">Trackeamento</a>
       <a href="#pushcutSection" class="nav-link" id="nav-push">Notificações</a>
       <span style="margin-left: auto; font-size: 12px; opacity: 0.8;" id="generatedAtText">Sincronizando métricas...</span>
@@ -1061,18 +1062,8 @@
         const sections = document.querySelectorAll('.section');
         const navLinks = document.querySelectorAll('.nav-link');
 
-        function updateNav() {
+        function router() {
           const hash = window.location.hash || '#dashboardSection';
-          sections.forEach(s => s.classList.remove('active'));
-          navLinks.forEach(l => l.classList.remove('active'));
-
-          const activeSection = document.querySelector(hash);
-          if (activeSection) activeSection.classList.add('active');
-
-          const activeLink = document.querySelector(`[href="${hash}"]`);
-          if (activeLink) activeLink.classList.add('active');
-        }
-
         window.addEventListener('hashchange', updateNav);
         updateNav();
       })();
@@ -1709,7 +1700,165 @@
         }
       });
 
-      document.getElementById('pixelsForm').addEventListener('submit', async (e) => {
+      (function() {
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function router() {
+          const hash = window.location.hash || '#dashboardSection';
+          
+          sections.forEach(s => s.classList.remove('active'));
+          navLinks.forEach(l => l.classList.remove('active'));
+
+          const activeSection = document.querySelector(hash);
+          if (activeSection) {
+            activeSection.classList.add('active');
+          } else {
+            document.getElementById('dashboardSection').classList.add('active');
+          }
+
+          const activeLink = document.querySelector(`[href="${hash}"]`);
+          if (activeLink) {
+            activeLink.classList.add('active');
+          } else {
+            document.getElementById('nav-dash').classList.add('active');
+          }
+
+          // Trigger Page Logic
+          if (hash === '#dashboardSection' || !hash) {
+            refreshDashboard();
+          } else if (hash === '#ordersSection') {
+            fetchDetailedOrders(1);
+          }
+          
+          syncDashboardAutoRefresh();
+        }
+
+        window.addEventListener('hashchange', router);
+        
+        // Initial route
+        window.addEventListener('DOMContentLoaded', () => {
+          ensureTrafficGridCards();
+          router(); 
+        });
+
+        // Expose global functions for pagination/filter
+        window.changeOrderFilter = () => {
+          currentOrdersFilter = document.getElementById('ordersPlatformFilter').value;
+          currentOrdersPage = 1;
+          fetchDetailedOrders(1);
+        };
+
+        window.changeOrderPage = (delta) => {
+          currentOrdersPage += delta;
+          fetchDetailedOrders(currentOrdersPage);
+        };
+      })();
+
+      // --- NEW: Detailed Orders Management ---
+      let currentOrdersPage = 1;
+      let currentOrdersFilter = '';
+
+      async function fetchDetailedOrders(page) {
+        const tbody = document.querySelector('#detailedOrdersTable tbody');
+        const prevBtn = document.getElementById('btn-orders-prev');
+        const nextBtn = document.getElementById('btn-orders-next');
+        const info = document.getElementById('ordersPaginationInfo');
+
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;"><div style="display: flex; align-items:center; justify-content:center; gap:10px;"><img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.svg" width="20" style="animation: spin 1s infinite linear;"> Carregando...</div></td></tr>';
+
+        try {
+          const url = `/api/admin/detailed-orders?page=${page}&limit=50${currentOrdersFilter ? `&origin=${currentOrdersFilter}` : ''}`;
+          const data = await apiFetch(url);
+
+          if (!data.orders || data.orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Nenhum pedido encontrado.</td></tr>';
+            if (info) info.textContent = 'Mostrando 0 pedidos';
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
+            return;
+          }
+
+          tbody.innerHTML = '';
+          data.orders.forEach(order => {
+            const tr = document.createElement('tr');
+            
+            const originLabel = order.origin === 'amazon_drone' ? 'Amazon' : (order.origin === 'shopee' ? 'Shopee' : order.origin);
+            const originClass = order.origin === 'amazon_drone' ? 'badge-success' : 'badge-pending';
+
+            const customerName = order.customer?.name || 'Cliente Sem Nome';
+            const customerEmail = order.customer?.email || '';
+            const customerDetails = `
+              <div style="font-weight: 700;">${escapeHtml(customerName)}</div>
+              <div style="font-size: 11px; color: #565959;">${escapeHtml(customerEmail)}</div>
+              <div style="font-size: 11px; color: #565959;">CPF: ${escapeHtml(order.customer?.document?.number || 'Não informado')}</div>
+            `;
+
+            tr.innerHTML = `
+              <td>${formatDate(order.date)}</td>
+              <td>${customerDetails}</td>
+              <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(order.product)}">
+                ${escapeHtml(order.product)}
+              </td>
+              <td style="text-align: center;">
+                <span class="amz-badge ${originClass}">${escapeHtml(originLabel)}</span>
+              </td>
+              <td style="font-weight: 700;">${formatMoney(order.amount)}</td>
+              <td><span class="amz-badge ${getBadgeClass(order.status)}">${escapeHtml(order.status)}</span></td>
+              <td>
+                <div style="display: flex; gap: 5px;">
+                  ${order.receipt_url ? `<a href="${order.receipt_url}" target="_blank" class="amz-btn" style="padding: 0 8px; font-size: 11px;">Comprovante</a>` : ''}
+                  <button class="amz-btn" style="padding: 0 8px; font-size: 11px;" onclick="viewOrderDetails('${order.id}')">Detalhes</button>
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+          if (info) info.textContent = `Página ${data.pagination.page} de ${data.pagination.totalPages} (${data.pagination.totalCount} pedidos totais)`;
+          if (prevBtn) prevBtn.disabled = data.pagination.page === 1;
+          if (nextBtn) nextBtn.disabled = data.pagination.page >= data.pagination.totalPages;
+          currentOrdersPage = data.pagination.page;
+
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: #b12704;">Erro: ${err.message}</td></tr>`;
+        }
+      }
+
+      window.viewOrderDetails = (orderId) => {
+        alert('ID do Pedido: ' + orderId + '\nFuncionalidade de detalhamento completo em desenvolvimento. Use o Comprovante para ver os dados no gateway.');
+      };
+
+      // Configuration Form Event Listeners
+      document.getElementById('configForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = {
+          apiHost: fd.get('apiHost').trim(),
+          publicKey: fd.get('publicKey').trim(),
+          secretKey: fd.get('secretKey').trim()
+        };
+
+        if (data.secretKey === '' && e.target.secretKey.dataset.hasPersistedSecret === 'true') {
+          delete data.secretKey;
+        }
+
+        try {
+          await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          alert('Configurações atualizadas!');
+          refreshDashboard();
+        } catch (err) {
+          alert('Erro: ' + err.message);
+        }
+      });
+
+      document.getElementById('pixelsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
         const data = {
@@ -1735,59 +1884,40 @@
         }
       });
 
-      document.getElementById('addPushcutLinkButton').addEventListener('click', () => {
-        addPushcutItem();
-        setPushcutFeedback('', '');
-      });
-
-      document.getElementById('pushcutForm').addEventListener('submit', async (e) => {
+      document.getElementById('pushcutForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const items = collectPushcutItemsFromForm();
-
         if (items === null) {
-          setPushcutFeedback('Corrija os campos obrigatorios antes de salvar as notificacoes.', 'error');
+          setPushcutFeedback('Corrija os campos obrigatorios antes de salvar.', 'error');
           return;
         }
-
         try {
           const response = await apiFetch('/api/admin/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pushcut: { items } })
           });
-
-          renderPushcutItems(Array.isArray(response?.config?.pushcut?.items) ? response.config.pushcut.items : items);
-          setPushcutFeedback(response.message || 'Configuracoes do Pushcut salvas com sucesso.', 'success');
+          renderPushcutItems(response?.config?.pushcut?.items || items);
+          setPushcutFeedback(response.message || 'Pushcut salvo com sucesso.', 'success');
           refreshDashboard();
         } catch (err) {
           setPushcutFeedback('Erro ao salvar: ' + err.message, 'error');
         }
       });
 
-      window.addEventListener('hashchange', () => {
-        if ((window.location.hash || '#dashboardSection') === '#dashboardSection') {
-          refreshDashboard();
-        }
-        syncDashboardAutoRefresh();
+      document.getElementById('addPushcutLinkButton')?.addEventListener('click', () => {
+        addPushcutItem();
+        setPushcutFeedback('', '');
       });
 
       document.addEventListener('visibilitychange', () => {
-        if (!document.hidden && isDashboardSectionActive()) {
-          refreshDashboard();
-        }
+        if (!document.hidden && isDashboardSectionActive()) refreshDashboard();
         syncDashboardAutoRefresh();
       });
 
       window.addEventListener('focus', () => {
-        if (isDashboardSectionActive()) {
-          refreshDashboard();
-        }
+        if (isDashboardSectionActive()) refreshDashboard();
       });
-
-      // Init Load
-      ensureTrafficGridCards();
-      refreshDashboard();
-      syncDashboardAutoRefresh();
     </script>
   </body>
 </html>

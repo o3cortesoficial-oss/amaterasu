@@ -2634,6 +2634,7 @@ export default async function handler(req, res) {
           attributionId,
           sessionId: sessionId || attributionId,
           pageId: normalizeText(body.pageId) || "checkout_5",
+          origin: normalizeText(body.origin) || "shopee"
         }),
       };
 
