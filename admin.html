@@ -846,6 +846,75 @@
         font-weight: 700;
       }
       .add-btn:hover { color: #c45500; text-decoration: underline; }
+      .dashboard-filter-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        margin-bottom: 18px;
+      }
+      .dashboard-filter-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 160px;
+      }
+      .dashboard-filter-field label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #565959;
+      }
+      .dashboard-filter-field select,
+      .dashboard-filter-field input[type="date"] {
+        height: 40px;
+        border: 1px solid #c7c7c7;
+        border-radius: 8px;
+        padding: 0 12px;
+        font-size: 14px;
+        background: #fff;
+        color: #0f1111;
+      }
+      .dashboard-filter-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .dashboard-card-note {
+        font-size: 12px;
+        color: var(--amz-muted);
+        line-height: 1.5;
+      }
+      .dashboard-inline-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 10px;
+      }
+      .dashboard-inline-link {
+        font-size: 12px;
+        color: #007185;
+        text-decoration: none;
+        word-break: break-word;
+      }
+      .dashboard-inline-link:hover {
+        text-decoration: underline;
+      }
+      .dashboard-mini-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .dashboard-mini-item {
+        font-size: 12px;
+        color: #565959;
+        line-height: 1.5;
+        padding-top: 8px;
+        border-top: 1px solid #eceeee;
+      }
+      .dashboard-mini-item strong {
+        color: #0f1111;
+      }
     </style>
   </head>
   <body>
@@ -877,21 +946,47 @@
       <section id="dashboardSection" class="section active">
         <h1 style="font-size: 24px; margin-bottom: 20px;">Relatório de Desempenho de Vendas</h1>
         
+        <div class="dashboard-filter-bar">
+          <div class="dashboard-filter-field">
+            <label for="dashboardOriginFilter">Produto / oferta</label>
+            <select id="dashboardOriginFilter">
+              <option value="all">Todas as ofertas</option>
+              <option value="amazon_drone">Amazon</option>
+              <option value="shopee">Shopee</option>
+            </select>
+          </div>
+          <div class="dashboard-filter-field">
+            <label for="dashboardDateFrom">Data inicial</label>
+            <input type="date" id="dashboardDateFrom">
+          </div>
+          <div class="dashboard-filter-field">
+            <label for="dashboardDateTo">Data final</label>
+            <input type="date" id="dashboardDateTo">
+          </div>
+          <div class="dashboard-filter-actions">
+            <button type="button" class="amz-btn" id="dashboardTodayFilter">Hoje</button>
+            <button type="button" class="amz-btn" id="dashboardClearFilter">Limpar</button>
+          </div>
+        </div>
+
         <div class="amz-grid">
           <div class="amz-card widget-box">
             <span class="widget-sub">FATURAMENTO PAGO</span>
             <span class="widget-val" id="totalRevenueText">R$ 0,00</span>
-            <span style="font-size: 12px; color: green; font-weight: 700;" id="heroHostText">Carregando host...</span>
+            <span class="dashboard-card-note" id="heroHostText">Filtro carregando...</span>
           </div>
           <div class="amz-card widget-box">
-            <span class="widget-sub">PEDIDOS TOTAIS</span>
+            <span class="widget-sub">PIX GERADOS</span>
             <span class="widget-val" id="totalOrdersText">0</span>
-            <span style="font-size: 12px; color: var(--amz-muted);" id="heroWebhookText">Logs do servidor</span>
+            <span class="dashboard-card-note" id="heroWebhookText">0 aguardando pagamento</span>
           </div>
           <div class="amz-card widget-box">
-            <span class="widget-sub">ALERTAS ATIVOS</span>
+            <span class="widget-sub">ALERTAS DE CLONAGEM</span>
             <span class="widget-val" id="heroPushcutText">0</span>
-            <span style="font-size: 12px; color: var(--amz-muted);">Pushcut vinculado</span>
+            <span class="dashboard-card-note">DomÃ­nios suspeitos detectados</span>
+            <div class="dashboard-inline-list" id="cloneAlertsLinks">
+              <span class="dashboard-card-note">Nenhum domÃ­nio suspeito encontrado.</span>
+            </div>
           </div>
         </div>
 
@@ -1697,6 +1792,90 @@
         return items;
       }
 
+      function getDashboardFilters() {
+        return {
+          origin: document.getElementById('dashboardOriginFilter')?.value || 'all',
+          dateFrom: document.getElementById('dashboardDateFrom')?.value || '',
+          dateTo: document.getElementById('dashboardDateTo')?.value || '',
+        };
+      }
+
+      function formatDashboardOriginLabel(origin) {
+        if (origin === 'amazon_drone') return 'Amazon';
+        if (origin === 'shopee') return 'Shopee';
+        if (origin === 'other') return 'Outros';
+        return 'Todas as ofertas';
+      }
+
+      function formatDashboardFilterSummary(filters = {}) {
+        const parts = [formatDashboardOriginLabel(filters.origin || 'all')];
+        if (filters.dateFrom && filters.dateTo) {
+          parts.push(`${filters.dateFrom} atÃ© ${filters.dateTo}`);
+        } else if (filters.dateFrom) {
+          parts.push(`desde ${filters.dateFrom}`);
+        } else if (filters.dateTo) {
+          parts.push(`atÃ© ${filters.dateTo}`);
+        } else {
+          parts.push('todo o perÃ­odo');
+        }
+        return parts.join(' | ');
+      }
+
+      function buildMetricsQuery(filters = {}) {
+        const params = new URLSearchParams();
+        if (filters.origin && filters.origin !== 'all') params.set('origin', filters.origin);
+        if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+        if (filters.dateTo) params.set('dateTo', filters.dateTo);
+        const query = params.toString();
+        return query ? `?${query}` : '';
+      }
+
+      function renderCloneAlertsCard(cloneAlerts = {}) {
+        const countEl = document.getElementById('heroPushcutText');
+        const listEl = document.getElementById('cloneAlertsLinks');
+        if (countEl) {
+          countEl.textContent = String(cloneAlerts.totalDomains || 0);
+        }
+        if (!listEl) return;
+
+        const rows = Array.isArray(cloneAlerts.rows) ? cloneAlerts.rows : [];
+        if (!rows.length) {
+          listEl.innerHTML = '<span class="dashboard-card-note">Nenhum domÃ­nio suspeito encontrado.</span>';
+          return;
+        }
+
+        listEl.innerHTML = rows.slice(0, 3).map(row => `
+          <a class="dashboard-inline-link" href="${escapeHtml(row.href || ('https://' + row.domain))}" target="_blank" rel="noopener noreferrer">
+            ${escapeHtml(row.domain)} (${escapeHtml(String(row.count || 1))}x)
+          </a>
+        `).join('');
+      }
+
+      function buildPendingPixCardHtml(stats = {}) {
+        const items = Array.isArray(stats.items) ? stats.items : [];
+        return `
+          <div class="amz-card widget-box">
+            <span class="widget-sub">VOLUME BRUTO</span>
+            <span class="widget-val">${formatMoney(stats.totalVolume || 0)}</span>
+            <span class="dashboard-card-note">Soma de todas as transaÃ§Ãµes filtradas</span>
+          </div>
+          <div class="amz-card widget-box">
+            <span class="widget-sub">PIX GERADOS NÃƒO PAGOS</span>
+            <span class="widget-val">${formatMoney(stats.pendingAmount || 0)}</span>
+            <span class="dashboard-card-note">${items.length ? `${stats.pendingCount || items.length} PIX aguardando pagamento` : 'Nenhum PIX pendente neste filtro'}</span>
+            <div class="dashboard-mini-list">
+              ${items.length ? items.map(item => `
+                <div class="dashboard-mini-item">
+                  <strong>${escapeHtml(item.product || 'Produto')}</strong><br>
+                  ${escapeHtml(formatDate(item.date))}<br>
+                  ${formatMoney(item.amount || 0)}
+                </div>
+              `).join('') : '<div class="dashboard-mini-item">Sem registros pendentes para o produto/perÃ­odo selecionado.</div>'}
+            </div>
+          </div>
+        `;
+      }
+
       // Refresh Logic
       let dashboardRefreshTimer = null;
 
@@ -1722,12 +1901,13 @@
         const dot = document.getElementById('connectionDot');
         const statusText = document.getElementById('connectionText');
         const hash = window.location.hash || '#dashboardSection';
+        const filters = getDashboardFilters();
 
         // Only auto-refresh if we are on the dashboard
         if (!force && hash !== '#dashboardSection' && hash !== '') return;
         
         try {
-          const data = await apiFetch('/api/titans/metrics');
+          const data = await apiFetch('/api/titans/metrics' + buildMetricsQuery(filters));
           if (dot) dot.className = 'dot online';
           if (statusText) statusText.textContent = 'Sistema Online';
           
@@ -1781,21 +1961,18 @@
           if (data.salesStats) {
             document.getElementById('totalRevenueText').textContent = formatMoney(data.salesStats.totalPaidAmount);
             document.getElementById('totalOrdersText').textContent = data.salesStats.totalRecords;
-            document.getElementById('heroWebhookText').textContent = data.webhookStats.receivedCount + ' Eventos';
+            document.getElementById('heroHostText').textContent = formatDashboardFilterSummary(data.filters || filters);
+            document.getElementById('heroWebhookText').textContent = `${data.pendingPixStats?.count || 0} aguardando pagamento`;
             document.getElementById('generatedAtText').textContent = 'Sincronizado: ' + formatDate(data.generatedAt);
 
             const grid = document.getElementById('metricsGrid');
             if (grid) {
-              grid.innerHTML = `
-                <div class="amz-card widget-box">
-                  <span class="widget-sub">VOLUME BRUTO</span>
-                  <span class="widget-val">${formatMoney(data.salesStats.totalAmount)}</span>
-                </div>
-                <div class="amz-card widget-box">
-                  <span class="widget-sub">TOTAL CANCELADO</span>
-                  <span class="widget-val">${formatMoney(data.salesStats.totalRefundedAmount)}</span>
-                </div>
-              `;
+              grid.innerHTML = buildPendingPixCardHtml({
+                totalVolume: data.salesStats.totalAmount,
+                pendingAmount: data.pendingPixStats?.totalAmount || 0,
+                pendingCount: data.pendingPixStats?.count || 0,
+                items: data.pendingPixStats?.items || [],
+              });
             }
 
             const statusWrap = document.getElementById('statusBreakdown');
@@ -1810,6 +1987,7 @@
             }
           }
 
+          renderCloneAlertsCard(data.cloneAlerts || {});
           renderMetaAttribution(data.metaAttributionStats);
 
           if (data.transactions) {
@@ -2102,6 +2280,31 @@
 
       document.getElementById('addPushcutLinkButton')?.addEventListener('click', () => {
         addPushcutItem();
+      });
+
+      document.getElementById('dashboardOriginFilter')?.addEventListener('change', () => refreshDashboard(true));
+      document.getElementById('dashboardDateFrom')?.addEventListener('change', () => refreshDashboard(true));
+      document.getElementById('dashboardDateTo')?.addEventListener('change', () => refreshDashboard(true));
+      document.getElementById('dashboardTodayFilter')?.addEventListener('click', () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const value = `${yyyy}-${mm}-${dd}`;
+        const fromEl = document.getElementById('dashboardDateFrom');
+        const toEl = document.getElementById('dashboardDateTo');
+        if (fromEl) fromEl.value = value;
+        if (toEl) toEl.value = value;
+        refreshDashboard(true);
+      });
+      document.getElementById('dashboardClearFilter')?.addEventListener('click', () => {
+        const originEl = document.getElementById('dashboardOriginFilter');
+        const fromEl = document.getElementById('dashboardDateFrom');
+        const toEl = document.getElementById('dashboardDateTo');
+        if (originEl) originEl.value = 'all';
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
+        refreshDashboard(true);
       });
 
       document.addEventListener('visibilitychange', () => {

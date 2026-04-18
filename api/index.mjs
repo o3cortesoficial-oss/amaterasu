@@ -25,9 +25,12 @@ const maxStoredWebhookEvents = 250;
 const maxStoredConversionIntents = 500;
 const metricsPageSize = 50;
 const maxPageSize = 50;
+const metricsCacheTtlMs = 30 * 1000;
+const maxMetricsPages = 10;
 const pushcutTimeoutMs = 8000;
 const conversionMatchWindowMs = 12 * 60 * 60 * 1000;
 const activeSessionWindowMs = 2 * 60 * 1000;
+const cloneAlertType = "clone_alert";
 const trackingPixelBuffer = Buffer.from(
   "R0lGODlhAQABAPAAAAAAAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==",
   "base64",
@@ -93,6 +96,7 @@ const memoryStore = {
   conversionIntents: new Map(),
   webhookEvents: new Map(),
   viewStats: new Map(),
+  transactionsCache: new Map(),
 };
 
 function ensureMemoryConfig() {
@@ -2041,6 +2045,238 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
   };
 }
 
+function parseTransactionMetadata(record) {
+  const raw = ensurePlainObject(record?.raw || record);
+  const metadataRaw = getNestedValue(raw, "metadata");
+
+  if (typeof metadataRaw === "string") {
+    try {
+      return ensurePlainObject(JSON.parse(metadataRaw));
+    } catch {
+      return {};
+    }
+  }
+
+  return ensurePlainObject(metadataRaw);
+}
+
+function resolveTransactionOrigin(record, fallbackOrigin = "") {
+  const metadata = parseTransactionMetadata(record);
+  return resolveOrderOriginFromTitles(
+    extractOrderItemTitles(record),
+    pickFirstFilled(fallbackOrigin, metadata.origin, metadata.product_origin),
+  );
+}
+
+function resolveTransactionProduct(record) {
+  const titles = extractOrderItemTitles(record);
+  return pickFirstFilled(
+    titles[0],
+    getNestedValue(record, "raw.items.0.title"),
+    getNestedValue(record, "items.0.title"),
+    getNestedValue(record, "product"),
+    getNestedValue(record, "productName"),
+  ) || "Venda Externa";
+}
+
+function normalizeDashboardDate(value, mode = "start") {
+  const text = normalizeText(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return null;
+  }
+
+  const suffix =
+    mode === "end" ? "T23:59:59.999-03:00" : "T00:00:00.000-03:00";
+  const parsed = new Date(`${text}${suffix}`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function normalizeMetricsFilters(searchParams) {
+  const origin = normalizeText(searchParams.get("origin"));
+
+  return {
+    origin:
+      origin === "amazon_drone" || origin === "shopee" || origin === "other"
+        ? origin
+        : "all",
+    dateFrom: normalizeMetricsDateValue(searchParams.get("dateFrom")),
+    dateTo: normalizeMetricsDateValue(searchParams.get("dateTo")),
+    startAt: normalizeDashboardDate(searchParams.get("dateFrom"), "start"),
+    endAt: normalizeDashboardDate(searchParams.get("dateTo"), "end"),
+  };
+}
+
+function normalizeMetricsDateValue(value) {
+  const text = normalizeText(value);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
+}
+
+function resolveTransactionReferenceDate(record, mode = "created") {
+  const normalized = normalizeTransactionRecord(record);
+  const raw = ensurePlainObject(normalized.raw);
+
+  if (mode === "paid" && isPaidStatus(normalized.status)) {
+    return (
+      normalizeIsoTimestamp(
+        raw.paidAt || raw.paid_at || getNestedValue(raw, "payment.paidAt"),
+      ) || normalized.createdAt
+    );
+  }
+
+  return normalized.createdAt;
+}
+
+function matchesMetricsFilters(record, filters, mode = "created") {
+  const safeFilters = filters || {};
+  const origin = resolveTransactionOrigin(record);
+  if (safeFilters.origin && safeFilters.origin !== "all" && origin !== safeFilters.origin) {
+    return false;
+  }
+
+  const referenceDate = resolveTransactionReferenceDate(record, mode);
+  const timestamp = new Date(referenceDate || 0).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return false;
+  }
+
+  if (safeFilters.startAt) {
+    const startTime = new Date(safeFilters.startAt).getTime();
+    if (Number.isFinite(startTime) && timestamp < startTime) {
+      return false;
+    }
+  }
+
+  if (safeFilters.endAt) {
+    const endTime = new Date(safeFilters.endAt).getTime();
+    if (Number.isFinite(endTime) && timestamp > endTime) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function buildPendingPixStats(transactions, filters) {
+  const pending = (Array.isArray(transactions) ? transactions : [])
+    .filter((record) => matchesMetricsFilters(record, filters, "created"))
+    .map((record) => {
+      const normalized = normalizeTransactionRecord(record);
+      return {
+        id: normalized.id || normalized.objectId || randomUUID(),
+        date: normalized.createdAt,
+        amount: normalized.amount,
+        status: normalized.status,
+        origin: resolveTransactionOrigin(record),
+        product: resolveTransactionProduct(record),
+        paymentMethod: normalized.paymentMethod,
+      };
+    })
+    .filter(
+      (record) =>
+        record.paymentMethod === "pix" &&
+        !isPaidStatus(record.status) &&
+        !isRefundStatus(record.status),
+    )
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  return {
+    count: pending.length,
+    totalAmount: pending.reduce((sum, item) => sum + item.amount, 0),
+    items: pending.slice(0, 8),
+  };
+}
+
+function buildCloneAlertStats(events) {
+  const grouped = new Map();
+
+  (Array.isArray(events) ? events : [])
+    .filter((event) => normalizeText(event?.type) === cloneAlertType)
+    .forEach((event) => {
+      let raw = {};
+      try {
+        raw = ensurePlainObject(
+          typeof event.raw === "string" ? JSON.parse(event.raw) : event.raw,
+        );
+      } catch {
+        raw = {};
+      }
+      const domain = normalizeText(raw.domain || event.object_id);
+      const href = pickFirstFilled(raw.href, raw.url, event.url);
+      if (!domain) {
+        return;
+      }
+
+      const current = grouped.get(domain) || {
+        domain,
+        href: href || `https://${domain}`,
+        count: 0,
+        lastSeen: event.received_at || new Date().toISOString(),
+        reason: normalizeText(event.status),
+      };
+
+      current.count += 1;
+      if (new Date(event.received_at || 0) > new Date(current.lastSeen || 0)) {
+        current.lastSeen = event.received_at || current.lastSeen;
+        current.href = href || current.href;
+        current.reason = normalizeText(event.status) || current.reason;
+      }
+
+      grouped.set(domain, current);
+    });
+
+  const rows = Array.from(grouped.values()).sort(
+    (a, b) => new Date(b.lastSeen) - new Date(a.lastSeen),
+  );
+
+  return {
+    totalDomains: rows.length,
+    rows: rows.slice(0, 10),
+  };
+}
+
+function buildCloneAlertEvent(payload = {}, req) {
+  const domain = normalizeText(payload.domain || payload.hostname).toLowerCase();
+  const href = normalizeText(payload.href || payload.url);
+  const reason = normalizeText(payload.reason) || "clone_detected";
+  const userAgent = normalizeText(
+    payload.userAgent || req.headers["user-agent"] || "",
+  );
+
+  return {
+    id: randomUUID(),
+    received_at: new Date().toISOString(),
+    type: cloneAlertType,
+    object_id: domain || "unknown-domain",
+    status: reason,
+    payment_method: "",
+    amount: 0,
+    paid_amount: 0,
+    refunded_amount: 0,
+    external_ref: normalizeText(payload.path || ""),
+    secure_id: "",
+    customer: null,
+    url: href,
+    raw: {
+      domain,
+      href,
+      path: normalizeText(payload.path || ""),
+      referrer: normalizeText(payload.referrer || req.headers.referer || ""),
+      userAgent,
+      canonicalOrigin: normalizeText(payload.canonicalOrigin),
+      canonicalCheckoutUrl: normalizeText(payload.canonicalCheckoutUrl),
+      productName: normalizeText(payload.productName),
+      totalAmount: normalizeText(payload.totalAmount),
+      reason,
+    },
+    pushcut_dispatches: [],
+    meta_attribution: null,
+  };
+}
+
 async function findMatchingConversionIntent(eventRecord) {
   const intents = await loadConversionIntents();
   if (!intents.length) {
@@ -2317,16 +2553,25 @@ function buildTestPushcutPayload(item) {
   };
 }
 
-function buildSalesStats(transactions) {
-  const normalized = transactions.map((record) => normalizeTransactionRecord(record));
+function buildSalesStats(transactions, filters = null) {
+  const filteredTransactions = (Array.isArray(transactions) ? transactions : []).filter((record) =>
+    matchesMetricsFilters(record, filters, "created"),
+  );
+  const normalized = filteredTransactions.map((record) => normalizeTransactionRecord(record));
 
   return {
     totalRecords: normalized.length,
     totalAmount: normalized.reduce((sum, item) => sum + item.amount, 0),
-    totalPaidAmount: normalized.reduce(
-      (sum, item) => sum + (isPaidStatus(item.status) ? item.paidAmount || item.amount : 0),
-      0,
-    ),
+    totalPaidAmount: filteredTransactions.reduce((sum, record) => {
+      const item = normalizeTransactionRecord(record);
+      if (!isPaidStatus(item.status)) {
+        return sum;
+      }
+      if (!matchesMetricsFilters(record, filters, "paid")) {
+        return sum;
+      }
+      return sum + (item.paidAmount || item.amount);
+    }, 0),
     totalRefundedAmount: normalized.reduce(
       (sum, item) => sum + (item.refundedAmount || 0),
       0,
@@ -2522,6 +2767,51 @@ async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
       pageSize: safePageSize,
     },
   });
+}
+
+function buildTransactionsCacheKey(config) {
+  const host = normalizeApiHost(config?.apiHost || defaultApiHost);
+  const publicKey = normalizeText(config?.publicKey);
+  return `${host}:${publicKey}`;
+}
+
+async function fetchTransactionsForMetrics(config) {
+  const cacheKey = buildTransactionsCacheKey(config);
+  const cached = memoryStore.transactionsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const allTransactions = [];
+  let totalCount = 0;
+
+  for (let page = 1; page <= maxMetricsPages; page += 1) {
+    const salesData = await fetchTransactionsPage(config, page, maxPageSize);
+    const batch = Array.isArray(salesData?.data)
+      ? salesData.data
+      : Array.isArray(salesData)
+        ? salesData
+        : [];
+
+    if (!batch.length) {
+      break;
+    }
+
+    allTransactions.push(...batch);
+
+    totalCount = Math.max(totalCount, extractTransactionsTotalCount(salesData, allTransactions.length));
+
+    if (batch.length < maxPageSize || (totalCount && allTransactions.length >= totalCount)) {
+      break;
+    }
+  }
+
+  memoryStore.transactionsCache.set(cacheKey, {
+    expiresAt: Date.now() + metricsCacheTtlMs,
+    data: allTransactions,
+  });
+
+  return allTransactions;
 }
 
 function unwrapTitansTransactionPayload(transaction) {
@@ -2751,6 +3041,42 @@ export default async function handler(req, res) {
       });
     }
 
+    if (
+      (req.method === "GET" && pathname === "/api/clone-alert.gif") ||
+      (req.method === "POST" && pathname === "/api/clone-alert")
+    ) {
+      const payload =
+        req.method === "GET"
+          ? {
+              domain: url.searchParams.get("domain"),
+              href: url.searchParams.get("href"),
+              path: url.searchParams.get("path"),
+              referrer: url.searchParams.get("referrer"),
+              userAgent: req.headers["user-agent"] || "",
+              canonicalOrigin: url.searchParams.get("canonicalOrigin"),
+              canonicalCheckoutUrl: url.searchParams.get("canonicalCheckoutUrl"),
+              productName: url.searchParams.get("productName"),
+              totalAmount: url.searchParams.get("totalAmount"),
+              reason: url.searchParams.get("reason"),
+            }
+          : body || {};
+
+      const domain = normalizeText(payload.domain || payload.hostname);
+      const href = normalizeText(payload.href || payload.url);
+
+      if (domain || href) {
+        await saveWebhookEvent(buildCloneAlertEvent(payload, req));
+      }
+
+      if (req.method === "GET") {
+        res.setHeader("Content-Type", "image/gif");
+        res.setHeader("Cache-Control", "no-store, max-age=0");
+        return res.status(200).end(trackingPixelBuffer);
+      }
+
+      return res.status(200).json({ ok: true });
+    }
+
     if (pathname === "/api/checkout/state") {
       const attributionId =
         url.searchParams.get("attributionId") || normalizeText(body.attributionId);
@@ -2958,6 +3284,7 @@ export default async function handler(req, res) {
             const { data, error } = await supabase
               .from("webhook_events")
               .select("*", { count: "exact" })
+              .neq("type", cloneAlertType)
               .order("received_at", { ascending: false })
               .range(offset, offset + limit - 1);
 
@@ -2965,6 +3292,7 @@ export default async function handler(req, res) {
             events = data || [];
           } else {
             events = Array.from(memoryStore.webhookEvents.values())
+              .filter((event) => normalizeText(event?.type) !== cloneAlertType)
               .sort((a, b) => new Date(b.received_at) - new Date(a.received_at))
               .slice(offset, offset + limit);
           }
@@ -3060,20 +3388,21 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "GET" && pathname === "/api/titans/metrics") {
+      const filters = normalizeMetricsFilters(url.searchParams);
       const config = await loadConfig();
-      const webhookEvents = await loadWebhookEvents(50);
+      const allWebhookEvents = await loadWebhookEvents(100);
+      const cloneAlertEvents = allWebhookEvents.filter(
+        (event) => normalizeText(event?.type) === cloneAlertType,
+      );
+      const webhookEvents = allWebhookEvents.filter(
+        (event) => normalizeText(event?.type) !== cloneAlertType,
+      );
       let transactions = [];
       let remoteWarning = "";
 
       if (config.publicKey && config.secretKey) {
         try {
-          const salesData = await fetchTransactionsPage(config, 1, metricsPageSize);
-          const payload = Array.isArray(salesData?.data)
-            ? salesData.data
-            : Array.isArray(salesData)
-              ? salesData
-              : [];
-          transactions = payload;
+          transactions = await fetchTransactionsForMetrics(config);
         } catch (error) {
           console.error("fetchTransactionsPage error:", error);
           remoteWarning =
@@ -3092,21 +3421,28 @@ export default async function handler(req, res) {
           refunded_amount: event.refunded_amount,
           payment_method: event.payment_method,
           external_ref: event.external_ref,
+          customer: event.customer,
+          raw: event.raw,
         }));
       }
 
-      const salesStats = buildSalesStats(transactions);
+      const salesStats = buildSalesStats(transactions, filters);
+      const pendingPixStats = buildPendingPixStats(transactions, filters);
       const analytics = await buildAnalyticsStats();
       const serializedWebhooks = webhookEvents.map(serializeWebhookForClient);
+      const cloneAlerts = buildCloneAlertStats(cloneAlertEvents);
 
       return res.status(200).json({
         generatedAt: new Date().toISOString(),
         config: serializeConfigForClient(config, req),
+        filters,
         salesStats,
+        pendingPixStats,
         webhookStats: {
           receivedCount: webhookEvents.length,
           recentEvents: serializedWebhooks,
         },
+        cloneAlerts,
         metaAttributionStats: buildMetaAttributionStats(webhookEvents),
         analytics,
         transactions: salesStats.recentTransactions,
