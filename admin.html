@@ -1599,13 +1599,13 @@
         }
       }
 
-      async function refreshDashboard() {
+      async function refreshDashboard(force = false) {
         const dot = document.getElementById('connectionDot');
         const statusText = document.getElementById('connectionText');
         const hash = window.location.hash || '#dashboardSection';
 
         // Only auto-refresh if we are on the dashboard
-        if (hash !== '#dashboardSection' && hash !== '') return;
+        if (!force && hash !== '#dashboardSection' && hash !== '') return;
         
         try {
           const data = await apiFetch('/api/titans/metrics');
@@ -1761,8 +1761,8 @@
           document.getElementById('nav-dash').classList.add('active');
         }
 
-        if (hash === '#dashboardSection' || hash === '') {
-          refreshDashboard();
+        if (hash === '#dashboardSection' || hash === '' || hash === '#apiSection' || hash === '#pixelsSection' || hash === '#pushcutSection') {
+          refreshDashboard(true);
         } else if (hash === '#ordersSection') {
           fetchDetailedOrders(1);
         }
@@ -1852,7 +1852,7 @@
         try {
           await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           alert('Configurações salvas!');
-          refreshDashboard();
+          refreshDashboard(true);
         } catch (err) { alert(err.message); }
       });
 
@@ -1870,7 +1870,7 @@
         try {
           await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pixels }) });
           alert('Trackeamento atualizado!');
-          refreshDashboard();
+          refreshDashboard(true);
         } catch (err) { alert(err.message); }
       });
 
@@ -1880,7 +1880,7 @@
         try {
           await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pushcut: { items } }) });
           alert('Pushcut atualizado!');
-          refreshDashboard();
+          refreshDashboard(true);
         } catch (err) { alert(err.message); }
       });
 
