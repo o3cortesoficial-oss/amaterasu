@@ -19,6 +19,11 @@ export default function middleware(req) {
   const url = new URL(req.url);
   const userAgent = req.headers.get('user-agent') || '';
   const pathname = url.pathname;
+  const hasAdminAuthConfig = Boolean(
+    process.env.ADMIN_EMAIL &&
+    process.env.ADMIN_PASSWORD &&
+    process.env.JWT_SECRET
+  );
 
   // Lista de padrões de User-Agents de bots, crawlers e verificadores conhecidos
   const botPatterns = [
@@ -63,7 +68,7 @@ export default function middleware(req) {
   }
 
   // 2. PROTEÇÃO DO PAINEL ADMIN (Para humanos)
-  if (pathname === '/admin' || pathname === '/admin.html') {
+  if (hasAdminAuthConfig && (pathname === '/admin' || pathname === '/admin.html')) {
     const hasSession = req.headers.get('cookie')?.includes('amz_admin_session');
     if (!hasSession) {
       console.log(`[AUTH] Usuario não autenticado tentando acessar admin. Redirecionando para login.`);
