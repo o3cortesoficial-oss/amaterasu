@@ -915,6 +915,250 @@
       .dashboard-mini-item strong {
         color: #0f1111;
       }
+
+      @media (max-width: 768px) {
+        .amz-header {
+          height: 56px;
+          padding: 0 12px;
+          flex-direction: row;
+          justify-content: flex-start;
+          gap: 10px;
+        }
+
+        .logo-box {
+          width: 100%;
+          min-width: 0;
+          gap: 10px;
+        }
+
+        .logo-box img {
+          height: 28px !important;
+          width: auto;
+          max-width: 100%;
+        }
+
+        .seller-central-tag {
+          font-size: 14px;
+          padding-left: 10px;
+          margin-left: 0;
+          white-space: nowrap;
+        }
+
+        .amz-sub-header {
+          top: 56px;
+          height: 44px;
+          padding: 0 10px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+
+        .amz-sub-header::-webkit-scrollbar {
+          display: none;
+        }
+
+        .amz-sub-header a {
+          flex: 0 0 auto;
+          padding: 9px 10px;
+          font-size: 13px;
+          gap: 5px;
+        }
+
+        #generatedAtText {
+          display: none;
+        }
+
+        .amz-main-container {
+          padding: 16px 12px 72px;
+        }
+
+        .section {
+          padding: 0;
+        }
+
+        #dashboardSection > h1,
+        #apiSection > h1,
+        .trackeamento-page h1,
+        .pedidos-page h1,
+        .notificacoes-page h1 {
+          font-size: 18px !important;
+          line-height: 1.2;
+          margin-bottom: 16px !important;
+        }
+
+        .amz-card {
+          padding: 16px;
+          margin-bottom: 16px;
+        }
+
+        .amz-card-title {
+          font-size: 16px;
+          margin-bottom: 16px;
+          padding-bottom: 8px;
+          gap: 6px;
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .amz-grid,
+        #metricsGrid,
+        .gateway-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+
+        .widget-val {
+          font-size: 22px;
+        }
+
+        .widget-sub,
+        .dashboard-card-note {
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .dashboard-filter-bar {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          align-items: stretch;
+          margin-bottom: 16px;
+        }
+
+        .dashboard-filter-field {
+          min-width: 0;
+        }
+
+        .dashboard-filter-bar .dashboard-filter-field:first-child,
+        .dashboard-filter-actions {
+          grid-column: 1 / -1;
+        }
+
+        .dashboard-filter-field select,
+        .dashboard-filter-field input[type="date"] {
+          width: 100%;
+          min-width: 0;
+          height: 42px;
+          font-size: 13px;
+          padding: 0 10px;
+        }
+
+        .dashboard-filter-actions {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .dashboard-filter-actions .amz-btn {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .traffic-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .traffic-item {
+          min-width: 0;
+          padding: 10px;
+        }
+
+        .traffic-item div:first-of-type {
+          font-size: 12px !important;
+          line-height: 1.3;
+        }
+
+        .tabs-nav {
+          gap: 16px;
+          margin-bottom: 20px;
+          padding-bottom: 8px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+
+        .tabs-nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        .tab-link {
+          flex: 0 0 auto;
+          padding: 8px 2px;
+          font-size: 13px;
+        }
+
+        .trackeamento-page,
+        .notificacoes-page,
+        .pedidos-page,
+        .pedidos-page.section {
+          padding-right: 12px !important;
+          padding-left: 12px !important;
+        }
+
+        .trackeamento-page {
+          margin-top: -84px;
+          padding-top: 16px;
+        }
+
+        .notificacoes-page {
+          margin-top: -84px;
+          padding-top: 16px;
+        }
+
+        .pedidos-page,
+        .pedidos-page.section {
+          margin-top: -84px !important;
+        }
+
+        .trackeamento-page .trackeamento-card,
+        .notificacoes-page .notificacoes-card,
+        .pedidos-page .pedidos-table-card {
+          padding: 16px !important;
+        }
+
+        .modal-overlay {
+          padding: 12px;
+          align-items: flex-end;
+        }
+
+        .modal-container,
+        .order-details-modal .modal-container {
+          max-width: 100%;
+          max-height: calc(100vh - 24px);
+          border-radius: 14px 14px 0 0;
+        }
+
+        #transactionsTableWrap,
+        #statusBreakdown,
+        #paymentBreakdown,
+        #metaAttributionTableWrap,
+        .pedidos-page .pedidos-table-wrap {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .pedidos-page .pedidos-header > div {
+          width: 100%;
+          gap: 8px !important;
+          align-items: stretch !important;
+          flex-direction: column;
+        }
+
+        .pedidos-page .pedidos-header select,
+        .pedidos-page .pedidos-header .amz-btn {
+          width: 100% !important;
+        }
+
+        #summaryLine,
+        #sidebarNote {
+          line-height: 1.5;
+        }
+      }
     </style>
   </head>
   <body>
