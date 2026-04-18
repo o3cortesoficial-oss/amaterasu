@@ -77,6 +77,16 @@ const TRAFFIC_ANALYTICS_PAGE_IDS = [
   "checkout_pix_generated",
 ];
 
+const AMAZON_ORDER_PRODUCT_TITLES = new Set([
+  normalizeText("Drone DJI Mini 3 Standard (Com tela) - DJI047").toLowerCase(),
+]);
+
+const SHOPEE_ORDER_PRODUCT_TITLES = new Set([
+  normalizeText(
+    "Drone Mini 4 Pro (Com Tela) Fly More Combo com câmera 4K cinza 3 baterias.",
+  ).toLowerCase(),
+]);
+
 const memoryStore = {
   config: null,
   attributionSessions: new Map(),
@@ -1817,6 +1827,120 @@ function normalizeTransactionRecord(record) {
   };
 }
 
+function normalizeOrderProductTitle(value) {
+  return normalizeText(value).toLowerCase();
+}
+
+function extractOrderItemTitles(record) {
+  const source = ensurePlainObject(record);
+  const rawItems = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(source.raw?.items)
+      ? source.raw.items
+      : [];
+
+  const titles = rawItems
+    .map((item) => normalizeText(item?.title || item?.name || item?.productName))
+    .filter(Boolean);
+
+  if (titles.length) {
+    return titles;
+  }
+
+  const fallbackTitle = pickFirstFilled(
+    source.product,
+    source.productName,
+    source.product_name,
+    getNestedValue(source, "raw.productName"),
+    getNestedValue(source, "raw.product_name"),
+  );
+
+  return fallbackTitle ? [fallbackTitle] : [];
+}
+
+function resolveOrderOriginFromTitles(titles, fallbackOrigin = "") {
+  const normalizedTitles = (Array.isArray(titles) ? titles : [])
+    .map((title) => normalizeOrderProductTitle(title))
+    .filter(Boolean);
+
+  if (normalizedTitles.some((title) => AMAZON_ORDER_PRODUCT_TITLES.has(title))) {
+    return "amazon_drone";
+  }
+
+  if (normalizedTitles.some((title) => SHOPEE_ORDER_PRODUCT_TITLES.has(title))) {
+    return "shopee";
+  }
+
+  const fallback = normalizeText(fallbackOrigin);
+  if (fallback === "amazon_drone" || fallback === "shopee") {
+    return fallback;
+  }
+
+  return "other";
+}
+
+function extractTransactionsTotalCount(payload, fallbackCount = 0) {
+  const safe = ensurePlainObject(payload);
+  const candidates = [
+    safe.total,
+    safe.totalCount,
+    safe.count,
+    getNestedValue(safe, "pagination.total"),
+    getNestedValue(safe, "pagination.totalCount"),
+    getNestedValue(safe, "meta.total"),
+    getNestedValue(safe, "meta.totalCount"),
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return fallbackCount;
+}
+
+function buildDetailedOrderRow(record, fallbackOrigin = "") {
+  const normalized = normalizeTransactionRecord(record);
+  const titles = extractOrderItemTitles(record);
+  const productTitle =
+    pickFirstFilled(titles[0], getNestedValue(normalized, "raw.items.0.title")) || "Venda Externa";
+  const rawCustomer = ensurePlainObject(record?.customer || normalized.raw?.customer);
+  const customerDocument = pickFirstFilled(
+    rawCustomer?.document?.number,
+    rawCustomer?.document,
+    normalized.raw?.customer?.document?.number,
+    normalized.raw?.customer?.document,
+  );
+
+  return {
+    id: pickFirstFilled(
+      normalized.id,
+      normalized.objectId,
+      normalized.externalRef,
+      getNestedValue(normalized.raw, "secureId"),
+    ),
+    date: normalized.createdAt,
+    customer: {
+      name: normalizeText(rawCustomer?.name),
+      email: normalizeText(rawCustomer?.email),
+      phone: normalizeText(rawCustomer?.phone),
+      document: normalizeDigits(customerDocument),
+    },
+    amount: normalized.amount,
+    status: normalized.status,
+    origin: resolveOrderOriginFromTitles(titles, fallbackOrigin),
+    product: productTitle,
+    receipt_url: pickFirstFilled(
+      getNestedValue(normalized.raw, "pix.receiptUrl"),
+      getNestedValue(normalized.raw, "pix.receipt_url"),
+      getNestedValue(normalized.raw, "receiptUrl"),
+      getNestedValue(normalized.raw, "receipt_url"),
+    ),
+  };
+}
+
 async function findMatchingConversionIntent(eventRecord) {
   const intents = await loadConversionIntents();
   if (!intents.length) {
@@ -2708,54 +2832,80 @@ export default async function handler(req, res) {
       const originFilter = normalizeText(url.searchParams.get("origin"));
 
       try {
-        let events = [];
+        let orders = [];
         let totalCount = 0;
+        const config = await loadConfig();
 
-        if (supabase) {
-          let dbQuery = supabase.from("webhook_events").select("*", { count: "exact" });
-          if (originFilter) dbQuery = dbQuery.filter("raw->metadata->>origin", "eq", originFilter);
+        if (config.publicKey && config.secretKey) {
+          const salesData = await fetchTransactionsPage(config, page, limit);
+          const transactions = Array.isArray(salesData?.data)
+            ? salesData.data
+            : Array.isArray(salesData)
+              ? salesData
+              : [];
 
-          const { data, count, error } = await dbQuery
-            .order("received_at", { ascending: false })
-            .range(offset, offset + limit - 1);
+          orders = transactions
+            .map((transaction) => buildDetailedOrderRow(transaction))
+            .filter((order) => !originFilter || order.origin === originFilter);
 
-          if (error) throw error;
-          events = data || [];
-          totalCount = count || 0;
+          totalCount = originFilter
+            ? orders.length
+            : extractTransactionsTotalCount(salesData, orders.length);
         } else {
-          events = Array.from(memoryStore.webhookEvents.values())
-            .filter(e => {
-              if (!originFilter) return true;
-              const meta = typeof e.raw?.metadata === 'string' ? JSON.parse(e.raw.metadata) : (e.raw?.metadata || {});
-              return meta.origin === originFilter;
-            })
-            .sort((a, b) => new Date(b.received_at) - new Date(a.received_at));
-          totalCount = events.length;
-          events = events.slice(offset, offset + limit);
-        }
+          let events = [];
 
-        const intents = await loadConversionIntents();
-        const enriched = events.map(ev => {
-          const raw = typeof ev.raw === 'string' ? JSON.parse(ev.raw) : (ev.raw || {});
-          const meta = typeof raw.metadata === 'string' ? JSON.parse(raw.metadata) : (raw.metadata || {});
-          const intent = intents.find(i => i.id === ev.external_ref || i.matched_event_object_id === ev.object_id);
-          
-          return {
-            id: ev.id,
-            date: ev.received_at,
-            customer: ev.customer,
-            amount: ev.amount,
-            status: ev.status,
-            origin: meta.origin || 'shopee',
-            product: intent?.buyer?.productName || meta.productName || 'Venda Externa',
-            receipt_url: raw.receipt_url || raw.data?.receipt_url || null
-          };
-        });
+          if (supabase) {
+            const { data, error } = await supabase
+              .from("webhook_events")
+              .select("*", { count: "exact" })
+              .order("received_at", { ascending: false })
+              .range(offset, offset + limit - 1);
+
+            if (error) throw error;
+            events = data || [];
+          } else {
+            events = Array.from(memoryStore.webhookEvents.values())
+              .sort((a, b) => new Date(b.received_at) - new Date(a.received_at))
+              .slice(offset, offset + limit);
+          }
+
+          orders = events
+            .map((event) => {
+              const raw =
+                typeof event.raw === "string" ? JSON.parse(event.raw) : ensurePlainObject(event.raw);
+              const metadata =
+                typeof raw.metadata === "string"
+                  ? JSON.parse(raw.metadata)
+                  : ensurePlainObject(raw.metadata);
+
+              return buildDetailedOrderRow(
+                {
+                  id: event.id,
+                  object_id: event.object_id,
+                  external_ref: event.external_ref,
+                  created_at: event.received_at,
+                  status: event.status,
+                  amount: event.amount,
+                  paid_amount: event.paid_amount,
+                  refunded_amount: event.refunded_amount,
+                  payment_method: event.payment_method,
+                  customer: event.customer,
+                  items: raw.items,
+                  pix: raw.pix,
+                  receipt_url: raw.receipt_url || raw.data?.receipt_url || null,
+                },
+                metadata.origin,
+              );
+            })
+            .filter((order) => !originFilter || order.origin === originFilter);
+
+          totalCount = orders.length;
+        }
 
         return res.status(200).json({
           ok: true,
-          orders: enriched,
-          pagination: { page, limit, totalCount, totalPages: Math.ceil(totalCount / limit) }
+          orders,
+          pagination: { page, limit, totalCount, totalPages: Math.max(1, Math.ceil(totalCount / limit)) }
         });
       } catch (error) {
         console.error("Detailed orders error:", error);
