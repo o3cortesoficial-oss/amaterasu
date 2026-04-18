@@ -1035,6 +1035,51 @@
         </div>
       </section>
 
+      <!-- Detailed Orders Section -->
+      <section id="ordersSection" class="section">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px;">
+          <h1 style="font-size: 24px;">Pedidos Detalhados</h1>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="font-size: 13px; font-weight: 700;">Filtrar por:</label>
+            <select id="ordersPlatformFilter" class="amz-btn" style="height: 31px; width: 150px; padding: 0 10px;" onchange="changeOrderFilter()">
+              <option value="">Todas as Vendas</option>
+              <option value="amazon_drone">Amazon (Drone)</option>
+              <option value="shopee">Shopee (Outras)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="amz-card">
+          <div class="amz-card-title">Listagem de Transações</div>
+          <div style="overflow-x: auto;">
+            <table id="detailedOrdersTable">
+              <thead>
+                <tr>
+                  <th>Data/Hora</th>
+                  <th>Cliente</th>
+                  <th>Produto</th>
+                  <th>Plataforma</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Carregando pedidos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="margin-top: 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding-top: 15px;">
+            <div style="font-size: 13px; color: var(--amz-muted);" id="ordersPaginationInfo"> Mostrando 0 de 0 pedidos </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="amz-btn" id="btn-orders-prev" onclick="changeOrderPage(-1)" disabled>Anterior</button>
+              <button class="amz-btn" id="btn-orders-next" onclick="changeOrderPage(1)" disabled>Próxima</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Pushcut Section -->
       <section id="pushcutSection" class="section notificacoes-page">
         <div class="notificacoes-header">
@@ -1490,82 +1535,63 @@
       async function refreshDashboard() {
         const dot = document.getElementById('connectionDot');
         const statusText = document.getElementById('connectionText');
+        const hash = window.location.hash || '#dashboardSection';
+
+        // Only auto-refresh if we are on the dashboard
+        if (hash !== '#dashboardSection' && hash !== '') return;
         
         try {
           const data = await apiFetch('/api/titans/metrics');
           if (dot) dot.className = 'dot online';
           if (statusText) statusText.textContent = 'Sistema Online';
           
-          // Populate Configs
           if (data.config) {
             document.getElementById('heroHostText').textContent = 'Domínio: ' + data.config.apiHost;
             document.getElementById('webhookDisplayUrl').textContent = data.config.webhookUrl;
             document.getElementById('heroPushcutText').textContent = data.config.pushcut.count;
             
-            // Gateway Card Status
             const titansBadge = document.getElementById('titansStatusBadge');
             if (titansBadge) {
-              if (data.config.isConfigured) {
-                titansBadge.textContent = 'Configurado';
-                titansBadge.className = 'amz-badge badge-success';
-              } else {
-                titansBadge.textContent = 'Pendente';
-                titansBadge.className = 'amz-badge badge-warning';
-              }
+              titansBadge.textContent = data.config.isConfigured ? 'Configurado' : 'Pendente';
+              titansBadge.className = 'amz-badge ' + (data.config.isConfigured ? 'badge-success' : 'badge-warning');
             }
 
             const cForm = document.getElementById('configForm');
-            if (cForm && cForm.apiHost) cForm.apiHost.value = data.config.apiHost || '';
-            if (cForm && cForm.publicKey) cForm.publicKey.value = data.config.publicKey || '';
-            if (cForm && cForm.secretKey) {
-              cForm.secretKey.value = '';
-              cForm.secretKey.placeholder = data.config.hasSecretKey
-                ? (data.config.secretKeyMasked || '••••••••••••')
-                : '••••••••';
-              cForm.secretKey.dataset.hasPersistedSecret = data.config.hasSecretKey ? 'true' : 'false';
-              cForm.secretKey.title = data.config.hasSecretKey
-                ? 'Secret Key já salva no backend. Preencha apenas se quiser substituir.'
-                : '';
+            if (cForm) {
+              if (cForm.apiHost) cForm.apiHost.value = data.config.apiHost || '';
+              if (cForm.publicKey) cForm.publicKey.value = data.config.publicKey || '';
+              if (cForm.secretKey) {
+                cForm.secretKey.value = '';
+                cForm.secretKey.placeholder = data.config.hasSecretKey ? (data.config.secretKeyMasked || '••••••••••••') : '••••••••';
+              }
             }
             
-            const pForm = document.getElementById('pixelsForm');
-            if (pForm) {
+            if (document.getElementById('pixelsForm')) {
               renderPixelLists(data.config.pixels);
-              pForm.headTag.value = data.config.pixels.headTag || '';
-              pForm.bodyTag.value = data.config.pixels.bodyTag || '';
+              document.getElementById('pixelsForm').headTag.value = data.config.pixels.headTag || '';
+              document.getElementById('pixelsForm').bodyTag.value = data.config.pixels.bodyTag || '';
             }
 
-            renderPushcutItems(Array.isArray(data.config.pushcut.items) ? data.config.pushcut.items : []);
-            
+            renderPushcutItems(data.config.pushcut?.items || []);
             document.getElementById('sidebarNote').textContent = 'Server: ' + data.config.apiHost;
             document.getElementById('summaryLine').textContent = 'Última sincronização completa: ' + formatDate(data.generatedAt);
           }
 
-          // Analytics
           if (data.analytics) {
             ensureTrafficGridCards();
             document.getElementById('totalActiveTitle').textContent = data.analytics.totalActive + ' Usuários Ativos';
             document.querySelectorAll('.traffic-item[data-page]').forEach(item => {
               const pid = item.dataset.page;
-              if (item) {
-                const active = data.analytics.active[pid] || 0;
-                const cum = data.analytics.cumulative[pid] || 0;
-                item.querySelector('.active-val').textContent = active;
-                item.querySelector('.cum-val').textContent = cum + ' total';
-                
-                const pulse = item.querySelector('.live-pulse');
-                if (active > 0) {
-                  item.classList.add('active');
-                  pulse.style.display = 'block';
-                } else {
-                  item.classList.remove('active');
-                  pulse.style.display = 'none';
-                }
-              }
+              const active = data.analytics.active[pid] || 0;
+              const cum = data.analytics.cumulative[pid] || 0;
+              item.querySelector('.active-val').textContent = active;
+              item.querySelector('.cum-val').textContent = cum + ' total';
+              const pulse = item.querySelector('.live-pulse');
+              if (pulse) pulse.style.display = active > 0 ? 'block' : 'none';
+              item.classList.toggle('active', active > 0);
             });
           }
 
-          // Stats
           if (data.salesStats) {
             document.getElementById('totalRevenueText').textContent = formatMoney(data.salesStats.totalPaidAmount);
             document.getElementById('totalOrdersText').textContent = data.salesStats.totalRecords;
@@ -1586,315 +1612,213 @@
               `;
             }
 
-            // Breakdown status
             const statusWrap = document.getElementById('statusBreakdown');
             if (statusWrap) {
               statusWrap.innerHTML = '';
-              for (const [key, val] of Object.entries(data.salesStats.statusBreakdown)) {
+              Object.entries(data.salesStats.statusBreakdown).forEach(([key, val]) => {
                 const badge = document.createElement('span');
                 badge.className = 'amz-badge ' + getBadgeClass(key);
                 badge.textContent = `${key.toUpperCase()}: ${val}`;
                 statusWrap.appendChild(badge);
-              }
-            }
-
-            // Payment method
-            const payWrap = document.getElementById('paymentBreakdown');
-            if (payWrap) {
-              payWrap.innerHTML = '';
-              for (const [key, val] of Object.entries(data.salesStats.paymentMethodBreakdown)) {
-                const bg = document.createElement('span');
-                bg.className = 'amz-badge';
-                bg.style.background = '#f0f2f2';
-                bg.textContent = `${key.toUpperCase()}: ${val}`;
-                payWrap.appendChild(bg);
-              }
+              });
             }
           }
 
           renderMetaAttribution(data.metaAttributionStats);
 
-          // Transactions Table
           if (data.transactions) {
             const tbody = document.querySelector('#transactionsTableWrap tbody');
             if (tbody) {
               tbody.innerHTML = data.transactions.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum registro encontrado.</td></tr>';
               data.transactions.forEach(tx => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                   <td style="font-weight:700;">${formatDate(tx.createdAt)}</td>
                   <td><span class="amz-badge ${getBadgeClass(tx.status)}">${tx.status}</span></td>
                   <td style="color:#B12704; font-weight:700;">${formatMoney(tx.amount)}</td>
                   <td>${tx.paymentMethod || 'PIX'}</td>
                 `;
-                tbody.appendChild(row);
+                tbody.appendChild(tr);
               });
             }
           }
 
-          // Webhooks Table
           if (data.webhooks) {
             const tbody = document.querySelector('#webhooksTableWrap tbody');
             if (tbody) {
               tbody.innerHTML = data.webhooks.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum evento recente.</td></tr>';
               data.webhooks.slice(0, 50).forEach(wh => {
-                const pushcutOk = Array.isArray(wh.pushcutDispatches)
-                  ? wh.pushcutDispatches.filter(item => item.ok).length
-                  : 0;
-                const pushcutTotal = Array.isArray(wh.pushcutDispatches)
-                  ? wh.pushcutDispatches.length
-                  : 0;
-                const row = document.createElement('tr');
-                row.innerHTML = `
+                const ok = (wh.pushcutDispatches || []).filter(i => i.ok).length;
+                const total = (wh.pushcutDispatches || []).length;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                   <td>${formatDate(wh.receivedAt)}</td>
                   <td>${escapeHtml((wh.type || 'custom').toUpperCase())}</td>
                   <td style="font-weight:700;">${formatMoney(wh.amount || 0)}</td>
-                  <td><span class="amz-badge ${pushcutTotal && pushcutOk === pushcutTotal ? 'badge-success' : pushcutTotal ? 'badge-warning' : 'badge-pending'}">${pushcutTotal ? `${pushcutOk}/${pushcutTotal} ENVIADO` : 'SEM PUSHCUT'}</span></td>
+                  <td><span class="amz-badge ${total && ok === total ? 'badge-success' : total ? 'badge-warning' : 'badge-pending'}">${total ? `${ok}/${total} ENVIADO` : 'SEM PUSHCUT'}</span></td>
                 `;
-                tbody.appendChild(row);
+                tbody.appendChild(tr);
               });
             }
           }
-
         } catch (err) {
           console.error(err);
           if (dot) dot.className = 'dot';
-          const generatedAtText = document.getElementById('generatedAtText');
-          const summaryLine = document.getElementById('summaryLine');
-          if (generatedAtText) generatedAtText.textContent = 'Falha ao carregar mÃ©tricas';
-          if (summaryLine) summaryLine.textContent = err.message || 'Nao foi possivel carregar os dados do painel.';
-          if (statusText) statusText.textContent = 'Erro de Conexão';
+          const genText = document.getElementById('generatedAtText');
+          if (genText) genText.textContent = 'Falha ao sincronizar';
+          const sumLine = document.getElementById('summaryLine');
+          if (sumLine) sumLine.textContent = 'Erro de API: ' + err.message;
         }
       }
 
-      // Form Submissions
-      document.getElementById('configForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = {
-          apiHost: e.target.apiHost.value,
-          publicKey: e.target.publicKey.value,
-          secretKey: e.target.secretKey.value || undefined
-        };
-        try {
-          await apiFetch('/api/admin/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          alert('Configurações salvas com sucesso!');
-          closeGatewayModal();
-          refreshDashboard();
-        } catch (err) {
-          alert('Erro ao salvar: ' + err.message);
-        }
-      });
-
-      (function() {
+      // --- Navigation Router ---
+      function router() {
+        const hash = window.location.hash || '#dashboardSection';
         const sections = document.querySelectorAll('.section');
         const navLinks = document.querySelectorAll('.nav-link');
+        
+        sections.forEach(s => s.classList.remove('active'));
+        navLinks.forEach(l => l.classList.remove('active'));
 
-        function router() {
-          const hash = window.location.hash || '#dashboardSection';
-          
-          sections.forEach(s => s.classList.remove('active'));
-          navLinks.forEach(l => l.classList.remove('active'));
-
-          const activeSection = document.querySelector(hash);
-          if (activeSection) {
-            activeSection.classList.add('active');
-          } else {
-            document.getElementById('dashboardSection').classList.add('active');
-          }
-
-          const activeLink = document.querySelector(`[href="${hash}"]`);
-          if (activeLink) {
-            activeLink.classList.add('active');
-          } else {
-            document.getElementById('nav-dash').classList.add('active');
-          }
-
-          // Trigger Page Logic
-          if (hash === '#dashboardSection' || !hash) {
-            refreshDashboard();
-          } else if (hash === '#ordersSection') {
-            fetchDetailedOrders(1);
-          }
-          
-          syncDashboardAutoRefresh();
+        const target = document.querySelector(hash);
+        if (target) {
+          target.classList.add('active');
+        } else {
+          document.getElementById('dashboardSection').classList.add('active');
         }
 
-        // Initial route
-        ensureTrafficGridCards();
-        router(); 
-        
-        window.addEventListener('hashchange', router);
+        const link = document.querySelector(`[href="${hash}"]`);
+        if (link) {
+          link.classList.add('active');
+        } else {
+          document.getElementById('nav-dash').classList.add('active');
+        }
 
-        // Expose global functions for pagination/filter
-        window.changeOrderFilter = () => {
-          currentOrdersFilter = document.getElementById('ordersPlatformFilter').value;
-          currentOrdersPage = 1;
+        if (hash === '#dashboardSection' || hash === '') {
+          refreshDashboard();
+        } else if (hash === '#ordersSection') {
           fetchDetailedOrders(1);
-        };
+        }
+      }
 
-        window.changeOrderPage = (delta) => {
-          currentOrdersPage += delta;
-          fetchDetailedOrders(currentOrdersPage);
-        };
-      })();
-
-      // --- NEW: Detailed Orders Management ---
+      // --- Detailed Orders Management ---
       let currentOrdersPage = 1;
       let currentOrdersFilter = '';
 
       async function fetchDetailedOrders(page) {
         const tbody = document.querySelector('#detailedOrdersTable tbody');
-        const prevBtn = document.getElementById('btn-orders-prev');
-        const nextBtn = document.getElementById('btn-orders-next');
-        const info = document.getElementById('ordersPaginationInfo');
-
         if (!tbody) return;
 
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;"><div style="display: flex; align-items:center; justify-content:center; gap:10px;"><img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Amazon_icon.svg" width="20" style="animation: spin 1s infinite linear;"> Carregando...</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">Carregando pedidos...</td></tr>';
 
         try {
-          const url = `/api/admin/detailed-orders?page=${page}&limit=50${currentOrdersFilter ? `&origin=${currentOrdersFilter}` : ''}`;
+          const url = `/api/admin/detailed-orders?page=${page}&limit=50` + (currentOrdersFilter ? `&origin=${currentOrdersFilter}` : '');
           const data = await apiFetch(url);
 
           if (!data.orders || data.orders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Nenhum pedido encontrado.</td></tr>';
-            if (info) info.textContent = 'Mostrando 0 pedidos';
-            if (prevBtn) prevBtn.disabled = true;
-            if (nextBtn) nextBtn.disabled = true;
+            document.getElementById('ordersPaginationInfo').textContent = '0 pedidos';
             return;
           }
 
           tbody.innerHTML = '';
           data.orders.forEach(order => {
             const tr = document.createElement('tr');
-            
-            const originLabel = order.origin === 'amazon_drone' ? 'Amazon' : (order.origin === 'shopee' ? 'Shopee' : order.origin);
+            const originLabel = order.origin === 'amazon_drone' ? 'Amazon' : (order.origin === 'shopee' ? 'Shopee' : 'Outro');
             const originClass = order.origin === 'amazon_drone' ? 'badge-success' : 'badge-pending';
-
-            const customerName = order.customer?.name || 'Cliente Sem Nome';
-            const customerEmail = order.customer?.email || '';
-            const customerDetails = `
-              <div style="font-weight: 700;">${escapeHtml(customerName)}</div>
-              <div style="font-size: 11px; color: #565959;">${escapeHtml(customerEmail)}</div>
-              <div style="font-size: 11px; color: #565959;">CPF: ${escapeHtml(order.customer?.document?.number || 'Não informado')}</div>
-            `;
-
+            
             tr.innerHTML = `
               <td>${formatDate(order.date)}</td>
-              <td>${customerDetails}</td>
-              <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(order.product)}">
-                ${escapeHtml(order.product)}
-              </td>
-              <td style="text-align: center;">
-                <span class="amz-badge ${originClass}">${escapeHtml(originLabel)}</span>
-              </td>
-              <td style="font-weight: 700;">${formatMoney(order.amount)}</td>
-              <td><span class="amz-badge ${getBadgeClass(order.status)}">${escapeHtml(order.status)}</span></td>
               <td>
-                <div style="display: flex; gap: 5px;">
-                  ${order.receipt_url ? `<a href="${order.receipt_url}" target="_blank" class="amz-btn" style="padding: 0 8px; font-size: 11px;">Comprovante</a>` : ''}
-                  <button class="amz-btn" style="padding: 0 8px; font-size: 11px;" onclick="viewOrderDetails('${order.id}')">Detalhes</button>
+                <div style="font-weight:700;">${escapeHtml(order.customer?.name || 'Cliente')}</div>
+                <div style="font-size:11px; color:#565959;">${escapeHtml(order.customer?.email || '')}</div>
+              </td>
+              <td>${escapeHtml(order.product || '-')}</td>
+              <td style="text-align:center;"><span class="amz-badge ${originClass}">${originLabel}</span></td>
+              <td style="font-weight:700;">${formatMoney(order.amount)}</td>
+              <td><span class="amz-badge ${getBadgeClass(order.status)}">${order.status}</span></td>
+              <td>
+                <div style="display:flex; gap:5px;">
+                  ${order.receipt_url ? `<a href="${order.receipt_url}" target="_blank" class="amz-btn" style="padding:0 8px; font-size:11px;">Comprovante</a>` : ''}
+                  <button class="amz-btn" style="padding:0 8px; font-size:11px;" onclick="viewOrderDetails('${order.id}')">Detalhes</button>
                 </div>
               </td>
             `;
             tbody.appendChild(tr);
           });
 
-          if (info) info.textContent = `Página ${data.pagination.page} de ${data.pagination.totalPages} (${data.pagination.totalCount} pedidos totais)`;
-          if (prevBtn) prevBtn.disabled = data.pagination.page === 1;
-          if (nextBtn) nextBtn.disabled = data.pagination.page >= data.pagination.totalPages;
+          document.getElementById('ordersPaginationInfo').textContent = `Página ${data.pagination.page} de ${data.pagination.totalPages} (${data.pagination.totalCount} total)`;
+          document.getElementById('btn-orders-prev').disabled = data.pagination.page === 1;
+          document.getElementById('btn-orders-next').disabled = data.pagination.page >= data.pagination.totalPages;
           currentOrdersPage = data.pagination.page;
-
         } catch (err) {
           tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: #b12704;">Erro: ${err.message}</td></tr>`;
         }
       }
 
-      window.viewOrderDetails = (orderId) => {
-        alert('ID do Pedido: ' + orderId + '\nFuncionalidade de detalhamento completo em desenvolvimento. Use o Comprovante para ver os dados no gateway.');
+      window.changeOrderFilter = () => {
+        currentOrdersFilter = document.getElementById('ordersPlatformFilter').value;
+        currentOrdersPage = 1;
+        fetchDetailedOrders(1);
       };
 
-      // Configuration Form Event Listeners
+      window.changeOrderPage = (delta) => {
+        currentOrdersPage += delta;
+        fetchDetailedOrders(currentOrdersPage);
+      };
+
+      window.viewOrderDetails = (id) => alert('ID: ' + id);
+
+      // --- Initialization ---
+      ensureTrafficGridCards();
+      router();
+      window.addEventListener('hashchange', router);
+      setInterval(() => {
+        if (window.location.hash === '#dashboardSection' || !window.location.hash) refreshDashboard();
+      }, 10000);
+
+      // Event Listeners
       document.getElementById('configForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const data = {
-          apiHost: fd.get('apiHost').trim(),
-          publicKey: fd.get('publicKey').trim(),
-          secretKey: fd.get('secretKey').trim()
-        };
-
-        if (data.secretKey === '' && e.target.secretKey.dataset.hasPersistedSecret === 'true') {
-          delete data.secretKey;
-        }
-
+        const body = { apiHost: fd.get('apiHost'), publicKey: fd.get('publicKey'), secretKey: fd.get('secretKey') || undefined };
         try {
-          await apiFetch('/api/admin/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          alert('Configurações atualizadas!');
+          await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          alert('Configurações salvas!');
           refreshDashboard();
-        } catch (err) {
-          alert('Erro: ' + err.message);
-        }
+        } catch (err) { alert(err.message); }
       });
 
       document.getElementById('pixelsForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const fd = new FormData(e.target);
-        const data = {
-          pixels: {
-            metaPixelId: fd.getAll('metaPixelId').map(v => v.trim()).filter(Boolean),
-            googleTagManagerId: fd.getAll('googleTagManagerId').map(v => v.trim()).filter(Boolean),
-            googleAdsId: fd.getAll('googleAdsId').map(v => v.trim()).filter(Boolean),
-            tiktokPixelId: fd.getAll('tiktokPixelId').map(v => v.trim()).filter(Boolean),
-            headTag: fd.get('headTag'),
-            bodyTag: fd.get('bodyTag')
-          }
+        const pixels = {
+          metaPixelId: fd.getAll('metaPixelId').filter(Boolean),
+          googleTagManagerId: fd.getAll('googleTagManagerId').filter(Boolean),
+          googleAdsId: fd.getAll('googleAdsId').filter(Boolean),
+          tiktokPixelId: fd.getAll('tiktokPixelId').filter(Boolean),
+          headTag: fd.get('headTag'),
+          bodyTag: fd.get('bodyTag')
         };
         try {
-          await apiFetch('/api/admin/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          alert('Configurações de trackeamento atualizadas!');
+          await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pixels }) });
+          alert('Trackeamento atualizado!');
           refreshDashboard();
-        } catch (err) {
-          alert('Erro: ' + err.message);
-        }
+        } catch (err) { alert(err.message); }
       });
 
       document.getElementById('pushcutForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const items = collectPushcutItemsFromForm();
-        if (items === null) {
-          setPushcutFeedback('Corrija os campos obrigatorios antes de salvar.', 'error');
-          return;
-        }
         try {
-          const response = await apiFetch('/api/admin/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pushcut: { items } })
-          });
-          renderPushcutItems(response?.config?.pushcut?.items || items);
-          setPushcutFeedback(response.message || 'Pushcut salvo com sucesso.', 'success');
+          await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pushcut: { items } }) });
+          alert('Pushcut atualizado!');
           refreshDashboard();
-        } catch (err) {
-          setPushcutFeedback('Erro ao salvar: ' + err.message, 'error');
-        }
+        } catch (err) { alert(err.message); }
       });
 
       document.getElementById('addPushcutLinkButton')?.addEventListener('click', () => {
         addPushcutItem();
-        setPushcutFeedback('', '');
       });
 
       document.addEventListener('visibilitychange', () => {
