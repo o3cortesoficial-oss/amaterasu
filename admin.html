@@ -1851,27 +1851,15 @@
         `).join('');
       }
 
-      function buildPendingPixCardHtml(stats = {}) {
-        const items = Array.isArray(stats.items) ? stats.items : [];
+function buildPendingPixCardHtml(stats = {}) {
         return `
           <div class="amz-card widget-box">
             <span class="widget-sub">VOLUME BRUTO</span>
             <span class="widget-val">${formatMoney(stats.totalVolume || 0)}</span>
-            <span class="dashboard-card-note">Soma de todas as transaÃ§Ãµes filtradas</span>
           </div>
           <div class="amz-card widget-box">
             <span class="widget-sub">PIX GERADOS NÃƒO PAGOS</span>
             <span class="widget-val">${formatMoney(stats.pendingAmount || 0)}</span>
-            <span class="dashboard-card-note">${items.length ? `${stats.pendingCount || items.length} PIX aguardando pagamento` : 'Nenhum PIX pendente neste filtro'}</span>
-            <div class="dashboard-mini-list">
-              ${items.length ? items.map(item => `
-                <div class="dashboard-mini-item">
-                  <strong>${escapeHtml(item.product || 'Produto')}</strong><br>
-                  ${escapeHtml(formatDate(item.date))}<br>
-                  ${formatMoney(item.amount || 0)}
-                </div>
-              `).join('') : '<div class="dashboard-mini-item">Sem registros pendentes para o produto/perÃ­odo selecionado.</div>'}
-            </div>
           </div>
         `;
       }
