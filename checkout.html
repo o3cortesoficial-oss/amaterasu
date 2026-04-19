@@ -258,6 +258,70 @@
             align-self: center;
         }
 
+        .upsell-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        .upsell-card input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            flex: 0 0 auto;
+        }
+
+        .upsell-card img {
+            height: 65px;
+            width: auto;
+            display: block;
+            flex: 0 0 auto;
+            border-radius: 8px;
+        }
+
+        .upsell-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .upsell-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .upsell-name {
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.3;
+            min-width: 0;
+        }
+
+        .upsell-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #B12704;
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .upsell-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
         /* Pix Section */
         #pix-container {
             display: none;
@@ -475,17 +539,17 @@
 
         <div class="section-card" id="section-upsell-storage-case">
             <h2 class="section-title">Leve junto</h2>
-            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
-                <img src="assets/img/Case (Bolsa) de Armazenamento.jpg" alt="Case (Bolsa) de Armazenamento" style="width: 180px; max-width: 100%; border-radius: 8px; display: block; object-fit: cover;">
-                <div style="flex: 1; min-width: 220px;">
-                    <h3 style="font-size: 18px; margin-bottom: 8px;">Case (Bolsa) de Armazenamento</h3>
-                    <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                        <span style="font-size: 14px; color: var(--text-secondary); text-decoration: line-through;">R$ 98,99</span>
-                        <span style="font-size: 28px; font-weight: 700; color: #B12704;">R$ 42,57</span>
+            <label class="upsell-card" for="upsell-storage-case">
+                <input type="checkbox" id="upsell-storage-case" name="upsell-storage-case" value="storage-case">
+                <img src="assets/img/Case (Bolsa) de Armazenamento.jpg" alt="Case (Bolsa) de Armazenamento">
+                <div class="upsell-content">
+                    <div class="upsell-top">
+                        <span class="upsell-name">Case (Bolsa) de Armazenamento</span>
+                        <span class="upsell-price">R$ 42,57</span>
                     </div>
-                    <p style="font-size: 14px; font-weight: 700; color: var(--amazon-orange);">Essa Oferta aparecer√° somente hoje, leve agora mesmo!</p>
+                    <span class="upsell-desc">Essa Oferta aparecer· somente hoje, leve agora mesmo!</span>
                 </div>
-            </div>
+            </label>
         </div>
     </div>
 
