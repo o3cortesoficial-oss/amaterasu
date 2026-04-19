@@ -2920,6 +2920,24 @@ function setCookie(res, name, value, req) {
   res.setHeader("Set-Cookie", flags.join("; "));
 }
 
+function clearCookie(res, name, req) {
+  const isSecure =
+    String(req.headers["x-forwarded-proto"] || "").toLowerCase() === "https";
+  const flags = [
+    `${name}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+  ];
+
+  if (isSecure) {
+    flags.push("Secure");
+  }
+
+  res.setHeader("Set-Cookie", flags.join("; "));
+}
+
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -2928,9 +2946,9 @@ export default async function handler(req, res) {
   const pathname = url.pathname;
   const body = await readRequestBody(req);
 
-  try {
-    if (req.method === "POST" && pathname === "/api/auth/login") {
-      if (!hasAdminAuthConfig) {
+    try {
+      if (req.method === "POST" && pathname === "/api/auth/login") {
+        if (!hasAdminAuthConfig) {
         return res.status(200).json({
           ok: true,
           authDisabled: true,
@@ -2951,12 +2969,20 @@ export default async function handler(req, res) {
         });
       }
 
-      return res.status(401).json({
-        message: "E-mail ou senha incorretos.",
-      });
-    }
+        return res.status(401).json({
+          message: "E-mail ou senha incorretos.",
+        });
+      }
 
-    if (req.method === "GET" && pathname === "/api/public/config") {
+      if (req.method === "POST" && pathname === "/api/auth/logout") {
+        clearCookie(res, AUTH_COOKIE_NAME, req);
+        return res.status(200).json({
+          ok: true,
+          message: "Logout realizado com sucesso.",
+        });
+      }
+
+      if (req.method === "GET" && pathname === "/api/public/config") {
       const config = await loadConfig();
       return res.status(200).json({
         ok: true,

@@ -1366,7 +1366,10 @@
           </div>
         </div>
 
-        <p id="summaryLine" style="text-align: center; font-size: 11px; color: #999; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 10px;"></p>
+        <div style="display: flex; justify-content: center; margin-top: 32px;">
+          <button type="button" class="amz-btn" onclick="logoutAdmin()">Deslogar</button>
+        </div>
+        <p id="summaryLine" style="text-align: center; font-size: 11px; color: #999; margin-top: 12px; border-top: 1px solid #ddd; padding-top: 10px;"></p>
         <p id="sidebarNote" style="text-align: center; font-size: 10px; color: #bbb;"></p>
       </section>
 
@@ -2294,6 +2297,19 @@ function buildPendingPixCardHtml(stats = {}) {
           refreshDashboard(true);
         } else if (hash === '#ordersSection') {
           fetchDetailedOrders(1);
+        }
+      }
+
+      async function logoutAdmin() {
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          window.location.href = '/login';
         }
       }
 
