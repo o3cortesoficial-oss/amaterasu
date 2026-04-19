@@ -225,6 +225,20 @@
             margin-bottom: 4px;
         }
 
+        .shipping-option-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .shipping-carrier-logo {
+            height: 18px;
+            width: auto;
+            display: block;
+            flex: 0 0 auto;
+        }
+
         .shipping-option-text {
             font-size: 13px;
             color: var(--text-secondary);
@@ -395,7 +409,10 @@
                     <input type="radio" id="shipping-pac" name="shipping-method" value="pac" checked>
                     <div class="shipping-option-content">
                         <div>
-                            <div class="shipping-option-title">PAC</div>
+                            <div class="shipping-option-title-row">
+                                <img src="assets/img/Correios_logo.svg" alt="Correios" class="shipping-carrier-logo">
+                                <div class="shipping-option-title">PAC</div>
+                            </div>
                             <div class="shipping-option-text">20 a 30 dias</div>
                         </div>
                         <div class="shipping-option-price">Grátis</div>
@@ -405,7 +422,10 @@
                     <input type="radio" id="shipping-sedex" name="shipping-method" value="sedex">
                     <div class="shipping-option-content">
                         <div>
-                            <div class="shipping-option-title">SEDEX</div>
+                            <div class="shipping-option-title-row">
+                                <img src="assets/img/Correios_logo.svg" alt="Correios" class="shipping-carrier-logo">
+                                <div class="shipping-option-title">SEDEX</div>
+                            </div>
                             <div class="shipping-option-text">15 a 20 dias</div>
                         </div>
                         <div class="shipping-option-price">R$ 12,99</div>
