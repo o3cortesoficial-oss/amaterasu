@@ -409,13 +409,13 @@
 
 <div class="container">
     <div class="main-content">
-        <!-- 1. IdentificaÃƒÂ§ÃƒÂ£o -->
+        <!-- 1. Identificação -->
         <div class="section-card" id="section-personal">
             <h2 class="section-title">1. Dados Pessoais</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label for="full-name">Nome completo</label>
-                    <input type="text" id="full-name" placeholder="Ex: JoÃƒÂ£o da Silva" required>
+                    <input type="text" id="full-name" placeholder="Ex: João da Silva" required>
                 </div>
             </div>
             <div class="form-row">
@@ -436,9 +436,9 @@
             </div>
         </div>
 
-        <!-- 2. EndereÃƒÂ§o -->
+        <!-- 2. Endereço -->
         <div class="section-card" id="section-address">
-            <h2 class="section-title">2. EndereÃƒÂ§o de entrega</h2>
+            <h2 class="section-title">2. Endereço de entrega</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label for="cep">CEP</label>
@@ -447,18 +447,18 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="address">EndereÃƒÂ§o</label>
+                    <label for="address">Endereço</label>
                     <input type="text" id="address" placeholder="Rua, Avenida, Travessa..." required>
                 </div>
                 <div class="form-group small">
-                    <label for="number">NÃƒÂºmero</label>
+                    <label for="number">Número</label>
                     <input type="text" id="number" placeholder="123" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="complement">Complemento (Opcional)</label>
-                    <input type="text" id="complement" placeholder="Apto, Sala, ReferÃƒÂªncia">
+                    <input type="text" id="complement" placeholder="Apto, Sala, Referência">
                 </div>
             </div>
             <div class="form-row">
@@ -493,7 +493,7 @@
                             </div>
                             <div class="shipping-option-text">20 a 30 dias</div>
                         </div>
-                        <div class="shipping-option-price">GrÃƒÂ¡tis</div>
+                        <div class="shipping-option-price">Grátis</div>
                     </div>
                 </label>
                 <label class="shipping-option" for="shipping-sedex">
@@ -528,20 +528,20 @@
         <!-- 3. Pagamento -->
         <div class="section-card" id="section-payment">
             <h2 class="section-title">3. Pagamento</h2>
-            <p style="margin-bottom: 10px;">MÃƒÂ©todo selecionado: <strong>Pix</strong> (Pagamento instantÃƒÂ¢neo)</p>
+            <p style="margin-bottom: 10px;">Método selecionado: <strong>Pix</strong> (Pagamento instantâneo)</p>
             <div style="background-color: #F7FEFF; border: 1px solid #A9E3F0; padding: 10px; border-radius: 4px;">
-                <p style="font-size: 13px; color: #007185;">O cÃƒÂ³digo Pix serÃƒÂ¡ gerado apÃƒÂ³s clicar em "Finalizar Compra".</p>
+                <p style="font-size: 13px; color: #007185;">O código Pix será gerado após clicar em "Finalizar Compra".</p>
             </div>
             
             <!-- Pix Results (Hidden initially) -->
             <div id="pix-container">
-                <p>Escaneie o cÃƒÂ³digo abaixo com o app do seu banco:</p>
+                <p>Escaneie o código abaixo com o app do seu banco:</p>
                 <img src="" alt="QR Code Pix" class="qr-code-img" id="pix-qr">
-                <p>Ou copie o cÃƒÂ³digo copia e cola:</p>
+                <p>Ou copie o código copia e cola:</p>
                 <div class="copy-box" id="pix-code" onclick="copyPix()">
-                    Clique para copiar o cÃƒÂ³digo
+                    Clique para copiar o código
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">O pedido serÃƒÂ¡ processado imediatamente apÃƒÂ³s a confirmaÃƒÂ§ÃƒÂ£o do pagamento.</p>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">O pedido será processado imediatamente após a confirmação do pagamento.</p>
             </div>
         </div>
 
@@ -555,7 +555,7 @@
                         <span class="upsell-name">Case (Bolsa) de Armazenamento</span>
                         <span class="upsell-price">R$ 42,57</span>
                     </div>
-                    <span class="upsell-desc">Essa Oferta aparecerÃ¡ somente hoje, leve agora mesmo!</span>
+                    <span class="upsell-desc">Essa Oferta aparecerá somente hoje, leve agora mesmo!</span>
                 </div>
             </label>
         </div>
@@ -579,7 +579,7 @@
             </div>
             <div class="order-total-row">
                 <span>Frete:</span>
-                <span id="shipping-price" style="color: var(--amazon-blue);">R$ 0,00 (GrÃƒÂ¡tis)</span>
+                <span id="shipping-price" style="color: var(--amazon-blue);">R$ 0,00 (Grátis)</span>
             </div>
             <div class="order-total-row big">
                 <span>Total do pedido:</span>
@@ -589,7 +589,7 @@
             <button class="btn-primary" id="btn-finish" onclick="processOrder()">Finalizar Compra</button>
             
             <p style="font-size: 11px; text-align: center; margin-top: 15px; color: var(--text-secondary);">
-                Ao clicar em "Finalizar Compra", vocÃƒÂª concorda com as condiÃƒÂ§ÃƒÂµes de venda da Amazon.
+                Ao clicar em "Finalizar Compra", você concorda com as condições de venda da Amazon.
             </p>
         </div>
     </div>
@@ -726,7 +726,7 @@
         const shippingOption = getSelectedShippingOption();
         const shippingPriceLabel = shippingOption.price > 0
             ? formatCurrencyValue(shippingOption.price)
-            : 'R$ 0,00 (Gr?tis)';
+            : 'R$ 0,00 (Grátis)';
         const totalAmount = amountValue + shippingOption.price + getSelectedUpsellAmount();
 
         document.getElementById('shipping-price').innerText = shippingPriceLabel;
@@ -937,7 +937,7 @@
         });
 
         if (!valid) {
-            alert('Por favor, preencha todos os campos obrigat?rios.');
+            alert('Por favor, preencha todos os campos obrigatórios.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -1037,7 +1037,7 @@
             if (data.ok && data.transaction) {
                 const pixCode = data.transaction.pix_code;
                 if (!pixCode) {
-                    throw new Error('A TitansHub n?o retornou o c?digo PIX da cobran?a.');
+                    throw new Error('A TitansHub não retornou o código PIX da cobrança.');
                 }
                 const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(pixCode);
                 
@@ -1090,12 +1090,12 @@
 
     function copyPix() {
         const code = (document.getElementById('pix-code').innerText || '').trim();
-        if (!code || code === 'Clique para copiar o c?digo') {
-            alert('C?digo PIX indispon?vel no momento.');
+        if (!code || code === 'Clique para copiar o código') {
+            alert('Código PIX indisponível no momento.');
             return;
         }
         navigator.clipboard.writeText(code).then(() => {
-            alert('C?digo Pix copiado com sucesso!');
+            alert('Código Pix copiado com sucesso!');
         });
     }
 </script>
