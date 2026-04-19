@@ -277,7 +277,7 @@
         }
 
         .upsell-card img {
-            height: 65px;
+            height: 60px;
             width: auto;
             display: block;
             flex: 0 0 auto;
@@ -288,6 +288,7 @@
             display: flex;
             flex-direction: column;
             gap: 4px;
+            flex: 1 1 auto;
             width: 100%;
             min-width: 0;
         }
@@ -295,7 +296,7 @@
         .upsell-top {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             gap: 12px;
             width: 100%;
         }
@@ -304,7 +305,12 @@
             font-size: 15px;
             font-weight: 700;
             line-height: 1.3;
+            flex: 1 1 auto;
             min-width: 0;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
         }
 
         .upsell-price {
@@ -320,6 +326,8 @@
             color: var(--text-secondary);
             opacity: 0.8;
             line-height: 1.4;
+            display: block;
+            width: 100%;
         }
 
         /* Pix Section */
@@ -401,13 +409,13 @@
 
 <div class="container">
     <div class="main-content">
-        <!-- 1. Identificação -->
+        <!-- 1. IdentificaÃƒÂ§ÃƒÂ£o -->
         <div class="section-card" id="section-personal">
             <h2 class="section-title">1. Dados Pessoais</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label for="full-name">Nome completo</label>
-                    <input type="text" id="full-name" placeholder="Ex: João da Silva" required>
+                    <input type="text" id="full-name" placeholder="Ex: JoÃƒÂ£o da Silva" required>
                 </div>
             </div>
             <div class="form-row">
@@ -428,9 +436,9 @@
             </div>
         </div>
 
-        <!-- 2. Endereço -->
+        <!-- 2. EndereÃƒÂ§o -->
         <div class="section-card" id="section-address">
-            <h2 class="section-title">2. Endereço de entrega</h2>
+            <h2 class="section-title">2. EndereÃƒÂ§o de entrega</h2>
             <div class="form-row">
                 <div class="form-group">
                     <label for="cep">CEP</label>
@@ -439,18 +447,18 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="address">Endereço</label>
+                    <label for="address">EndereÃƒÂ§o</label>
                     <input type="text" id="address" placeholder="Rua, Avenida, Travessa..." required>
                 </div>
                 <div class="form-group small">
-                    <label for="number">Número</label>
+                    <label for="number">NÃƒÂºmero</label>
                     <input type="text" id="number" placeholder="123" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="complement">Complemento (Opcional)</label>
-                    <input type="text" id="complement" placeholder="Apto, Sala, Referência">
+                    <input type="text" id="complement" placeholder="Apto, Sala, ReferÃƒÂªncia">
                 </div>
             </div>
             <div class="form-row">
@@ -485,7 +493,7 @@
                             </div>
                             <div class="shipping-option-text">20 a 30 dias</div>
                         </div>
-                        <div class="shipping-option-price">Grátis</div>
+                        <div class="shipping-option-price">GrÃƒÂ¡tis</div>
                     </div>
                 </label>
                 <label class="shipping-option" for="shipping-sedex">
@@ -520,20 +528,20 @@
         <!-- 3. Pagamento -->
         <div class="section-card" id="section-payment">
             <h2 class="section-title">3. Pagamento</h2>
-            <p style="margin-bottom: 10px;">Método selecionado: <strong>Pix</strong> (Pagamento instantâneo)</p>
+            <p style="margin-bottom: 10px;">MÃƒÂ©todo selecionado: <strong>Pix</strong> (Pagamento instantÃƒÂ¢neo)</p>
             <div style="background-color: #F7FEFF; border: 1px solid #A9E3F0; padding: 10px; border-radius: 4px;">
-                <p style="font-size: 13px; color: #007185;">O código Pix será gerado após clicar em "Finalizar Compra".</p>
+                <p style="font-size: 13px; color: #007185;">O cÃƒÂ³digo Pix serÃƒÂ¡ gerado apÃƒÂ³s clicar em "Finalizar Compra".</p>
             </div>
             
             <!-- Pix Results (Hidden initially) -->
             <div id="pix-container">
-                <p>Escaneie o código abaixo com o app do seu banco:</p>
+                <p>Escaneie o cÃƒÂ³digo abaixo com o app do seu banco:</p>
                 <img src="" alt="QR Code Pix" class="qr-code-img" id="pix-qr">
-                <p>Ou copie o código copia e cola:</p>
+                <p>Ou copie o cÃƒÂ³digo copia e cola:</p>
                 <div class="copy-box" id="pix-code" onclick="copyPix()">
-                    Clique para copiar o código
+                    Clique para copiar o cÃƒÂ³digo
                 </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">O pedido será processado imediatamente após a confirmação do pagamento.</p>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">O pedido serÃƒÂ¡ processado imediatamente apÃƒÂ³s a confirmaÃƒÂ§ÃƒÂ£o do pagamento.</p>
             </div>
         </div>
 
@@ -547,7 +555,7 @@
                         <span class="upsell-name">Case (Bolsa) de Armazenamento</span>
                         <span class="upsell-price">R$ 42,57</span>
                     </div>
-                    <span class="upsell-desc">Essa Oferta aparecer� somente hoje, leve agora mesmo!</span>
+                    <span class="upsell-desc">Essa Oferta aparecerÃ¡ somente hoje, leve agora mesmo!</span>
                 </div>
             </label>
         </div>
@@ -571,7 +579,7 @@
             </div>
             <div class="order-total-row">
                 <span>Frete:</span>
-                <span id="shipping-price" style="color: var(--amazon-blue);">R$ 0,00 (Grátis)</span>
+                <span id="shipping-price" style="color: var(--amazon-blue);">R$ 0,00 (GrÃƒÂ¡tis)</span>
             </div>
             <div class="order-total-row big">
                 <span>Total do pedido:</span>
@@ -581,7 +589,7 @@
             <button class="btn-primary" id="btn-finish" onclick="processOrder()">Finalizar Compra</button>
             
             <p style="font-size: 11px; text-align: center; margin-top: 15px; color: var(--text-secondary);">
-                Ao clicar em "Finalizar Compra", você concorda com as condições de venda da Amazon.
+                Ao clicar em "Finalizar Compra", vocÃƒÂª concorda com as condiÃƒÂ§ÃƒÂµes de venda da Amazon.
             </p>
         </div>
     </div>
@@ -648,6 +656,7 @@
         return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
+
     const SHIPPING_OPTIONS = {
         pac: {
             title: 'PAC',
@@ -660,15 +669,20 @@
             price: 12.99
         },
         express: {
-            title: 'EXPRESS (mais rápido)',
+            title: 'EXPRESS',
             days: '2 a 4 dias',
             price: 29.99
         }
     };
 
+    const UPSELL_STORAGE_CASE = {
+        title: 'Case (Bolsa) de Armazenamento',
+        price: 42.57
+    };
+
     const storedWhole = storage.get('checkout_price_whole');
     const storedFraction = storage.get('checkout_price_fraction');
-    const storedCompositePrice = storedWhole ? `${storedWhole},${storedFraction || '00'}` : '';
+    const storedCompositePrice = storedWhole ? (storedWhole + ',' + (storedFraction || '00')) : '';
     const rawPrice = storage.get('amz_total_amount') || storedCompositePrice || urlParams.get('price') || '138,77';
     const amountValue = parseAmountValue(rawPrice) || 138.77;
     const productName = (urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini Pro Professional 8K Obstacle Avoidance').trim();
@@ -699,12 +713,21 @@
         return SHIPPING_OPTIONS[selected?.value] || SHIPPING_OPTIONS.pac;
     }
 
+    function isStorageCaseUpsellSelected() {
+        const checkbox = document.getElementById('upsell-storage-case');
+        return Boolean(checkbox && checkbox.checked);
+    }
+
+    function getSelectedUpsellAmount() {
+        return isStorageCaseUpsellSelected() ? UPSELL_STORAGE_CASE.price : 0;
+    }
+
     function updateOrderTotals() {
         const shippingOption = getSelectedShippingOption();
         const shippingPriceLabel = shippingOption.price > 0
             ? formatCurrencyValue(shippingOption.price)
-            : 'R$ 0,00 (Grátis)';
-        const totalAmount = amountValue + shippingOption.price;
+            : 'R$ 0,00 (Gr?tis)';
+        const totalAmount = amountValue + shippingOption.price + getSelectedUpsellAmount();
 
         document.getElementById('shipping-price').innerText = shippingPriceLabel;
         document.getElementById('total-price').innerText = formatCurrencyValue(totalAmount);
@@ -714,8 +737,12 @@
         element.addEventListener('change', updateOrderTotals);
     });
 
-    updateOrderTotals();
+    const upsellStorageCaseCheckbox = document.getElementById('upsell-storage-case');
+    if (upsellStorageCaseCheckbox) {
+        upsellStorageCaseCheckbox.addEventListener('change', updateOrderTotals);
+    }
 
+    updateOrderTotals();
     // Titans Analytics & Attribution
     let attributionId = storage.get('amz_attribution_id');
     let sessionId = storage.get('amz_session_id') || ('sess_' + Math.random().toString(36).substr(2, 9));
@@ -891,6 +918,7 @@
         }
     });
 
+
     // 4. Order Processing & Real Pix Generation
     async function processOrder() {
         const btn = document.getElementById('btn-finish');
@@ -909,7 +937,7 @@
         });
 
         if (!valid) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+            alert('Por favor, preencha todos os campos obrigat?rios.');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -934,13 +962,15 @@
         const buyerCity = document.getElementById('city').value.trim();
         const buyerState = document.getElementById('state').value.trim();
         const shippingOption = getSelectedShippingOption();
-        const totalAmountValue = Number((amountValue + shippingOption.price).toFixed(2));
+        const upsellSelected = isStorageCaseUpsellSelected();
+        const upsellAmount = getSelectedUpsellAmount();
+        const totalAmountValue = Number((amountValue + shippingOption.price + upsellAmount).toFixed(2));
         const fullAddress = [
             buyerStreet,
             buyerNumber,
-            buyerComplement ? `- ${buyerComplement}` : '',
+            buyerComplement ? '- ' + buyerComplement : '',
             buyerNeighborhood,
-            buyerCity ? `${buyerCity}${buyerState ? ` - ${buyerState}` : ''}` : '',
+            buyerCity ? (buyerCity + (buyerState ? ' - ' + buyerState : '')) : '',
             buyerCep
         ].filter(Boolean).join(', ');
 
@@ -968,6 +998,8 @@
             shippingMethod: shippingOption.title,
             shippingDeliveryWindow: shippingOption.days,
             shippingPrice: shippingOption.price,
+            upsellStorageCaseSelected: upsellSelected,
+            upsellStorageCasePrice: upsellAmount,
             fullAddress: fullAddress,
             full_address: fullAddress,
             productName: productName,
@@ -976,6 +1008,11 @@
         };
 
         try {
+            const orderItems = [{ title: productName, unitPrice: amountValue, quantity: 1, tangible: true }];
+            if (upsellSelected) {
+                orderItems.push({ title: UPSELL_STORAGE_CASE.title, unitPrice: UPSELL_STORAGE_CASE.price, quantity: 1, tangible: true });
+            }
+
             const res = await fetch('/api/pix/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -984,7 +1021,7 @@
                     sessionId,
                     buyer: buyerData,
                     amount: totalAmountValue,
-                    items: [{ title: productName, unitPrice: amountValue, quantity: 1, tangible: true }],
+                    items: orderItems,
                     pageId: 'checkout_unified',
                     origin: 'amazon_drone',
                     landingPage: (attributionSnapshot && attributionSnapshot.entryPage) || document.referrer || window.location.href,
@@ -1000,9 +1037,9 @@
             if (data.ok && data.transaction) {
                 const pixCode = data.transaction.pix_code;
                 if (!pixCode) {
-                    throw new Error('A TitansHub não retornou o código PIX da cobrança.');
+                    throw new Error('A TitansHub n?o retornou o c?digo PIX da cobran?a.');
                 }
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCode)}`;
+                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(pixCode);
                 
                 document.getElementById('pix-qr').src = qrUrl;
                 document.getElementById('pix-code').innerText = pixCode;
@@ -1037,7 +1074,7 @@
         
         pollingInterval = setInterval(async () => {
             try {
-                const res = await fetch(`/api/pix/status/${transactionId}`);
+                const res = await fetch('/api/pix/status/' + transactionId);
                 const data = await res.json();
                 
                 if (data.ok && (data.status === 'paid' || data.status === 'approved' || data.status === 'completed')) {
@@ -1053,12 +1090,12 @@
 
     function copyPix() {
         const code = (document.getElementById('pix-code').innerText || '').trim();
-        if (!code || code === 'Clique para copiar o cÃ³digo') {
-            alert('CÃ³digo PIX indisponÃ­vel no momento.');
+        if (!code || code === 'Clique para copiar o c?digo') {
+            alert('C?digo PIX indispon?vel no momento.');
             return;
         }
         navigator.clipboard.writeText(code).then(() => {
-            alert('Código Pix copiado com sucesso!');
+            alert('C?digo Pix copiado com sucesso!');
         });
     }
 </script>
