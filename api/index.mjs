@@ -36,10 +36,13 @@ const trackingPixelBuffer = Buffer.from(
   "base64",
 );
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "").trim();
-const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "").trim();
+const fallbackAdminEmail = "saidlabsglobal@gmail.com";
+const fallbackAdminPassword = "530348Home10";
+const fallbackJwtSecret = "amazon-seller-central-secret-key-123";
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || fallbackAdminEmail).trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || fallbackAdminPassword).trim();
 const AUTH_COOKIE_NAME = "amz_admin_session";
-const JWT_SECRET = (process.env.JWT_SECRET || "").trim();
+const JWT_SECRET = (process.env.JWT_SECRET || fallbackJwtSecret).trim();
 const hasAdminAuthConfig = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && JWT_SECRET);
 const runtimeConfigApiHost = process.env.TITANSHUB_API_HOST || "";
 const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";

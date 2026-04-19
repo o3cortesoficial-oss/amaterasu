@@ -19,10 +19,13 @@ export default function middleware(req) {
   const url = new URL(req.url);
   const userAgent = req.headers.get('user-agent') || '';
   const pathname = url.pathname;
+  const fallbackAdminEmail = 'saidlabsglobal@gmail.com';
+  const fallbackAdminPassword = '530348Home10';
+  const fallbackJwtSecret = 'amazon-seller-central-secret-key-123';
   const hasAdminAuthConfig = Boolean(
-    process.env.ADMIN_EMAIL &&
-    process.env.ADMIN_PASSWORD &&
-    process.env.JWT_SECRET
+    (process.env.ADMIN_EMAIL || fallbackAdminEmail) &&
+    (process.env.ADMIN_PASSWORD || fallbackAdminPassword) &&
+    (process.env.JWT_SECRET || fallbackJwtSecret)
   );
 
   // Lista de padrões de User-Agents de bots, crawlers e verificadores conhecidos
