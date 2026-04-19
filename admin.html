@@ -82,6 +82,11 @@
         font-weight: 700;
       }
 
+      .nav-logout-btn {
+        margin-left: 12px;
+        flex: 0 0 auto;
+      }
+
       .amz-main-container {
         max-width: 1400px;
         margin: 0 auto;
@@ -1181,6 +1186,7 @@
       <a href="#pixelsSection" class="nav-link" id="nav-pixels">Trackeamento</a>
       <a href="#pushcutSection" class="nav-link" id="nav-push">Notificações</a>
       <span style="margin-left: auto; font-size: 12px; opacity: 0.8;" id="generatedAtText">Sincronizando métricas...</span>
+      <button type="button" class="amz-btn nav-logout-btn" onclick="logoutAdmin()">Sair</button>
     </nav>
 
     <!-- Main Content Area -->
@@ -2297,9 +2303,37 @@ function buildPendingPixCardHtml(stats = {}) {
         }
       }
 
-      // --- Detailed Orders Management ---
-      let currentOrdersPage = 1;
-      let currentOrdersFilter = '';
+      function clearAdminSessionCookie() {
+        const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
+        const secureSuffix = window.location.protocol === 'https:' ? '; Secure' : '';
+        const hostParts = window.location.hostname.split('.');
+        const domains = [window.location.hostname];
+
+        if (hostParts.length > 2) {
+          domains.push('.' + hostParts.slice(-2).join('.'));
+        }
+
+        document.cookie = `amz_admin_session=; expires=${expires}; path=/${secureSuffix}`;
+        domains.forEach((domain) => {
+          document.cookie = `amz_admin_session=; expires=${expires}; path=/; domain=${domain}${secureSuffix}`;
+        });
+      }
+
+      function logoutAdmin() {
+        try {
+          localStorage.removeItem('amz_admin_session');
+          sessionStorage.removeItem('amz_admin_session');
+        } catch (error) {
+          console.error('Logout cleanup error:', error);
+        }
+
+        clearAdminSessionCookie();
+        window.location.replace('/login');
+      }
+
+        // --- Detailed Orders Management ---
+        let currentOrdersPage = 1;
+        let currentOrdersFilter = '';
       let currentDetailedOrdersMap = new Map();
 
       async function fetchDetailedOrders(page) {
