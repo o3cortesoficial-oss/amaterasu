@@ -188,6 +188,56 @@
             background-color: var(--amazon-yellow-hover);
         }
 
+        .shipping-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .shipping-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+        }
+
+        .shipping-option input[type="radio"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            flex: 0 0 auto;
+        }
+
+        .shipping-option-content {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .shipping-option-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .shipping-option-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .shipping-option-price {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-base);
+            white-space: nowrap;
+            align-self: center;
+        }
+
         /* Pix Section */
         #pix-container {
             display: none;
@@ -338,6 +388,42 @@
             </div>
         </div>
 
+        <div class="section-card" id="section-shipping">
+            <h2 class="section-title">Frete</h2>
+            <div class="shipping-options">
+                <label class="shipping-option" for="shipping-pac">
+                    <input type="radio" id="shipping-pac" name="shipping-method" value="pac" checked>
+                    <div class="shipping-option-content">
+                        <div>
+                            <div class="shipping-option-title">PAC</div>
+                            <div class="shipping-option-text">20 a 30 dias</div>
+                        </div>
+                        <div class="shipping-option-price">Grátis</div>
+                    </div>
+                </label>
+                <label class="shipping-option" for="shipping-sedex">
+                    <input type="radio" id="shipping-sedex" name="shipping-method" value="sedex">
+                    <div class="shipping-option-content">
+                        <div>
+                            <div class="shipping-option-title">SEDEX</div>
+                            <div class="shipping-option-text">15 a 20 dias</div>
+                        </div>
+                        <div class="shipping-option-price">R$ 12,99</div>
+                    </div>
+                </label>
+                <label class="shipping-option" for="shipping-express">
+                    <input type="radio" id="shipping-express" name="shipping-method" value="express">
+                    <div class="shipping-option-content">
+                        <div>
+                            <div class="shipping-option-title">EXPRESS (mais rápido)</div>
+                            <div class="shipping-option-text">2 a 4 dias</div>
+                        </div>
+                        <div class="shipping-option-price">R$ 29,99</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
         <!-- 3. Pagamento -->
         <div class="section-card" id="section-payment">
             <h2 class="section-title">3. Pagamento</h2>
@@ -377,7 +463,7 @@
             </div>
             <div class="order-total-row">
                 <span>Frete:</span>
-                <span style="color: var(--amazon-blue);">R$ 0,00 (Grátis)</span>
+                <span id="shipping-price" style="color: var(--amazon-blue);">R$ 0,00 (Grátis)</span>
             </div>
             <div class="order-total-row big">
                 <span>Total do pedido:</span>
@@ -450,6 +536,28 @@
         return Number.isFinite(parsed) ? parsed : 0;
     }
 
+    function formatCurrencyValue(value) {
+        return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    const SHIPPING_OPTIONS = {
+        pac: {
+            title: 'PAC',
+            days: '20 a 30 dias',
+            price: 0
+        },
+        sedex: {
+            title: 'SEDEX',
+            days: '15 a 20 dias',
+            price: 12.99
+        },
+        express: {
+            title: 'EXPRESS (mais rápido)',
+            days: '2 a 4 dias',
+            price: 29.99
+        }
+    };
+
     const storedWhole = storage.get('checkout_price_whole');
     const storedFraction = storage.get('checkout_price_fraction');
     const storedCompositePrice = storedWhole ? `${storedWhole},${storedFraction || '00'}` : '';
@@ -472,12 +580,33 @@
     const formattedPrice = amountValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     document.getElementById('subtotal').innerText = formattedPrice;
-    document.getElementById('total-price').innerText = formattedPrice;
 
     const summaryTitle = document.querySelector('.summary-box h4');
     if (summaryTitle) {
         summaryTitle.innerText = productName;
     }
+
+    function getSelectedShippingOption() {
+        const selected = document.querySelector('input[name="shipping-method"]:checked');
+        return SHIPPING_OPTIONS[selected?.value] || SHIPPING_OPTIONS.pac;
+    }
+
+    function updateOrderTotals() {
+        const shippingOption = getSelectedShippingOption();
+        const shippingPriceLabel = shippingOption.price > 0
+            ? formatCurrencyValue(shippingOption.price)
+            : 'R$ 0,00 (Grátis)';
+        const totalAmount = amountValue + shippingOption.price;
+
+        document.getElementById('shipping-price').innerText = shippingPriceLabel;
+        document.getElementById('total-price').innerText = formatCurrencyValue(totalAmount);
+    }
+
+    document.querySelectorAll('input[name="shipping-method"]').forEach((element) => {
+        element.addEventListener('change', updateOrderTotals);
+    });
+
+    updateOrderTotals();
 
     // Titans Analytics & Attribution
     let attributionId = storage.get('amz_attribution_id');
@@ -696,6 +825,8 @@
         const buyerNeighborhood = document.getElementById('neighborhood').value.trim();
         const buyerCity = document.getElementById('city').value.trim();
         const buyerState = document.getElementById('state').value.trim();
+        const shippingOption = getSelectedShippingOption();
+        const totalAmountValue = Number((amountValue + shippingOption.price).toFixed(2));
         const fullAddress = [
             buyerStreet,
             buyerNumber,
@@ -726,11 +857,14 @@
             cidade: buyerCity,
             state: buyerState,
             estado: buyerState,
+            shippingMethod: shippingOption.title,
+            shippingDeliveryWindow: shippingOption.days,
+            shippingPrice: shippingOption.price,
             fullAddress: fullAddress,
             full_address: fullAddress,
             productName: productName,
             amount: amountValue,
-            totalAmount: amountValue
+            totalAmount: totalAmountValue
         };
 
         try {
@@ -741,7 +875,7 @@
                     attributionId,
                     sessionId,
                     buyer: buyerData,
-                    amount: amountValue,
+                    amount: totalAmountValue,
                     items: [{ title: productName, unitPrice: amountValue, quantity: 1, tangible: true }],
                     pageId: 'checkout_unified',
                     origin: 'amazon_drone',
