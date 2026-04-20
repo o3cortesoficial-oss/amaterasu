@@ -2379,6 +2379,8 @@ function buildPendingPixCardHtml(stats = {}) {
 
       let liveAccessMap = null;
       let liveAccessMarkers = [];
+      let liveAccessMapHasAutoFramed = false;
+      let liveAccessMapUserAdjusted = false;
       const liveAccessDefaultCenter = [-51.9253, -14.235];
       const liveAccessTileStyle = {
         version: 8,
@@ -2436,6 +2438,13 @@ function buildPendingPixCardHtml(stats = {}) {
           attributionControl: true,
         });
 
+        const mapCanvas = liveAccessMap.getCanvas();
+        ['mousedown', 'wheel', 'touchstart', 'dblclick'].forEach((eventName) => {
+          mapCanvas.addEventListener(eventName, () => {
+            liveAccessMapUserAdjusted = true;
+          }, { passive: true });
+        });
+
         liveAccessMap.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), 'top-right');
         return liveAccessMap;
       }
@@ -2490,7 +2499,9 @@ function buildPendingPixCardHtml(stats = {}) {
         const points = Array.isArray(rows.rows) ? rows.rows : [];
 
         if (!points.length) {
-          map.jumpTo({ center: liveAccessDefaultCenter, zoom: 3.4 });
+          if (!liveAccessMapHasAutoFramed && !liveAccessMapUserAdjusted) {
+            map.jumpTo({ center: liveAccessDefaultCenter, zoom: 3.4 });
+          }
           return;
         }
 
@@ -2519,12 +2530,18 @@ function buildPendingPixCardHtml(stats = {}) {
           bounds.extend([row.lng, row.lat]);
         });
 
+        if (liveAccessMapHasAutoFramed || liveAccessMapUserAdjusted) {
+          return;
+        }
+
         if (points.length === 1) {
           map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 11 });
+          liveAccessMapHasAutoFramed = true;
           return;
         }
 
         map.fitBounds(bounds, { padding: 60, maxZoom: 11, duration: 600 });
+        liveAccessMapHasAutoFramed = true;
       }
 
       async function refreshLiveAccess(force = false) {
