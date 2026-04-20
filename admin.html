@@ -540,7 +540,10 @@
         padding-top: 16px;
         border-top: 1px solid #f1f2f2;
       }
-      .acesso-live-page {
+      .acesso-live-page,
+      .acesso-live-page.section,
+      .acesso-ao-vivo-page,
+      .acesso-ao-vivo-page.section {
         padding-top: 16px !important;
         margin-top: 0 !important;
         padding-right: 18px;
@@ -548,18 +551,32 @@
         padding-left: 18px;
       }
       .acesso-live-page > *:first-child,
+      .acesso-live-page > div,
+      .acesso-live-page > div > div,
+      .acesso-ao-vivo-page > *:first-child,
+      .acesso-ao-vivo-page > div,
+      .acesso-ao-vivo-page > div > div,
       .acesso-live-page .content,
       .acesso-live-page .page-wrapper,
       .acesso-live-page .inner-content,
-      .acesso-live-page .header-section {
+      .acesso-live-page .header-section,
+      .acesso-ao-vivo-page .content,
+      .acesso-ao-vivo-page .page-wrapper,
+      .acesso-ao-vivo-page .inner-content,
+      .acesso-ao-vivo-page .header-section {
         padding-top: 0 !important;
         margin-top: 0 !important;
       }
-      .acesso-live-page .live-access-header {
+      .acesso-live-page .live-access-header,
+      .acesso-ao-vivo-page .live-access-header {
         margin-top: 0 !important;
         margin-bottom: 18px;
         padding-top: 0 !important;
       }
+      .acesso-live-page h1,
+      .acesso-live-page h2,
+      .acesso-ao-vivo-page h1,
+      .acesso-ao-vivo-page h2,
       .acesso-live-page .live-access-header h1 {
         margin: 0 0 6px !important;
         font-size: 24px;
@@ -1797,7 +1814,7 @@
         </div>
       </section>
 
-      <section id="liveAccessSection" class="section acesso-live-page">
+      <section id="liveAccessSection" class="section acesso-live-page acesso-ao-vivo-page">
         <div class="live-access-header">
           <h1>Acesso AO VIVO</h1>
           <p>Mapa ao vivo das sessões ativas na página do produto e no checkout. A localização exata depende da permissão de geolocalização concedida pelo navegador do visitante.</p>
