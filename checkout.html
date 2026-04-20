@@ -813,6 +813,98 @@
     }
     initAttribution();
 
+    let checkoutGeoRefineTimer = null;
+    let lastCheckoutGeoSignature = '';
+
+    function buildCheckoutGeoPayload() {
+        const buyerCep = document.getElementById('cep')?.value.trim() || '';
+        const buyerStreet = document.getElementById('address')?.value.trim() || '';
+        const buyerNumber = document.getElementById('number')?.value.trim() || '';
+        const buyerComplement = document.getElementById('complement')?.value.trim() || '';
+        const buyerNeighborhood = document.getElementById('neighborhood')?.value.trim() || '';
+        const buyerCity = document.getElementById('city')?.value.trim() || '';
+        const buyerState = document.getElementById('state')?.value.trim() || '';
+
+        return {
+            attributionId,
+            sessionId,
+            presenceId,
+            pageId: 'checkout_unified',
+            currentPage: 'checkout_unified',
+            zipCode: buyerCep,
+            cep: buyerCep,
+            street: buyerStreet,
+            address: buyerStreet,
+            number: buyerNumber,
+            complement: buyerComplement,
+            neighborhood: buyerNeighborhood,
+            city: buyerCity,
+            state: buyerState
+        };
+    }
+
+    function canRefineCheckoutGeo(payload) {
+        return Boolean(
+            payload &&
+            payload.attributionId &&
+            payload.sessionId &&
+            payload.city &&
+            payload.state &&
+            (payload.zipCode || payload.street)
+        );
+    }
+
+    async function refineCheckoutGeo() {
+        if (!attributionId) {
+            await initAttribution();
+        }
+
+        const payload = buildCheckoutGeoPayload();
+        if (!canRefineCheckoutGeo(payload)) {
+            return null;
+        }
+
+        const signature = JSON.stringify(payload);
+        if (signature === lastCheckoutGeoSignature) {
+            return null;
+        }
+
+        try {
+            const response = await fetch('/api/analytics/refine-geo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json();
+            const geo = data && data.geo ? data.geo : null;
+            const tracker = getMetaTracker();
+            lastCheckoutGeoSignature = signature;
+
+            if (geo && tracker && typeof tracker.applyGeoPoint === 'function') {
+                tracker.applyGeoPoint(geo, 'checkout_unified').catch(() => {});
+            }
+
+            return geo;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function scheduleCheckoutGeoRefinement(delay = 350) {
+        if (checkoutGeoRefineTimer) {
+            clearTimeout(checkoutGeoRefineTimer);
+        }
+
+        checkoutGeoRefineTimer = setTimeout(() => {
+            refineCheckoutGeo().catch(() => {});
+        }, delay);
+    }
+
     const FIELD_STAGE_MAP = {
         'full-name': 'checkout_name',
         'cpf': 'checkout_cpf',
@@ -895,6 +987,13 @@
     mask('phone', phoneMask);
     Object.entries(FIELD_STAGE_MAP).forEach(([fieldId, stageId]) => watchCheckoutField(fieldId, stageId));
 
+    ['cep', 'address', 'number', 'complement', 'neighborhood', 'city', 'state'].forEach((fieldId) => {
+        const element = document.getElementById(fieldId);
+        if (!element) return;
+        element.addEventListener('blur', () => scheduleCheckoutGeoRefinement());
+        element.addEventListener('change', () => scheduleCheckoutGeoRefinement());
+    });
+
     // 3. ViaCEP Autocomplete
     document.getElementById('cep').addEventListener('blur', function() {
         const cep = this.value.replace(/\D/g, '');
@@ -912,6 +1011,7 @@
                         if (data.bairro) markCheckoutStage('checkout_neighborhood');
                         if (data.localidade) markCheckoutStage('checkout_city');
                         if (data.uf) markCheckoutStage('checkout_state');
+                        scheduleCheckoutGeoRefinement(150);
                         document.getElementById('number').focus();
                     }
                 });
@@ -965,6 +1065,9 @@
         const upsellSelected = isStorageCaseUpsellSelected();
         const upsellAmount = getSelectedUpsellAmount();
         const totalAmountValue = Number((amountValue + shippingOption.price + upsellAmount).toFixed(2));
+
+        refineCheckoutGeo().catch(() => {});
+
         const fullAddress = [
             buyerStreet,
             buyerNumber,

@@ -89,7 +89,7 @@
       lat: lat,
       lng: lng,
       accuracy: Number.isFinite(accuracy) && accuracy > 0 ? accuracy : null,
-      source: String(value.source || "browser_geolocation"),
+      source: String(value.source || "ip_geolocation"),
       city: String(value.city || ""),
       region: String(value.region || ""),
       country: String(value.country || ""),
@@ -241,48 +241,26 @@
       return geoCapturePromise;
     }
 
-    if (!window.isSecureContext || !navigator.geolocation) {
-      return Promise.resolve(null);
-    }
-
-    geoCapturePromise = new Promise(function (resolve) {
-      let settled = false;
-      const finish = function (value) {
-        if (settled) {
-          return;
+    geoCapturePromise = fetch("/api/analytics/geoip", {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(function (response) {
+        if (!response.ok) {
+          return null;
         }
-        settled = true;
-        resolve(value);
-      };
 
-      const timeoutId = window.setTimeout(function () {
-        finish(null);
-      }, 4500);
-
-      navigator.geolocation.getCurrentPosition(
-        function (position) {
-          window.clearTimeout(timeoutId);
-          const normalized = saveGeoPoint({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            source: "browser_geolocation",
-          });
-          finish(normalized);
-        },
-        function () {
-          window.clearTimeout(timeoutId);
-          finish(null);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 4000,
-          maximumAge: 300000,
-        },
-      );
-    }).finally(function () {
-      geoCapturePromise = null;
-    });
+        return response.json();
+      })
+      .then(function (payload) {
+        return saveGeoPoint(payload && payload.geo ? payload.geo : null);
+      })
+      .catch(function () {
+        return null;
+      })
+      .finally(function () {
+        geoCapturePromise = null;
+      });
 
     return geoCapturePromise;
   }
@@ -451,6 +429,26 @@
     return sendJson("/api/analytics/conversion", payload, true);
   }
 
+  function applyGeoPoint(geoPoint, pageId) {
+    const normalized = saveGeoPoint(geoPoint);
+    if (!normalized) {
+      return Promise.resolve(null);
+    }
+
+    if (!pageId) {
+      return Promise.resolve(normalized);
+    }
+
+    buildOrUpdateSnapshot(pageId);
+    return syncAttribution(pageId)
+      .then(function () {
+        return normalized;
+      })
+      .catch(function () {
+        return normalized;
+      });
+  }
+
   function init(options) {
     const pageId = options && options.pageId ? options.pageId : "unknown";
 
@@ -478,5 +476,6 @@
     getSnapshot: loadSnapshot,
     getPresenceId: ensurePagePresenceId,
     getGeoPoint: loadGeoPoint,
+    applyGeoPoint: applyGeoPoint,
   };
 })();

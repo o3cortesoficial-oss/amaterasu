@@ -193,6 +193,188 @@ function normalizeGeoPoint(value) {
   };
 }
 
+function readHeaderText(req, ...headerNames) {
+  for (const headerName of headerNames) {
+    const rawValue = req.headers?.[String(headerName || "").toLowerCase()];
+    if (Array.isArray(rawValue)) {
+      for (const item of rawValue) {
+        const text = normalizeText(item);
+        if (text) {
+          return text;
+        }
+      }
+      continue;
+    }
+
+    const text = normalizeText(rawValue);
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function getRequestIp(req) {
+  const forwardedFor = readHeaderText(req, "x-forwarded-for");
+  if (forwardedFor) {
+    return forwardedFor
+      .split(",")
+      .map((part) => normalizeText(part))
+      .find(Boolean) || "";
+  }
+
+  return (
+    readHeaderText(req, "x-real-ip", "cf-connecting-ip") ||
+    normalizeText(req.socket?.remoteAddress)
+  );
+}
+
+function buildRequestGeoPoint(req, source = "ip_geolocation") {
+  return normalizeGeoPoint({
+    lat: readHeaderText(req, "x-vercel-ip-latitude"),
+    lng: readHeaderText(req, "x-vercel-ip-longitude"),
+    accuracy: 5000,
+    source,
+    city: readHeaderText(req, "x-vercel-ip-city"),
+    region: readHeaderText(
+      req,
+      "x-vercel-ip-country-region",
+      "x-vercel-ip-region",
+    ),
+    country: readHeaderText(req, "x-vercel-ip-country"),
+  });
+}
+
+async function lookupIpGeoPoint(req) {
+  const headerGeo = buildRequestGeoPoint(req, "vercel_ip_geolocation");
+  if (headerGeo) {
+    return headerGeo;
+  }
+
+  const clientIp = getRequestIp(req);
+  if (!clientIp) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`https://ipwho.is/${encodeURIComponent(clientIp)}`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "casaedecoracao.online live-access/1.0",
+      },
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    if (!payload || payload.success === false) {
+      return null;
+    }
+
+    return normalizeGeoPoint({
+      lat: payload.latitude,
+      lng: payload.longitude,
+      accuracy: 5000,
+      source: "ip_lookup",
+      city: payload.city,
+      region: payload.region,
+      country: payload.country_code || payload.country,
+    });
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildCheckoutGeoQueries(payload) {
+  const street = pickFirstFilled(payload.street, payload.address, payload.rua);
+  const number = pickFirstFilled(payload.number, payload.numero);
+  const neighborhood = pickFirstFilled(payload.neighborhood, payload.bairro);
+  const city = pickFirstFilled(payload.city, payload.cidade);
+  const state = pickFirstFilled(payload.state, payload.estado);
+  const zipCode = normalizeDigits(pickFirstFilled(payload.zipCode, payload.cep));
+
+  const streetLine = [street, number].filter(Boolean).join(", ");
+  const localityLine = [neighborhood, city, state, zipCode].filter(Boolean).join(", ");
+  const country = "Brasil";
+
+  return Array.from(
+    new Set(
+      [
+        [streetLine, localityLine, country].filter(Boolean).join(", "),
+        [[street, neighborhood].filter(Boolean).join(", "), city, state, zipCode, country]
+          .filter(Boolean)
+          .join(", "),
+        [zipCode, city, state, country].filter(Boolean).join(", "),
+        [city, state, country].filter(Boolean).join(", "),
+      ]
+        .map((query) => normalizeText(query))
+        .filter(Boolean),
+    ),
+  );
+}
+
+async function geocodeCheckoutGeoPoint(payload, req) {
+  const queries = buildCheckoutGeoQueries(ensurePlainObject(payload));
+
+  for (const query of queries) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&addressdetails=1&q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+            "User-Agent": "casaedecoracao.online live-access/1.0",
+          },
+          signal: AbortSignal.timeout(4000),
+        },
+      );
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const results = await response.json();
+      const match = Array.isArray(results) ? results[0] : null;
+      if (!match) {
+        continue;
+      }
+
+      const address = ensurePlainObject(match.address);
+      const geo = normalizeGeoPoint({
+        lat: match.lat,
+        lng: match.lon,
+        accuracy: 25,
+        source: "checkout_address_geocode",
+        city: pickFirstFilled(
+          address.city,
+          address.town,
+          address.village,
+          address.municipality,
+          payload.city,
+          payload.cidade,
+        ),
+        region: pickFirstFilled(address.state, payload.state, payload.estado),
+        country: pickFirstFilled(
+          String(address.country_code || "").toUpperCase(),
+          payload.country,
+          "BR",
+        ),
+      });
+
+      if (geo) {
+        return geo;
+      }
+    } catch (error) {}
+  }
+
+  return lookupIpGeoPoint(req);
+}
+
 function pickFirstFilled(...values) {
   for (const value of values) {
     const text = normalizeText(value);
@@ -3258,6 +3440,43 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         touched: Boolean(touched),
+      });
+    }
+
+    if (req.method === "GET" && pathname === "/api/analytics/geoip") {
+      const geo = await lookupIpGeoPoint(req);
+      return res.status(200).json({
+        ok: true,
+        geo: geo || null,
+      });
+    }
+
+    if (req.method === "POST" && pathname === "/api/analytics/refine-geo") {
+      const payload = ensurePlainObject(body);
+      const geo = await geocodeCheckoutGeoPoint(payload, req);
+
+      if (
+        geo &&
+        normalizeText(payload.sessionId) &&
+        normalizeText(payload.pageId)
+      ) {
+        await touchSessionPresence({
+          pageId: normalizeText(payload.pageId),
+          stageId: normalizeText(payload.stageId),
+          sessionId: normalizeText(payload.sessionId),
+          presenceId: normalizeText(payload.presenceId),
+          attributionId: normalizeText(payload.attributionId),
+          currentPage:
+            normalizeText(payload.currentPage) ||
+            normalizeText(payload.pageUrl) ||
+            normalizeText(payload.pageId),
+          geo,
+        });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        geo: geo || null,
       });
     }
 
