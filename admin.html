@@ -2343,6 +2343,28 @@
         return query ? `?${query}` : '';
       }
 
+      function getTodayFilterValue() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function initializeDashboardDateFilters() {
+        const fromEl = document.getElementById('dashboardDateFrom');
+        const toEl = document.getElementById('dashboardDateTo');
+        if (!fromEl || !toEl) return;
+
+        if (fromEl.value || toEl.value) {
+          return;
+        }
+
+        const todayValue = getTodayFilterValue();
+        fromEl.value = todayValue;
+        toEl.value = todayValue;
+      }
+
       function renderCloneAlertsCard(cloneAlerts = {}) {
         const countEl = document.getElementById('heroPushcutText');
         const listEl = document.getElementById('cloneAlertsLinks');
@@ -2956,6 +2978,7 @@ function buildPendingPixCardHtml(stats = {}) {
 
       // --- Initialization ---
       ensureTrafficGridCards();
+      initializeDashboardDateFilters();
       router();
       window.addEventListener('hashchange', router);
       setInterval(() => {
@@ -3011,11 +3034,7 @@ function buildPendingPixCardHtml(stats = {}) {
       document.getElementById('dashboardDateFrom')?.addEventListener('change', () => refreshDashboard(true));
       document.getElementById('dashboardDateTo')?.addEventListener('change', () => refreshDashboard(true));
       document.getElementById('dashboardTodayFilter')?.addEventListener('click', () => {
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
-        const value = `${yyyy}-${mm}-${dd}`;
+        const value = getTodayFilterValue();
         const fromEl = document.getElementById('dashboardDateFrom');
         const toEl = document.getElementById('dashboardDateTo');
         if (fromEl) fromEl.value = value;
