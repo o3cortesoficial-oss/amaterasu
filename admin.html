@@ -5,6 +5,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Amazon Seller Central | Admin Drone </title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <style>
       /* --- Amazon Design System Tokens --- */
       :root {
@@ -539,6 +540,158 @@
         padding-top: 16px;
         border-top: 1px solid #f1f2f2;
       }
+      .acesso-live-page {
+        padding-top: 18px;
+        padding-right: 18px;
+        padding-bottom: 8px;
+        padding-left: 18px;
+      }
+      .acesso-live-page .live-access-header {
+        margin-bottom: 18px;
+      }
+      .acesso-live-page .live-access-header h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+      }
+      .acesso-live-page .live-access-header p {
+        color: var(--amz-muted);
+        font-size: 13px;
+        line-height: 1.5;
+        max-width: 860px;
+      }
+      .acesso-live-page .live-access-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+      .acesso-live-page .live-access-summary-card {
+        background: #fff;
+        border: 1px solid var(--amz-border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 16px 18px;
+      }
+      .acesso-live-page .live-access-summary-label {
+        display: block;
+        color: #007185;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .acesso-live-page .live-access-summary-value {
+        display: block;
+        font-size: 30px;
+        font-weight: 500;
+        line-height: 1;
+      }
+      .acesso-live-page .live-access-summary-note {
+        display: block;
+        color: var(--amz-muted);
+        font-size: 12px;
+        margin-top: 8px;
+      }
+      .acesso-live-page .live-access-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.65fr) minmax(320px, 0.95fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+      .acesso-live-page .live-access-map-card,
+      .acesso-live-page .live-access-feed-card {
+        margin-bottom: 0;
+      }
+      .acesso-live-page .live-access-map {
+        width: 100%;
+        height: 560px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #d5d9d9;
+        background: linear-gradient(180deg, #eef6fb 0%, #d9eaf7 100%);
+      }
+      .acesso-live-page .live-access-map-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--amz-muted);
+        padding: 24px;
+        height: 100%;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .acesso-live-page .live-access-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 560px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+      .acesso-live-page .live-access-row {
+        border: 1px solid #eef0f0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        background: #fff;
+      }
+      .acesso-live-page .live-access-row-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .acesso-live-page .live-access-row-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--amz-text);
+      }
+      .acesso-live-page .live-access-row-stage {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #007185;
+        background: #eef9fb;
+        border: 1px solid #cdeaf0;
+        padding: 4px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .acesso-live-page .live-access-row-meta {
+        color: var(--amz-muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .acesso-live-page .live-access-row-meta strong {
+        color: var(--amz-text);
+      }
+      .acesso-live-page .live-access-empty {
+        color: var(--amz-muted);
+        font-size: 13px;
+        line-height: 1.6;
+        padding: 18px 0;
+      }
+      .live-access-marker {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #ff9900;
+        border: 2px solid #ffffff;
+        box-shadow: 0 0 0 4px rgba(255, 153, 0, 0.25);
+      }
+      .live-access-popup {
+        min-width: 220px;
+        line-height: 1.45;
+        font-size: 12px;
+      }
+      .live-access-popup strong {
+        display: block;
+        color: var(--amz-text);
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
       .pedidos-page,
       .pedidos-page.section {
         margin-top: -100px !important;
@@ -594,6 +747,19 @@
         .notificacoes-page .pushcut-item-footer {
           align-items: flex-start;
           flex-direction: column;
+        }
+        .acesso-live-page {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
+        .acesso-live-page .live-access-summary {
+          grid-template-columns: 1fr;
+        }
+        .acesso-live-page .live-access-layout {
+          grid-template-columns: 1fr;
+        }
+        .acesso-live-page .live-access-map {
+          height: 360px;
         }
         .pedidos-page,
         .pedidos-page.section {
@@ -1202,6 +1368,7 @@
         <a href="#ordersSection" class="nav-link" id="nav-orders">Pedidos</a>
       <a href="#pixelsSection" class="nav-link" id="nav-pixels">Trackeamento</a>
       <a href="#pushcutSection" class="nav-link" id="nav-push">Notificações</a>
+      <a href="#liveAccessSection" class="nav-link" id="nav-live">Acesso AO VIVO</a>
       <span style="margin-left: auto; font-size: 12px; opacity: 0.8;" id="generatedAtText">Sincronizando métricas...</span>
       <button type="button" class="amz-btn nav-logout-btn" onclick="logoutAdmin()">Sair</button>
     </nav>
@@ -1619,7 +1786,52 @@
         </div>
       </section>
 
+      <section id="liveAccessSection" class="section acesso-live-page">
+        <div class="live-access-header">
+          <h1>Acesso AO VIVO</h1>
+          <p>Mapa ao vivo das sessões ativas na página do produto e no checkout. A localização exata depende da permissão de geolocalização concedida pelo navegador do visitante.</p>
+        </div>
+
+        <div class="live-access-summary">
+          <div class="live-access-summary-card">
+            <span class="live-access-summary-label">ACESSOS ATIVOS</span>
+            <span class="live-access-summary-value" id="liveAccessTotalText">0</span>
+            <span class="live-access-summary-note">Sessões ativas detectadas agora</span>
+          </div>
+          <div class="live-access-summary-card">
+            <span class="live-access-summary-label">NO MAPA</span>
+            <span class="live-access-summary-value" id="liveAccessMappedText">0</span>
+            <span class="live-access-summary-note">Com latitude e longitude disponíveis</span>
+          </div>
+          <div class="live-access-summary-card">
+            <span class="live-access-summary-label">SEM LOCALIZAÇÃO EXATA</span>
+            <span class="live-access-summary-value" id="liveAccessMissingText">0</span>
+            <span class="live-access-summary-note">Visitantes sem permissão ou sem coordenadas</span>
+          </div>
+        </div>
+
+        <div class="live-access-layout">
+          <div class="amz-card live-access-map-card">
+            <div class="amz-card-title">
+              Mapa de acessos
+              <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);" id="liveAccessGeneratedAt">Atualizando...</span>
+            </div>
+            <div id="liveAccessMap" class="live-access-map">
+              <div class="live-access-map-empty" id="liveAccessMapFallback">Carregando mapa ao vivo...</div>
+            </div>
+          </div>
+
+          <div class="amz-card live-access-feed-card">
+            <div class="amz-card-title">Sessões localizadas</div>
+            <div id="liveAccessFeed" class="live-access-feed">
+              <div class="live-access-empty">Aguardando acessos com geolocalização compartilhada.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     <!-- Scripts Logic -->
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <script>
       // Modal Handlers
       window.openGatewayModal = function(id) {
@@ -2131,6 +2343,182 @@ function buildPendingPixCardHtml(stats = {}) {
         `;
       }
 
+      let liveAccessMap = null;
+      let liveAccessMarkers = [];
+      const liveAccessDefaultCenter = [-51.9253, -14.235];
+      const liveAccessTileStyle = {
+        version: 8,
+        sources: {
+          carto: {
+            type: 'raster',
+            tiles: [
+              'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+              'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+              'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+            ],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+          },
+        },
+        layers: [
+          {
+            id: 'carto-base',
+            type: 'raster',
+            source: 'carto',
+          },
+        ],
+      };
+
+      function isLiveAccessSectionActive() {
+        const hash = window.location.hash || '#dashboardSection';
+        return hash === '#liveAccessSection' && !document.hidden;
+      }
+
+      function ensureLiveAccessMap() {
+        const mapEl = document.getElementById('liveAccessMap');
+        const fallbackEl = document.getElementById('liveAccessMapFallback');
+        if (!mapEl) return null;
+
+        if (!window.maplibregl) {
+          if (fallbackEl) {
+            fallbackEl.textContent = 'Mapa indisponível no momento.';
+          }
+          return null;
+        }
+
+        if (liveAccessMap) {
+          return liveAccessMap;
+        }
+
+        if (fallbackEl) {
+          fallbackEl.remove();
+        }
+
+        liveAccessMap = new window.maplibregl.Map({
+          container: mapEl,
+          style: liveAccessTileStyle,
+          center: liveAccessDefaultCenter,
+          zoom: 3.4,
+          attributionControl: true,
+        });
+
+        liveAccessMap.addControl(new window.maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+        return liveAccessMap;
+      }
+
+      function clearLiveAccessMarkers() {
+        liveAccessMarkers.forEach((marker) => marker.remove());
+        liveAccessMarkers = [];
+      }
+
+      function renderLiveAccessFeed(rows = []) {
+        const feedEl = document.getElementById('liveAccessFeed');
+        if (!feedEl) return;
+
+        if (!rows.length) {
+          feedEl.innerHTML = '<div class="live-access-empty">Nenhum acesso com localização exata disponível no momento.</div>';
+          return;
+        }
+
+        feedEl.innerHTML = rows.map((row) => `
+          <div class="live-access-row">
+            <div class="live-access-row-top">
+              <div class="live-access-row-title">${escapeHtml(row.pageLabel || 'Acesso rastreado')}</div>
+              <span class="live-access-row-stage">${escapeHtml(row.stageLabel || '-')}</span>
+            </div>
+            <div class="live-access-row-meta">
+              <div><strong>Atualizado:</strong> ${escapeHtml(formatDate(row.updatedAt))}</div>
+              <div><strong>Coordenadas:</strong> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
+              <div><strong>Precisão:</strong> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
+              <div><strong>Origem:</strong> ${escapeHtml(row.source || 'browser_geolocation')}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function renderLiveAccessMap(rows = []) {
+        const map = ensureLiveAccessMap();
+        const generatedAtEl = document.getElementById('liveAccessGeneratedAt');
+        const totalEl = document.getElementById('liveAccessTotalText');
+        const mappedEl = document.getElementById('liveAccessMappedText');
+        const missingEl = document.getElementById('liveAccessMissingText');
+
+        if (totalEl) totalEl.textContent = String(rows.totalActive || 0);
+        if (mappedEl) mappedEl.textContent = String(rows.mappedActive || 0);
+        if (missingEl) missingEl.textContent = String(rows.missingLocation || 0);
+        if (generatedAtEl && rows.generatedAt) generatedAtEl.textContent = 'Sincronizado: ' + formatDate(rows.generatedAt);
+
+        renderLiveAccessFeed(rows.rows || []);
+
+        if (!map) return;
+
+        clearLiveAccessMarkers();
+        const points = Array.isArray(rows.rows) ? rows.rows : [];
+
+        if (!points.length) {
+          map.jumpTo({ center: liveAccessDefaultCenter, zoom: 3.4 });
+          return;
+        }
+
+        const bounds = new window.maplibregl.LngLatBounds();
+
+        points.forEach((row) => {
+          const markerEl = document.createElement('div');
+          markerEl.className = 'live-access-marker';
+
+          const popupHtml = `
+            <div class="live-access-popup">
+              <strong>${escapeHtml(row.pageLabel || 'Acesso rastreado')}</strong>
+              <div><b>Etapa:</b> ${escapeHtml(row.stageLabel || '-')}</div>
+              <div><b>Atualizado:</b> ${escapeHtml(formatDate(row.updatedAt))}</div>
+              <div><b>Coordenadas:</b> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
+              <div><b>Precisão:</b> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
+            </div>
+          `;
+
+          const marker = new window.maplibregl.Marker({ element: markerEl })
+            .setLngLat([row.lng, row.lat])
+            .setPopup(new window.maplibregl.Popup({ offset: 18 }).setHTML(popupHtml))
+            .addTo(map);
+
+          liveAccessMarkers.push(marker);
+          bounds.extend([row.lng, row.lat]);
+        });
+
+        if (points.length === 1) {
+          map.easeTo({ center: [points[0].lng, points[0].lat], zoom: 11 });
+          return;
+        }
+
+        map.fitBounds(bounds, { padding: 60, maxZoom: 11, duration: 600 });
+      }
+
+      async function refreshLiveAccess(force = false) {
+        const hash = window.location.hash || '#dashboardSection';
+        if (!force && hash !== '#liveAccessSection') return;
+
+        const generatedAtEl = document.getElementById('liveAccessGeneratedAt');
+
+        try {
+          const data = await apiFetch('/api/analytics/live-access');
+          renderLiveAccessMap({
+            ...(data.liveAccessStats || {}),
+            generatedAt: data.generatedAt || new Date().toISOString(),
+          });
+        } catch (error) {
+          if (generatedAtEl) {
+            generatedAtEl.textContent = 'Falha ao sincronizar';
+          }
+          renderLiveAccessMap({
+            totalActive: 0,
+            mappedActive: 0,
+            missingLocation: 0,
+            rows: [],
+            generatedAt: new Date().toISOString(),
+          });
+        }
+      }
+
       // Refresh Logic
       let dashboardRefreshTimer = null;
 
@@ -2315,6 +2703,8 @@ function buildPendingPixCardHtml(stats = {}) {
 
         if (hash === '#dashboardSection' || hash === '' || hash === '#apiSection' || hash === '#pixelsSection' || hash === '#pushcutSection') {
           refreshDashboard(true);
+        } else if (hash === '#liveAccessSection') {
+          refreshLiveAccess(true);
         } else if (hash === '#ordersSection') {
           fetchDetailedOrders(1);
         }
@@ -2519,6 +2909,7 @@ function buildPendingPixCardHtml(stats = {}) {
       window.addEventListener('hashchange', router);
       setInterval(() => {
         if (window.location.hash === '#dashboardSection' || !window.location.hash) refreshDashboard();
+        if (window.location.hash === '#liveAccessSection') refreshLiveAccess();
       }, 10000);
 
       // Event Listeners
@@ -2592,11 +2983,13 @@ function buildPendingPixCardHtml(stats = {}) {
 
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && isDashboardSectionActive()) refreshDashboard();
+        if (!document.hidden && isLiveAccessSectionActive()) refreshLiveAccess();
         syncDashboardAutoRefresh();
       });
 
       window.addEventListener('focus', () => {
         if (isDashboardSectionActive()) refreshDashboard();
+        if (isLiveAccessSectionActive()) refreshLiveAccess();
       });
     </script>
   </body>

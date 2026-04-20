@@ -123,6 +123,15 @@ function readPingPayload(req, url, body) {
       presenceId: url.searchParams.get("presenceId") || "",
       attributionId: url.searchParams.get("attributionId") || "",
       currentPage: url.searchParams.get("currentPage") || "",
+      geo: {
+        lat: url.searchParams.get("lat") || "",
+        lng: url.searchParams.get("lng") || "",
+        accuracy: url.searchParams.get("accuracy") || "",
+        source: url.searchParams.get("geoSource") || "",
+        city: url.searchParams.get("city") || "",
+        region: url.searchParams.get("region") || "",
+        country: url.searchParams.get("country") || "",
+      },
     };
   }
 
@@ -156,6 +165,32 @@ function normalizeIsoTimestamp(value, fallback = null) {
 
 function ensurePlainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function normalizeGeoPoint(value) {
+  const source = ensurePlainObject(value);
+  const lat = Number(source.lat ?? source.latitude);
+  const lng = Number(source.lng ?? source.lon ?? source.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return null;
+  }
+
+  const accuracy = Number(source.accuracy ?? source.precision ?? 0);
+
+  return {
+    lat,
+    lng,
+    accuracy: Number.isFinite(accuracy) && accuracy > 0 ? accuracy : null,
+    source: normalizeText(source.source) || "browser_geolocation",
+    city: normalizeText(source.city),
+    region: normalizeText(source.region),
+    country: normalizeText(source.country),
+  };
 }
 
 function pickFirstFilled(...values) {
@@ -653,6 +688,7 @@ function normalizeTouch(touch) {
     referrer: normalizeText(touch.referrer),
     trackingParams,
     meta,
+    geo: normalizeGeoPoint(touch.geo || touch.location || touch.coords),
     isMeta:
       Boolean(touch.isMeta) ||
       Boolean(
@@ -671,6 +707,10 @@ function normalizeTouch(touch) {
 
 function hasTrackingData(touch) {
   return Boolean(touch && Object.keys(ensurePlainObject(touch.trackingParams)).length);
+}
+
+function hasGeoSignal(touch) {
+  return Boolean(touch && normalizeGeoPoint(touch.geo));
 }
 
 function hasMetaSignals(touch) {
@@ -1364,6 +1404,33 @@ async function loadAttributionSessionBySessionId(sessionId) {
   }
 }
 
+async function loadAttributionSessions(limit = 500) {
+  if (!supabase) {
+    return Array.from(memoryStore.attributionSessions.values())
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .slice(0, limit);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("attribution_sessions")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("loadAttributionSessions error:", error);
+    return Array.from(memoryStore.attributionSessions.values())
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .slice(0, limit);
+  }
+}
+
 async function saveAttributionSessionRow(row) {
   if (!row) {
     return null;
@@ -1545,6 +1612,8 @@ async function touchSessionPresence(payload) {
   const presenceId = normalizeText(payload?.presenceId);
   const currentPage = normalizeText(payload?.currentPage);
   const trackedPageId = stageId || pageId;
+  const geo = normalizeGeoPoint(payload?.geo);
+  const now = new Date().toISOString();
 
   if (!sessionId || !pageId) {
     return null;
@@ -1571,6 +1640,34 @@ async function touchSessionPresence(payload) {
     created_at: current?.created_at || now,
     updated_at: now,
   };
+
+  if (geo) {
+    const baseTouch =
+      normalizeTouch(current?.last_touch) ||
+      normalizeTouch(current?.first_touch) || {
+        capturedAt: now,
+        pageId: trackedPageId || pageId,
+        pageUrl: currentPage || "",
+        path: "",
+        referrer: "",
+        trackingParams: {},
+        meta: {},
+        isMeta: false,
+      };
+
+    const geoTouch = {
+      ...baseTouch,
+      capturedAt: now,
+      pageId: trackedPageId || baseTouch.pageId || pageId,
+      pageUrl: currentPage || baseTouch.pageUrl || "",
+      geo,
+    };
+
+    next.last_touch = geoTouch;
+    if (!next.first_touch) {
+      next.first_touch = geoTouch;
+    }
+  }
 
   await saveAttributionSessionRow(next);
   return next;
@@ -1609,11 +1706,15 @@ async function upsertAttributionSession(payload) {
     last_touch: current?.last_touch || null,
   };
 
-  if (firstTouch && hasTrackingData(firstTouch) && !next.first_touch) {
+  if (
+    firstTouch &&
+    (hasTrackingData(firstTouch) || hasGeoSignal(firstTouch)) &&
+    !next.first_touch
+  ) {
     next.first_touch = firstTouch;
   }
 
-  if (lastTouch && hasTrackingData(lastTouch)) {
+  if (lastTouch && (hasTrackingData(lastTouch) || hasGeoSignal(lastTouch))) {
     next.last_touch = lastTouch;
   }
 
@@ -2645,6 +2746,122 @@ async function buildAnalyticsStats() {
   };
 }
 
+function resolveLiveAccessPageLabel(session, touch) {
+  const pageId = normalizeText(session?.page_id || touch?.pageId);
+  const currentPage = normalizeText(session?.current_page || touch?.pageUrl).toLowerCase();
+  const entryPage = normalizeText(session?.entry_page).toLowerCase();
+
+  if (
+    pageId === "landing" ||
+    currentPage === "/" ||
+    currentPage.endsWith("/landpagedrone.html") ||
+    entryPage.endsWith("/landpagedrone.html")
+  ) {
+    return "Página do produto";
+  }
+
+  if (pageId === "checkout_unified" || currentPage.includes("/checkout")) {
+    return "Checkout";
+  }
+
+  if (pageId.startsWith("checkout_")) {
+    return "Checkout";
+  }
+
+  return "Acesso rastreado";
+}
+
+function resolveLiveAccessStageLabel(session, touch) {
+  const pageId = normalizeText(session?.page_id || touch?.pageId);
+  const stageLabels = {
+    landing: "Produto",
+    checkout_unified: "Checkout aberto",
+    checkout_name: "Nome preenchido",
+    checkout_cpf: "CPF preenchido",
+    checkout_email: "E-mail preenchido",
+    checkout_phone: "Celular preenchido",
+    checkout_cep: "CEP preenchido",
+    checkout_street: "Endereço preenchido",
+    checkout_number: "Número preenchido",
+    checkout_complement: "Complemento",
+    checkout_neighborhood: "Bairro preenchido",
+    checkout_city: "Cidade preenchida",
+    checkout_state: "Estado selecionado",
+    checkout_pix_generated: "PIX gerado",
+  };
+
+  return stageLabels[pageId] || resolveLiveAccessPageLabel(session, touch);
+}
+
+async function buildLiveAccessStats() {
+  const cutoffTime = Date.now() - activeSessionWindowMs;
+  const sessions = await loadAttributionSessions(500);
+  const latestBySession = new Map();
+
+  sessions.forEach((session) => {
+    const sessionId = normalizeText(session?.session_id);
+    if (!sessionId) {
+      return;
+    }
+
+    const updatedAt = new Date(session.updated_at || 0).getTime();
+    if (!Number.isFinite(updatedAt) || updatedAt < cutoffTime) {
+      return;
+    }
+
+    const current = latestBySession.get(sessionId);
+    if (!current || new Date(current.updated_at || 0).getTime() < updatedAt) {
+      latestBySession.set(sessionId, session);
+    }
+  });
+
+  const rows = Array.from(latestBySession.values())
+    .map((session) => {
+      const lastTouch = normalizeTouch(session?.last_touch);
+      const firstTouch = normalizeTouch(session?.first_touch);
+      const touchWithGeo =
+        (lastTouch && lastTouch.geo && lastTouch) ||
+        (firstTouch && firstTouch.geo && firstTouch) ||
+        null;
+
+      return {
+        sessionId: normalizeText(session.session_id),
+        attributionId: normalizeText(session.attribution_id),
+        updatedAt: session.updated_at || touchWithGeo?.capturedAt || "",
+        pageLabel: resolveLiveAccessPageLabel(session, touchWithGeo),
+        stageLabel: resolveLiveAccessStageLabel(session, touchWithGeo),
+        currentPage: normalizeText(session.current_page || touchWithGeo?.pageUrl),
+        geo: touchWithGeo?.geo || null,
+      };
+    })
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+  const mappedRows = rows
+    .filter((row) => row.geo)
+    .map((row) => ({
+      sessionId: row.sessionId,
+      attributionId: row.attributionId,
+      updatedAt: row.updatedAt,
+      pageLabel: row.pageLabel,
+      stageLabel: row.stageLabel,
+      currentPage: row.currentPage,
+      lat: row.geo.lat,
+      lng: row.geo.lng,
+      accuracy: row.geo.accuracy,
+      source: row.geo.source,
+      city: row.geo.city,
+      region: row.geo.region,
+      country: row.geo.country,
+    }));
+
+  return {
+    totalActive: rows.length,
+    mappedActive: mappedRows.length,
+    missingLocation: Math.max(rows.length - mappedRows.length, 0),
+    rows: mappedRows,
+  };
+}
+
 function buildMetaAttributionStats(events) {
   const rows = (Array.isArray(events) ? events : [])
     .filter((event) => event && (isPaidStatus(event.status) || event.meta_attribution))
@@ -3041,6 +3258,15 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         touched: Boolean(touched),
+      });
+    }
+
+    if (req.method === "GET" && pathname === "/api/analytics/live-access") {
+      const liveAccessStats = await buildLiveAccessStats();
+      return res.status(200).json({
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        liveAccessStats,
       });
     }
 

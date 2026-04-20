@@ -3,6 +3,7 @@
     sessionId: "amz_session_id",
     attributionSnapshot: "amz_meta_attribution_snapshot",
     pagePresencePrefix: "amz_page_presence_",
+    geoPoint: "amz_geo_point",
   };
 
   const TRACKING_KEYS = [
@@ -65,6 +66,34 @@
     } catch (error) {
       return null;
     }
+  }
+
+  function normalizeGeoPoint(value) {
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+
+    const lat = Number(value.lat ?? value.latitude);
+    const lng = Number(value.lng ?? value.lon ?? value.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return null;
+    }
+
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return null;
+    }
+
+    const accuracy = Number(value.accuracy);
+
+    return {
+      lat: lat,
+      lng: lng,
+      accuracy: Number.isFinite(accuracy) && accuracy > 0 ? accuracy : null,
+      source: String(value.source || "browser_geolocation"),
+      city: String(value.city || ""),
+      region: String(value.region || ""),
+      country: String(value.country || ""),
+    };
   }
 
   function createId() {
@@ -172,6 +201,7 @@
     const trackingParams = pickTrackingParams(allParams);
     const meta = buildMetaParams(trackingParams);
     const now = new Date().toISOString();
+    const geo = loadGeoPoint();
 
     return {
       capturedAt: now,
@@ -181,7 +211,97 @@
       referrer: document.referrer || "",
       trackingParams: trackingParams,
       meta: meta,
+      geo: geo,
       isMeta: isMetaTraffic(trackingParams),
+    };
+  }
+
+  function loadGeoPoint() {
+    return normalizeGeoPoint(safeJsonParse(readStorage(window.sessionStorage, STORAGE_KEYS.geoPoint)));
+  }
+
+  function saveGeoPoint(geoPoint) {
+    const normalized = normalizeGeoPoint(geoPoint);
+    if (!normalized) {
+      return null;
+    }
+
+    writeStorage(window.sessionStorage, STORAGE_KEYS.geoPoint, JSON.stringify(normalized));
+    return normalized;
+  }
+
+  let geoCapturePromise = null;
+  function captureGeoPoint() {
+    const stored = loadGeoPoint();
+    if (stored) {
+      return Promise.resolve(stored);
+    }
+
+    if (geoCapturePromise) {
+      return geoCapturePromise;
+    }
+
+    if (!window.isSecureContext || !navigator.geolocation) {
+      return Promise.resolve(null);
+    }
+
+    geoCapturePromise = new Promise(function (resolve) {
+      let settled = false;
+      const finish = function (value) {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve(value);
+      };
+
+      const timeoutId = window.setTimeout(function () {
+        finish(null);
+      }, 4500);
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          window.clearTimeout(timeoutId);
+          const normalized = saveGeoPoint({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            source: "browser_geolocation",
+          });
+          finish(normalized);
+        },
+        function () {
+          window.clearTimeout(timeoutId);
+          finish(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 4000,
+          maximumAge: 300000,
+        },
+      );
+    }).finally(function () {
+      geoCapturePromise = null;
+    });
+
+    return geoCapturePromise;
+  }
+
+  function mergeTouchGeo(touch, currentTouch) {
+    if (!currentTouch || !currentTouch.geo) {
+      return touch;
+    }
+
+    if (!touch) {
+      return currentTouch;
+    }
+
+    return {
+      ...touch,
+      geo: currentTouch.geo,
+      pageUrl: touch.pageUrl || currentTouch.pageUrl,
+      path: touch.path || currentTouch.path,
+      referrer: touch.referrer || currentTouch.referrer,
     };
   }
 
@@ -237,12 +357,17 @@
         next.lastTouch = currentTouch;
       }
 
+      next.firstTouch = mergeTouchGeo(next.firstTouch, currentTouch);
+      next.lastTouch = mergeTouchGeo(next.lastTouch, currentTouch);
+
       saveSnapshot(next);
       return next;
     }
 
     stored.sessionId = sessionId;
     stored.lastSeenAt = currentTouch.capturedAt;
+    stored.firstTouch = mergeTouchGeo(stored.firstTouch, currentTouch);
+    stored.lastTouch = mergeTouchGeo(stored.lastTouch, currentTouch);
     saveSnapshot(stored);
     return stored;
   }
@@ -331,6 +456,12 @@
 
     ensureSessionId();
     syncAttribution(pageId).catch(function () {});
+    captureGeoPoint().then(function (geoPoint) {
+      if (geoPoint) {
+        buildOrUpdateSnapshot(pageId);
+        syncAttribution(pageId).catch(function () {});
+      }
+    });
 
     if (options && options.registerConversion) {
       registerConversionIntent({
@@ -346,5 +477,6 @@
     registerConversionIntent: registerConversionIntent,
     getSnapshot: loadSnapshot,
     getPresenceId: ensurePagePresenceId,
+    getGeoPoint: loadGeoPoint,
   };
 })();
