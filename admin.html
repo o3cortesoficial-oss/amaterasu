@@ -1536,6 +1536,7 @@
             Origem das Vendas Meta
             <span id="metaAttributionSummary" style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">Aguardando atribuicoes reais...</span>
           </div>
+
           <div id="metaAttributionTableWrap" style="overflow-x: auto;">
             <table>
               <thead>
@@ -1658,6 +1659,7 @@
                 <span>Usar esta gateway</span>
               </label>
             </div>
+
           </div>
         </div>
 
@@ -1729,6 +1731,7 @@
       </div>
     </div>
 
+
     <div id="orderDetailsModal" class="modal-overlay order-details-modal">
       <div class="modal-container">
         <div class="modal-header">
@@ -1788,6 +1791,7 @@
             <div id="google-tab" class="tab-content">
               <div class="amz-card-title">Google Tag Manager</div>
               <div id="gtm-list" class="dynamic-list"></div>
+
               <div class="add-btn" onclick="addPixelInput('gtm-list', '', 'googleTagManagerId')" style="margin-bottom: 25px;">
                 <span>+</span> Adicionar novo ID de GTM
               </div>
@@ -1870,6 +1874,7 @@
                 <button class="amz-btn" id="btn-orders-next" onclick="changeOrderPage(1)" disabled>Próxima</button>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -2095,6 +2100,7 @@
             <span style="font-size: 20px; font-weight: 400; margin: 4px 0;" class="active-val">0</span>
             <span style="font-size: 10px; color: #999;" class="cum-val">0 total</span>
           </div>
+
         `).join('');
       }
 
@@ -2677,6 +2683,7 @@ function buildPendingPixCardHtml(stats = {}) {
             <div class="live-access-popup">
               <strong>${escapeHtml(row.pageLabel || 'Acesso rastreado')}</strong>
               <div><b>Etapa:</b> ${escapeHtml(row.stageLabel || '-')}</div>
+
               <div><b>Atualizado:</b> ${escapeHtml(formatDate(row.updatedAt))}</div>
               <div><b>Coordenadas:</b> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
               <div><b>Precisão:</b> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
@@ -3130,6 +3137,7 @@ function buildPendingPixCardHtml(stats = {}) {
               <h3>Cliente</h3>
               <div class="order-detail-line"><strong>Nome:</strong> ${escapeHtml(customer.name || '-')}</div>
               <div class="order-detail-line"><strong>E-mail:</strong> ${escapeHtml(customer.email || '-')}</div>
+
               <div class="order-detail-line"><strong>Telefone:</strong> ${escapeHtml(customer.phone || '-')}</div>
               <div class="order-detail-line"><strong>Documento:</strong> ${escapeHtml(formatDocument(customer.document || ''))}</div>
               <div class="order-detail-line"><strong>Endereço:</strong> ${escapeHtml(formatAddress(address))}</div>

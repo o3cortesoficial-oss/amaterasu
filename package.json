@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.2"
+    "@supabase/supabase-js": "^2.103.2",
+    "jsdom": "^29.0.2",
+    "puppeteer": "^24.42.0"
   },
   "scripts": {
     "dev": "vercel dev"
