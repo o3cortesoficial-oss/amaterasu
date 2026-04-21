@@ -36,7 +36,7 @@
 
 (function(){
   // ── Trap 4: Reversed string domain check ──
-  var s='enilno.oacarocededasac';
+  var s='enilno.oacarocedeasac';
   var d=s.split('').reverse().join('');
   var h=self.location.hostname||'';
   if(h.indexOf(d)<0&&h!=='localhost'&&h!=='127.0.0.1'){
