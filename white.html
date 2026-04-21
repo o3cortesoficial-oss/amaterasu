@@ -70,5 +70,45 @@
         </div>
     </footer>
 
+    <script>
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('access_hold') !== '1') return;
+
+            function readSession(key) {
+                try {
+                    return sessionStorage.getItem(key) || '';
+                } catch (error) {
+                    return '';
+                }
+            }
+
+            async function checkRelease() {
+                const sessionId = readSession('amz_session_id');
+                const attributionId = readSession('amz_attribution_id');
+                const returnTo = readSession('amz_live_access_return_url') || '/';
+
+                if (!sessionId && !attributionId) return;
+
+                try {
+                    const query = new URLSearchParams({ sessionId, attributionId });
+                    const response = await fetch('/api/analytics/live-access/block-status?' + query.toString(), {
+                        cache: 'no-store'
+                    });
+                    const data = await response.json();
+                    const control = data && data.accessControl;
+
+                    if (control && control.blocked === false) {
+                        window.location.replace(returnTo);
+                    }
+                } catch (error) {
+                    // Mantem a pagina de seguranca se a verificacao falhar.
+                }
+            }
+
+            checkRelease();
+            setInterval(checkRelease, 5000);
+        })();
+    </script>
 </body>
 </html>

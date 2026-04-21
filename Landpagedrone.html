@@ -1219,6 +1219,23 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
     <script>
       (function() {
         const pageId = 'landing';
+        const trackingKeys = [
+          'utm_source',
+          'utm_medium',
+          'utm_campaign',
+          'utm_content',
+          'utm_term',
+          'utm_id',
+          'fbclid',
+          'campaign_id',
+          'campaign_name',
+          'adset_id',
+          'adset_name',
+          'ad_id',
+          'ad_name',
+          'creative_id',
+          'creative_name'
+        ];
         let sessionId = sessionStorage.getItem('amz_session_id');
         if (!sessionId) {
           sessionId = Math.random().toString(36).substring(2, 15);
@@ -1248,9 +1265,40 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
           }
           return presenceId;
         }
+        function getTrafficTouch() {
+          const snapshot = window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot
+            ? window.__amzMetaAttribution.getSnapshot()
+            : null;
+          const storedTouch = snapshot && (snapshot.lastTouch || snapshot.firstTouch);
+          const params = new URLSearchParams(window.location.search);
+          const trackingParams = {};
+
+          trackingKeys.forEach((key) => {
+            const value = params.get(key);
+            if (value) trackingParams[key] = value;
+          });
+
+          return storedTouch || {
+            capturedAt: new Date().toISOString(),
+            pageId,
+            pageUrl: window.location.href,
+            path: window.location.pathname,
+            referrer: document.referrer || '',
+            trackingParams,
+            meta: {},
+            isMeta: Boolean(trackingParams.fbclid || /meta|facebook|instagram/i.test(trackingParams.utm_source || ''))
+          };
+        }
+        function handleAccessControl(data) {
+          const control = data && data.accessControl;
+          if (!control || !control.blocked || !control.redirectTo) return;
+
+          sessionStorage.setItem('amz_live_access_return_url', window.location.href);
+          window.location.replace(control.redirectTo);
+        }
         async function ping() {
           try {
-            await fetch('/api/analytics/ping', {
+            const response = await fetch('/api/analytics/ping', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1258,9 +1306,12 @@ Beleza e Cuidados Pessoais</div><i class="nav-sprite hmenu-arrow-next"></i></a><
                 sessionId,
                 presenceId: getPresenceId(),
                 attributionId: getAttributionId(),
-                currentPage: window.location.href
+                currentPage: window.location.href,
+                trafficTouch: getTrafficTouch()
               })
             });
+            const data = await response.json().catch(() => null);
+            handleAccessControl(data);
           } catch(e) {}
         }
         ping();

@@ -103,6 +103,7 @@ const memoryStore = {
   webhookEvents: new Map(),
   viewStats: new Map(),
   transactionsCache: new Map(),
+  liveAccessBlocks: new Map(),
 };
 
 function ensureMemoryConfig() {
@@ -194,6 +195,51 @@ function normalizeGeoPoint(value) {
     region: normalizeText(source.region),
     country: normalizeText(source.country),
   };
+}
+
+function normalizeAccessControl(value) {
+  const source = ensurePlainObject(value);
+  if (!Object.prototype.hasOwnProperty.call(source, "blocked")) {
+    return null;
+  }
+
+  return {
+    blocked:
+      source.blocked === true ||
+      source.blocked === 1 ||
+      normalizeText(source.blocked).toLowerCase() === "true" ||
+      normalizeText(source.blocked) === "1",
+    updatedAt: normalizeIsoTimestamp(
+      source.updatedAt || source.updated_at,
+      new Date().toISOString(),
+    ),
+    returnTo: normalizeText(source.returnTo || source.return_to),
+    changedBy: normalizeText(source.changedBy || source.changed_by) || "admin",
+  };
+}
+
+function hasTouchOriginSignal(touch) {
+  return Boolean(
+    touch &&
+      (hasTrackingData(touch) ||
+        normalizeText(touch.referrer) ||
+        normalizeText(touch.pageUrl)),
+  );
+}
+
+function buildLiveAccessBlockKey(input = {}) {
+  const attributionId = normalizeText(input.attributionId || input.attribution_id);
+  const sessionId = normalizeText(input.sessionId || input.session_id);
+
+  if (attributionId) {
+    return `attr:${attributionId}`;
+  }
+
+  if (sessionId) {
+    return `sess:${sessionId}`;
+  }
+
+  return "";
 }
 
 function readHeaderText(req, ...headerNames) {
@@ -901,6 +947,7 @@ function normalizeTouch(touch) {
     trackingParams,
     meta,
     geo: normalizeGeoPoint(touch.geo || touch.location || touch.coords),
+    accessControl: normalizeAccessControl(touch.accessControl || touch.access_control),
     isMeta:
       Boolean(touch.isMeta) ||
       Boolean(
@@ -958,6 +1005,193 @@ function selectAttributionTouch(source) {
   }
 
   return null;
+}
+
+function selectLiveAccessOriginTouch(session) {
+  const attributedTouch = selectAttributionTouch(session);
+  if (attributedTouch) {
+    return attributedTouch;
+  }
+
+  return (
+    normalizeTouch(session?.first_touch || session?.firstTouch) ||
+    normalizeTouch(session?.last_touch || session?.lastTouch) ||
+    null
+  );
+}
+
+function getDomainLabel(urlValue) {
+  const text = normalizeText(urlValue);
+  if (!text) {
+    return "";
+  }
+
+  try {
+    return new URL(text).hostname.replace(/^www\./, "");
+  } catch (error) {
+    return text.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
+  }
+}
+
+function resolveLiveAccessTrafficSource(touch) {
+  const normalizedTouch = normalizeTouch(touch);
+  const trackingParams = ensurePlainObject(normalizedTouch?.trackingParams);
+  const referrer = normalizeText(normalizedTouch?.referrer);
+  const source = normalizeText(trackingParams.utm_source).toLowerCase();
+  const medium = normalizeText(trackingParams.utm_medium).toLowerCase();
+  const campaign = normalizeText(
+    trackingParams.utm_campaign ||
+      trackingParams.campaign_name ||
+      ensurePlainObject(normalizedTouch?.meta).campaignName,
+  );
+
+  if (
+    normalizedTouch?.isMeta ||
+    trackingParams.fbclid ||
+    source.includes("meta") ||
+    source.includes("facebook") ||
+    source.includes("instagram")
+  ) {
+    return {
+      type: "ad",
+      label: campaign ? `Anuncio Meta: ${campaign}` : "Anuncio Meta",
+    };
+  }
+
+  if (
+    source ||
+    medium ||
+    campaign ||
+    trackingParams.gclid ||
+    trackingParams.msclkid
+  ) {
+    const isPaid =
+      medium.includes("cpc") ||
+      medium.includes("paid") ||
+      medium.includes("ads") ||
+      Boolean(trackingParams.gclid || trackingParams.msclkid);
+
+    return {
+      type: isPaid ? "ad" : "campaign",
+      label: `${isPaid ? "Anuncio" : "Campanha"}: ${source || campaign || "UTM"}`,
+    };
+  }
+
+  const referrerDomain = getDomainLabel(referrer);
+  if (!referrerDomain) {
+    return {
+      type: "direct",
+      label: "Pesquisa direta",
+    };
+  }
+
+  if (/(^|\.)google\.|bing\.|duckduckgo\.|yahoo\./i.test(referrerDomain)) {
+    return {
+      type: "organic",
+      label: `Pesquisa organica: ${referrerDomain}`,
+    };
+  }
+
+  return {
+    type: "referral",
+    label: `Referencia: ${referrerDomain}`,
+  };
+}
+
+function getSessionAccessControl(session) {
+  const lastTouch = normalizeTouch(session?.last_touch || session?.lastTouch);
+  const firstTouch = normalizeTouch(session?.first_touch || session?.firstTouch);
+  return lastTouch?.accessControl || firstTouch?.accessControl || null;
+}
+
+async function resolveLiveAccessBlockState(input = {}) {
+  const attributionId = normalizeText(input.attributionId || input.attribution_id);
+  const sessionId = normalizeText(input.sessionId || input.session_id);
+  const session =
+    (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
+    (sessionId && (await loadAttributionSessionBySessionId(sessionId))) ||
+    null;
+  const persistedState = getSessionAccessControl(session);
+  const memoryState =
+    memoryStore.liveAccessBlocks.get(buildLiveAccessBlockKey({ attributionId, sessionId })) ||
+    (session
+      ? memoryStore.liveAccessBlocks.get(
+          buildLiveAccessBlockKey({
+            attributionId: session.attribution_id,
+            sessionId: session.session_id,
+          }),
+        )
+      : null);
+
+  return persistedState || memoryState || { blocked: false, updatedAt: "", returnTo: "" };
+}
+
+async function setLiveAccessBlockState(payload = {}) {
+  const attributionId = normalizeText(payload.attributionId || payload.attribution_id);
+  const sessionId = normalizeText(payload.sessionId || payload.session_id);
+  const blocked =
+    payload.blocked === true ||
+    payload.blocked === 1 ||
+    normalizeText(payload.blocked).toLowerCase() === "true" ||
+    normalizeText(payload.blocked) === "1";
+
+  if (!attributionId && !sessionId) {
+    return null;
+  }
+
+  const current =
+    (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
+    (sessionId && (await loadAttributionSessionBySessionId(sessionId))) ||
+    null;
+  const now = new Date().toISOString();
+  const state = {
+    blocked,
+    updatedAt: now,
+    returnTo: normalizeText(payload.returnTo || payload.currentPage),
+    changedBy: "admin",
+  };
+  const baseTouch =
+    normalizeTouch(current?.last_touch) ||
+    normalizeTouch(current?.first_touch) || {
+      capturedAt: now,
+      pageId: normalizeText(payload.pageId),
+      pageUrl: normalizeText(payload.currentPage),
+      path: "",
+      referrer: "",
+      trackingParams: {},
+      meta: {},
+      geo: null,
+      isMeta: false,
+    };
+  const nextLastTouch = {
+    ...baseTouch,
+    capturedAt: now,
+    accessControl: state,
+  };
+  const next = {
+    attribution_id:
+      normalizeText(current?.attribution_id) ||
+      attributionId ||
+      `manual_${sessionId}`,
+    session_id: normalizeText(current?.session_id) || sessionId || attributionId,
+    page_id: normalizeText(current?.page_id || payload.pageId),
+    entry_page: normalizeText(current?.entry_page),
+    current_page: normalizeText(current?.current_page || payload.currentPage),
+    first_touch: current?.first_touch || nextLastTouch,
+    last_touch: nextLastTouch,
+    created_at: current?.created_at || now,
+    updated_at: now,
+  };
+
+  memoryStore.liveAccessBlocks.set(
+    buildLiveAccessBlockKey({
+      attributionId: next.attribution_id,
+      sessionId: next.session_id,
+    }),
+    state,
+  );
+  await saveAttributionSessionRow(next);
+  return state;
 }
 
 function normalizeCheckoutSnapshot(input) {
@@ -1954,6 +2188,7 @@ async function touchSessionPresence(payload) {
   const currentPage = normalizeText(payload?.currentPage);
   const trackedPageId = stageId || pageId;
   const geo = normalizeGeoPoint(payload?.geo);
+  const trafficTouch = normalizeTouch(payload?.trafficTouch || payload?.traffic || payload?.touch);
   const now = new Date().toISOString();
 
   if (!sessionId || !pageId) {
@@ -1982,8 +2217,29 @@ async function touchSessionPresence(payload) {
     updated_at: now,
   };
 
+  if (trafficTouch && hasTouchOriginSignal(trafficTouch)) {
+    const currentFirstTouch = normalizeTouch(next.first_touch);
+    const currentLastTouch = normalizeTouch(next.last_touch);
+    const mergedTrafficTouch = {
+      ...(currentLastTouch || currentFirstTouch || {}),
+      ...trafficTouch,
+      capturedAt: now,
+      pageId: trackedPageId || trafficTouch.pageId || pageId,
+      pageUrl: currentPage || trafficTouch.pageUrl || "",
+      geo: trafficTouch.geo || currentLastTouch?.geo || currentFirstTouch?.geo || null,
+      accessControl: currentLastTouch?.accessControl || currentFirstTouch?.accessControl || null,
+    };
+
+    if (!next.first_touch) {
+      next.first_touch = mergedTrafficTouch;
+    }
+
+    next.last_touch = mergedTrafficTouch;
+  }
+
   if (geo) {
     const baseTouch =
+      normalizeTouch(next.last_touch) ||
       normalizeTouch(current?.last_touch) ||
       normalizeTouch(current?.first_touch) || {
         capturedAt: now,
@@ -2002,6 +2258,7 @@ async function touchSessionPresence(payload) {
       pageId: trackedPageId || baseTouch.pageId || pageId,
       pageUrl: currentPage || baseTouch.pageUrl || "",
       geo,
+      accessControl: baseTouch.accessControl || null,
     };
 
     next.last_touch = geoTouch;
@@ -3285,6 +3542,17 @@ async function buildLiveAccessStats() {
         (lastTouch && lastTouch.geo && lastTouch) ||
         (firstTouch && firstTouch.geo && firstTouch) ||
         null;
+      const trafficTouch = selectLiveAccessOriginTouch(session);
+      const trafficSource = resolveLiveAccessTrafficSource(trafficTouch);
+      const accessControl =
+        getSessionAccessControl(session) ||
+        memoryStore.liveAccessBlocks.get(
+          buildLiveAccessBlockKey({
+            attributionId: session.attribution_id,
+            sessionId: session.session_id,
+          }),
+        ) ||
+        { blocked: false, updatedAt: "", returnTo: "" };
 
       return {
         sessionId: normalizeText(session.session_id),
@@ -3293,6 +3561,8 @@ async function buildLiveAccessStats() {
         pageLabel: resolveLiveAccessPageLabel(session, touchWithGeo),
         stageLabel: resolveLiveAccessStageLabel(session, touchWithGeo),
         currentPage: normalizeText(session.current_page || touchWithGeo?.pageUrl),
+        trafficSource,
+        accessControl,
         geo: touchWithGeo?.geo || null,
       };
     })
@@ -3307,6 +3577,9 @@ async function buildLiveAccessStats() {
       pageLabel: row.pageLabel,
       stageLabel: row.stageLabel,
       currentPage: row.currentPage,
+      trafficSource: row.trafficSource,
+      accessControl: row.accessControl,
+      blocked: Boolean(row.accessControl?.blocked),
       lat: row.geo.lat,
       lng: row.geo.lng,
       accuracy: row.geo.accuracy,
@@ -3744,9 +4017,18 @@ export default async function handler(req, res) {
         return res.status(200).end(trackingPixelBuffer);
       }
 
+      const accessControl = await resolveLiveAccessBlockState({
+        attributionId: pingPayload.attributionId,
+        sessionId: pingPayload.sessionId,
+      });
+
       return res.status(200).json({
         ok: true,
         touched: Boolean(touched),
+        accessControl: {
+          ...accessControl,
+          redirectTo: accessControl.blocked ? "/white.html?access_hold=1" : "",
+        },
       });
     }
 
@@ -3793,6 +4075,34 @@ export default async function handler(req, res) {
         ok: true,
         generatedAt: new Date().toISOString(),
         liveAccessStats,
+      });
+    }
+
+    if (req.method === "GET" && pathname === "/api/analytics/live-access/block-status") {
+      const accessControl = await resolveLiveAccessBlockState({
+        attributionId: url.searchParams.get("attributionId"),
+        sessionId: url.searchParams.get("sessionId"),
+      });
+
+      return res.status(200).json({
+        ok: true,
+        accessControl,
+      });
+    }
+
+    if (req.method === "POST" && pathname === "/api/analytics/live-access/block") {
+      if (!isAuthenticated(req)) {
+        return res.status(401).json({ message: "Nao autorizado." });
+      }
+
+      const accessControl = await setLiveAccessBlockState(body || {});
+      if (!accessControl) {
+        return res.status(400).json({ message: "Sessao invalida." });
+      }
+
+      return res.status(200).json({
+        ok: true,
+        accessControl,
       });
     }
 

