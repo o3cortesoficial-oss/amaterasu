@@ -1943,11 +1943,11 @@
       // Modal Handlers
       window.openGatewayModal = function(id) {
         document.getElementById(id).classList.add('active');
-      }
+      };
 
       window.closeGatewayModal = function() {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-      }
+      };
 
       window.setActiveGateway = async function(provider) {
         try {
@@ -1960,7 +1960,7 @@
         } catch (error) {
           alert(error.message);
         }
-      }
+      };
 
       (function normalizeGatewaySectionCopy() {
         const apiSection = document.getElementById('apiSection');
@@ -2133,9 +2133,9 @@
             container.innerHTML = '';
             const list = Array.isArray(m.data) ? m.data : (m.data ? [m.data] : []);
             if (list.length === 0) {
-              addPixelInput(m.id, '', m.name); // Add one empty by default
+              window.addPixelInput(m.id, '', m.name); // Add one empty by default
             } else {
-              list.forEach(val => addPixelInput(m.id, val, m.name));
+              list.forEach(val => window.addPixelInput(m.id, val, m.name));
             }
           }
         });
