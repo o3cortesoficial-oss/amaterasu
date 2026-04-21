@@ -78,43 +78,7 @@
     }
   }, true);
 
-  /* ── 3. Detecção de DevTools aberto por tamanho de janela ── */
-  var _devtoolsOpen = false;
-  var _threshold = 160;
-
-  function checkDevTools() {
-    var widthDiff = window.outerWidth - window.innerWidth > _threshold;
-    var heightDiff = window.outerHeight - window.innerHeight > _threshold;
-    if (widthDiff || heightDiff) {
-      if (!_devtoolsOpen) {
-        _devtoolsOpen = true;
-        activateShield();
-      }
-    }
-  }
-
-  /* Checa periodicamente */
-  setInterval(checkDevTools, 1500);
-  window.addEventListener('resize', checkDevTools);
-
-  /* ── 4. Detecção via console.log (Firebug/DevTools console trick) ── */
-  var _devToolsElement = new Image();
-  Object.defineProperty(_devToolsElement, 'id', {
-    get: function () {
-      _devtoolsOpen = true;
-      activateShield();
-      throw new Error();
-    }
-  });
-
-  setInterval(function () {
-    try {
-      console.log('%c', _devToolsElement);
-      console.clear();
-    } catch (e) { /* esperado */ }
-  }, 3000);
-
-  /* ── 5. Anti-clonagem: se domínio não autorizado, ativa escudo ── */
+  /* ── 3. Anti-clonagem: se domínio não autorizado, ativa escudo ── */
   if (!isDomainAllowed()) {
     activateShield();
   }
