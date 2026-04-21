@@ -1571,7 +1571,7 @@
         <div class="amz-card" style="padding: 0; overflow: hidden;">
           <div class="amz-card-title" style="padding: 15px 20px 10px; margin-bottom: 0;">
             Últimas Transações
-            <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">TitansHub API Realtime</span>
+            <span id="transactionsRealtimeLabel" style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">TitansHub API Realtime</span>
           </div>
           <div id="transactionsTableWrap" style="overflow-x: auto;">
             <table>
@@ -1594,7 +1594,7 @@
         <div class="amz-card" style="padding: 0; overflow: hidden; margin-top: 20px;">
           <div class="amz-card-title" style="padding: 15px 20px 10px; margin-bottom: 0;">
             Logs de Webhooks
-            <span style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">Eventos locais recebidos</span>
+            <span id="webhooksRealtimeLabel" style="font-weight: 400; font-size: 12px; color: var(--amz-muted);">Eventos locais recebidos</span>
           </div>
           <div id="webhooksTableWrap" style="overflow-x: auto;">
             <table>
@@ -2849,11 +2849,19 @@ function buildPendingPixCardHtml(stats = {}) {
           }
 
           if (data.salesStats) {
+            const activeGatewayLabel = data.config?.activeGatewayLabel || 'Gateway ativa';
             setTextById('totalRevenueText', formatMoney(data.salesStats.totalPaidAmount));
             setTextById('totalOrdersText', data.salesStats.totalRecords || 0);
             setTextById('heroHostText', formatDashboardFilterSummary(data.filters || filters));
             setTextById('heroWebhookText', `${data.pendingPixStats?.count || 0} aguardando pagamento`);
             setTextById('generatedAtText', 'Sincronizado: ' + formatDate(data.generatedAt));
+            setTextById('transactionsRealtimeLabel', `${activeGatewayLabel} API Realtime`);
+            setTextById(
+              'webhooksRealtimeLabel',
+              data.webhookStats?.source === 'gateway_transactions'
+                ? `${activeGatewayLabel} em tempo real`
+                : 'Eventos locais recebidos'
+            );
 
             const grid = document.getElementById('metricsGrid');
             if (grid) {
@@ -2873,6 +2881,18 @@ function buildPendingPixCardHtml(stats = {}) {
                 badge.className = 'amz-badge ' + getBadgeClass(key);
                 badge.textContent = `${key.toUpperCase()}: ${val}`;
                 statusWrap.appendChild(badge);
+              });
+            }
+
+            const paymentWrap = document.getElementById('paymentBreakdown');
+            if (paymentWrap) {
+              const entries = Object.entries(data.salesStats.paymentMethodBreakdown || {});
+              paymentWrap.innerHTML = entries.length ? '' : '<span style="font-size: 13px; color: #999;">Nenhum método registrado.</span>';
+              entries.forEach(([key, val]) => {
+                const badge = document.createElement('span');
+                badge.className = 'amz-badge badge-pending';
+                badge.textContent = `${String(key || 'pix').toUpperCase()}: ${val}`;
+                paymentWrap.appendChild(badge);
               });
             }
           }

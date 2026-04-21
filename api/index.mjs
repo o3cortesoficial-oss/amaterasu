@@ -1282,6 +1282,17 @@ function normalizeGatewayProvider(value) {
     : "titanshub";
 }
 
+function normalizeGatewayProviderOrEmpty(value) {
+  const text = normalizeText(value).toLowerCase();
+  if (text === "primecash") {
+    return "primecash";
+  }
+  if (text === "titanshub" || text === "titans" || text === "shield") {
+    return "titanshub";
+  }
+  return "";
+}
+
 function getTitansGatewayConfig(config) {
   return {
     provider: "titanshub",
@@ -2494,6 +2505,125 @@ function parseTransactionMetadata(record) {
   return ensurePlainObject(metadataRaw);
 }
 
+function parsePlainObjectValue(value) {
+  if (typeof value === "string") {
+    try {
+      return ensurePlainObject(JSON.parse(value));
+    } catch {
+      return {};
+    }
+  }
+
+  return ensurePlainObject(value);
+}
+
+function resolveWebhookEventProvider(event) {
+  const raw = parsePlainObjectValue(event?.raw);
+  const metadata = parsePlainObjectValue(raw.metadata);
+  return normalizeGatewayProviderOrEmpty(
+    pickFirstFilled(
+      event?.gateway_provider,
+      event?.gatewayProvider,
+      event?.provider,
+      raw.gateway_provider,
+      raw.gatewayProvider,
+      raw.provider,
+      metadata.gateway_provider,
+      metadata.gatewayProvider,
+      metadata.provider,
+    ),
+  );
+}
+
+function filterWebhookEventsForGateway(events, provider) {
+  const normalizedProvider = normalizeGatewayProvider(provider);
+  return (Array.isArray(events) ? events : []).filter((event) => {
+    const eventProvider = resolveWebhookEventProvider(event);
+    return !eventProvider || eventProvider === normalizedProvider;
+  });
+}
+
+function buildEventRecordFromTransaction(record, gatewayConfig, metaAttribution = null) {
+  const normalized = normalizeTransactionRecord(record);
+  const metadata = parseTransactionMetadata(record);
+  const raw = ensurePlainObject(record?.raw || record);
+
+  return {
+    id: pickFirstFilled(normalized.id, normalized.objectId, normalized.externalRef) || randomUUID(),
+    received_at: normalized.createdAt,
+    type: "transaction",
+    object_id: pickFirstFilled(normalized.objectId, normalized.id),
+    status: normalized.status,
+    payment_method: normalized.paymentMethod,
+    amount: normalized.amount,
+    paid_amount: normalized.paidAmount,
+    refunded_amount: normalized.refundedAmount,
+    external_ref: normalized.externalRef,
+    secure_id: pickFirstFilled(raw.secureId, raw.secure_id),
+    customer: raw.customer || null,
+    url: pickFirstFilled(raw.url, raw.secureUrl, raw.secure_url),
+    raw: {
+      ...raw,
+      metadata,
+      gateway_provider: normalizeGatewayProvider(gatewayConfig?.provider),
+      gateway_label: gatewayConfig?.label || "Gateway",
+    },
+    pushcut_dispatches: [],
+    meta_attribution: metaAttribution,
+  };
+}
+
+async function buildGatewayTransactionEvents(transactions, gatewayConfig) {
+  const records = Array.isArray(transactions) ? transactions : [];
+  if (!records.length) {
+    return [];
+  }
+
+  const intents = await loadConversionIntents();
+  const sessionCache = new Map();
+  const events = [];
+
+  for (const record of records) {
+    const baseEvent = buildEventRecordFromTransaction(record, gatewayConfig);
+    const existingMeta = ensurePlainObject(
+      record?.meta_attribution ||
+        record?.metaAttribution ||
+        getNestedValue(record, "raw.meta_attribution") ||
+        getNestedValue(record, "raw.metaAttribution"),
+    );
+
+    if (Object.keys(existingMeta).length) {
+      baseEvent.meta_attribution = existingMeta;
+      events.push(baseEvent);
+      continue;
+    }
+
+    const matchInfo = await findMatchingConversionIntent(baseEvent, intents);
+    const matchedIntent = matchInfo?.intent || null;
+    let attributionSession = null;
+
+    if (matchedIntent?.attribution_id) {
+      if (!sessionCache.has(matchedIntent.attribution_id)) {
+        sessionCache.set(
+          matchedIntent.attribution_id,
+          await loadAttributionSessionByAttributionId(matchedIntent.attribution_id),
+        );
+      }
+      attributionSession = sessionCache.get(matchedIntent.attribution_id);
+    }
+
+    baseEvent.meta_attribution = buildMetaAttribution(
+      matchedIntent,
+      attributionSession,
+      baseEvent,
+      matchInfo,
+    );
+    events.push(baseEvent);
+  }
+
+  return events.sort((a, b) => new Date(b.received_at || 0) - new Date(a.received_at || 0));
+}
+
 function resolveTransactionOrigin(record, fallbackOrigin = "") {
   const metadata = parseTransactionMetadata(record);
   return resolveOrderOriginFromTitles(
@@ -2711,8 +2841,10 @@ function buildCloneAlertEvent(payload = {}, req) {
   };
 }
 
-async function findMatchingConversionIntent(eventRecord) {
-  const intents = await loadConversionIntents();
+async function findMatchingConversionIntent(eventRecord, candidateIntents = null) {
+  const intents = Array.isArray(candidateIntents)
+    ? candidateIntents
+    : await loadConversionIntents();
   if (!intents.length) {
     return null;
   }
@@ -3232,6 +3364,7 @@ function buildMetaAttributionStats(events) {
 }
 
 function serializeWebhookForClient(event) {
+  const provider = resolveWebhookEventProvider(event);
   return {
     id: event.id,
     receivedAt: event.received_at,
@@ -3246,6 +3379,7 @@ function serializeWebhookForClient(event) {
     customer: event.customer,
     pushcutDispatches: event.pushcut_dispatches || [],
     metaAttribution: event.meta_attribution || null,
+    provider,
   };
 }
 
@@ -3532,7 +3666,13 @@ export default async function handler(req, res) {
       (pathname === "/api/titans/webhook" || pathname === "/api/primecash/webhook")
     ) {
       const config = await loadConfig();
+      const webhookProvider =
+        pathname === "/api/primecash/webhook" ? "primecash" : "titanshub";
       const eventRecord = summarizeWebhookPayload(body, body?.rawBody || "");
+      eventRecord.raw = {
+        ...ensurePlainObject(eventRecord.raw),
+        gateway_provider: webhookProvider,
+      };
       const matchInfo = await findMatchingConversionIntent(eventRecord);
       const matchedIntent = matchInfo?.intent || null;
       const attributionSession =
@@ -4025,6 +4165,7 @@ export default async function handler(req, res) {
       const filters = normalizeMetricsFilters(url.searchParams);
       const config = await loadConfig();
       const gatewayConfig = getActiveGatewayConfig(config);
+      const activeProvider = normalizeGatewayProvider(gatewayConfig.provider);
       const allWebhookEvents = await loadWebhookEvents(100);
       const cloneAlertEvents = allWebhookEvents.filter(
         (event) => normalizeText(event?.type) === cloneAlertType,
@@ -4032,12 +4173,15 @@ export default async function handler(req, res) {
       const webhookEvents = allWebhookEvents.filter(
         (event) => normalizeText(event?.type) !== cloneAlertType,
       );
+      const gatewayWebhookEvents = filterWebhookEventsForGateway(webhookEvents, activeProvider);
       let transactions = [];
+      let gatewayEvents = [];
       let remoteWarning = "";
 
       if (isGatewayConfigured(gatewayConfig)) {
         try {
           transactions = await fetchTransactionsForMetrics(gatewayConfig);
+          gatewayEvents = await buildGatewayTransactionEvents(transactions, gatewayConfig);
         } catch (error) {
           console.error("fetchTransactionsPage error:", error);
           remoteWarning =
@@ -4047,7 +4191,7 @@ export default async function handler(req, res) {
       }
 
       if (!transactions.length) {
-        transactions = webhookEvents.map((event) => ({
+        transactions = gatewayWebhookEvents.map((event) => ({
           id: event.object_id || event.id,
           created_at: event.received_at,
           status: event.status,
@@ -4059,12 +4203,14 @@ export default async function handler(req, res) {
           customer: event.customer,
           raw: event.raw,
         }));
+        gatewayEvents = gatewayWebhookEvents;
       }
 
       const salesStats = buildSalesStats(transactions, filters);
       const pendingPixStats = buildPendingPixStats(transactions, filters);
       const analytics = await buildAnalyticsStats();
-      const serializedWebhooks = webhookEvents.map(serializeWebhookForClient);
+      const metricsEvents = gatewayEvents.length ? gatewayEvents : gatewayWebhookEvents;
+      const serializedWebhooks = metricsEvents.map(serializeWebhookForClient);
       const cloneAlerts = buildCloneAlertStats(cloneAlertEvents);
 
       return res.status(200).json({
@@ -4074,11 +4220,14 @@ export default async function handler(req, res) {
         salesStats,
         pendingPixStats,
         webhookStats: {
-          receivedCount: webhookEvents.length,
+          receivedCount: metricsEvents.length,
           recentEvents: serializedWebhooks,
+          source: gatewayEvents.length ? "gateway_transactions" : "webhook_fallback",
+          provider: activeProvider,
+          label: gatewayConfig.label,
         },
         cloneAlerts,
-        metaAttributionStats: buildMetaAttributionStats(webhookEvents),
+        metaAttributionStats: buildMetaAttributionStats(metricsEvents),
         analytics,
         transactions: salesStats.recentTransactions,
         webhooks: serializedWebhooks,
