@@ -2160,7 +2160,8 @@
         const tbody = document.querySelector('#metaAttributionTableWrap tbody');
         if (!summary || !tbody) return;
 
-        if (!metaStats || !metaStats.rows || metaStats.rows.length === 0) {
+        const rows = Array.isArray(metaStats?.rows) ? metaStats.rows : [];
+        if (!rows.length) {
           summary.textContent = 'Nenhuma venda com atribuicao registrada ainda.';
           tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Nenhuma venda atribuida encontrada ainda.</td></tr>';
           return;
@@ -2169,7 +2170,8 @@
         summary.textContent = `${metaStats.attributedCount || 0} atribuidas | ${metaStats.incompleteCount || 0} incompletas | ${metaStats.missingCount || 0} sem parametros | ${metaStats.unknownCount || 0} sem origem identificada`;
         tbody.innerHTML = '';
 
-        metaStats.rows.forEach(row => {
+        rows.forEach(row => {
+          row = row || {};
           const tr = document.createElement('tr');
           const utmText = [
             row.utmSummary || '',
@@ -2829,13 +2831,17 @@ function buildPendingPixCardHtml(stats = {}) {
 
           if (data.analytics) {
             ensureTrafficGridCards();
-            document.getElementById('totalActiveTitle').textContent = data.analytics.totalActive + ' Usuários Ativos';
+            const activeByPage = data.analytics.active || {};
+            const cumulativeByPage = data.analytics.cumulative || {};
+            setTextById('totalActiveTitle', (data.analytics.totalActive || 0) + ' Usuários Ativos');
             document.querySelectorAll('.traffic-item[data-page]').forEach(item => {
               const pid = item.dataset.page;
-              const active = data.analytics.active[pid] || 0;
-              const cum = data.analytics.cumulative[pid] || 0;
-              item.querySelector('.active-val').textContent = active;
-              item.querySelector('.cum-val').textContent = cum + ' total';
+              const active = activeByPage[pid] || 0;
+              const cum = cumulativeByPage[pid] || 0;
+              const activeEl = item.querySelector('.active-val');
+              const cumulativeEl = item.querySelector('.cum-val');
+              if (activeEl) activeEl.textContent = active;
+              if (cumulativeEl) cumulativeEl.textContent = cum + ' total';
               const pulse = item.querySelector('.live-pulse');
               if (pulse) pulse.style.display = active > 0 ? 'block' : 'none';
               item.classList.toggle('active', active > 0);
@@ -2843,11 +2849,11 @@ function buildPendingPixCardHtml(stats = {}) {
           }
 
           if (data.salesStats) {
-            document.getElementById('totalRevenueText').textContent = formatMoney(data.salesStats.totalPaidAmount);
-            document.getElementById('totalOrdersText').textContent = data.salesStats.totalRecords;
-            document.getElementById('heroHostText').textContent = formatDashboardFilterSummary(data.filters || filters);
-            document.getElementById('heroWebhookText').textContent = `${data.pendingPixStats?.count || 0} aguardando pagamento`;
-            document.getElementById('generatedAtText').textContent = 'Sincronizado: ' + formatDate(data.generatedAt);
+            setTextById('totalRevenueText', formatMoney(data.salesStats.totalPaidAmount));
+            setTextById('totalOrdersText', data.salesStats.totalRecords || 0);
+            setTextById('heroHostText', formatDashboardFilterSummary(data.filters || filters));
+            setTextById('heroWebhookText', `${data.pendingPixStats?.count || 0} aguardando pagamento`);
+            setTextById('generatedAtText', 'Sincronizado: ' + formatDate(data.generatedAt));
 
             const grid = document.getElementById('metricsGrid');
             if (grid) {
@@ -2862,7 +2868,7 @@ function buildPendingPixCardHtml(stats = {}) {
             const statusWrap = document.getElementById('statusBreakdown');
             if (statusWrap) {
               statusWrap.innerHTML = '';
-              Object.entries(data.salesStats.statusBreakdown).forEach(([key, val]) => {
+              Object.entries(data.salesStats.statusBreakdown || {}).forEach(([key, val]) => {
                 const badge = document.createElement('span');
                 badge.className = 'amz-badge ' + getBadgeClass(key);
                 badge.textContent = `${key.toUpperCase()}: ${val}`;
@@ -2874,11 +2880,13 @@ function buildPendingPixCardHtml(stats = {}) {
           renderCloneAlertsCard(data.cloneAlerts || {});
           renderMetaAttribution(data.metaAttributionStats);
 
-          if (data.transactions) {
+          const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+          if (transactions.length || data.transactions) {
             const tbody = document.querySelector('#transactionsTableWrap tbody');
             if (tbody) {
-              tbody.innerHTML = data.transactions.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum registro encontrado.</td></tr>';
-              data.transactions.forEach(tx => {
+              tbody.innerHTML = transactions.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum registro encontrado.</td></tr>';
+              transactions.forEach(tx => {
+                tx = tx || {};
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                   <td style="font-weight:700;">${formatDate(tx.createdAt)}</td>
@@ -2891,11 +2899,13 @@ function buildPendingPixCardHtml(stats = {}) {
             }
           }
 
-          if (data.webhooks) {
+          const webhooks = Array.isArray(data.webhooks) ? data.webhooks : [];
+          if (webhooks.length || data.webhooks) {
             const tbody = document.querySelector('#webhooksTableWrap tbody');
             if (tbody) {
-              tbody.innerHTML = data.webhooks.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum evento recente.</td></tr>';
-              data.webhooks.slice(0, 50).forEach(wh => {
+              tbody.innerHTML = webhooks.length ? '' : '<tr><td colspan="4" style="text-align: center; padding: 40px; color: #999;">Nenhum evento recente.</td></tr>';
+              webhooks.slice(0, 50).forEach(wh => {
+                wh = wh || {};
                 const ok = (wh.pushcutDispatches || []).filter(i => i.ok).length;
                 const total = (wh.pushcutDispatches || []).length;
                 const tr = document.createElement('tr');
