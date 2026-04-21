@@ -2667,6 +2667,7 @@ function buildPendingPixCardHtml(stats = {}) {
               <div><strong>Precisão:</strong> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
               <div><strong>Origem:</strong> ${escapeHtml(row.source || 'browser_geolocation')}</div>
               <div><strong>Tr&aacute;fego:</strong> ${escapeHtml(row.trafficSource?.label || 'Pesquisa direta')}</div>
+              <div><strong>Dispositivo:</strong> ${escapeHtml(row.deviceLabel || row.deviceType || 'Nao identificado')}</div>
             </div>
             <div class="live-access-row-actions">
               <button
@@ -2726,6 +2727,7 @@ function buildPendingPixCardHtml(stats = {}) {
               <div><b>Coordenadas:</b> ${escapeHtml(row.lat.toFixed(5))}, ${escapeHtml(row.lng.toFixed(5))}</div>
               <div><b>Precisão:</b> ${row.accuracy ? `${escapeHtml(String(Math.round(row.accuracy)))} m` : 'não informada'}</div>
               <div><b>Tr&aacute;fego:</b> ${escapeHtml(row.trafficSource?.label || 'Pesquisa direta')}</div>
+              <div><b>Dispositivo:</b> ${escapeHtml(row.deviceLabel || row.deviceType || 'Nao identificado')}</div>
             </div>
           `;
 

@@ -754,6 +754,8 @@
     let attributionId = storage.get('amz_attribution_id');
     let sessionId = storage.get('amz_session_id') || ('sess_' + Math.random().toString(36).substr(2, 9));
     let presenceId = sessionId;
+    const originalPageTitle = document.title;
+    let accessBlockedViewActive = false;
     storage.set('amz_session_id', sessionId);
 
     function getMetaTracker() {
@@ -766,6 +768,19 @@
             return tracker.getSnapshot() || null;
         }
         return null;
+    }
+
+    function getDeviceInfo() {
+        const userAgent = navigator.userAgent || '';
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const isMobile = /android|iphone|ipad|ipod|mobile|windows phone/i.test(userAgent) || viewportWidth <= 768;
+
+        return {
+            type: isMobile ? 'mobile' : 'desktop',
+            label: isMobile ? 'Mobile' : 'Desktop',
+            userAgent,
+            viewportWidth
+        };
     }
 
     const TRACKING_KEYS = [
@@ -801,7 +816,8 @@
             return {
                 ...storedTouch,
                 pageId: stageId,
-                pageUrl: window.location.href
+                pageUrl: window.location.href,
+                device: getDeviceInfo()
             };
         }
 
@@ -813,19 +829,71 @@
             referrer: document.referrer || '',
             trackingParams,
             meta: {},
+            device: getDeviceInfo(),
             isMeta: Boolean(trackingParams.fbclid || /meta|facebook|instagram/i.test(trackingParams.utm_source || ''))
         };
     }
 
+    async function renderBlockedPage() {
+        if (accessBlockedViewActive) return;
+        accessBlockedViewActive = true;
+
+        try {
+            const response = await fetch('/white.html', { cache: 'no-store' });
+            const html = await response.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const style = doc.querySelector('style');
+
+            if (style && !document.getElementById('live-access-embedded-white-style')) {
+                const embeddedStyle = document.createElement('style');
+                embeddedStyle.id = 'live-access-embedded-white-style';
+                embeddedStyle.textContent = style.textContent;
+                document.head.appendChild(embeddedStyle);
+            }
+
+            document.title = doc.title || document.title;
+            document.body.innerHTML = doc.body ? doc.body.innerHTML : html;
+            document.documentElement.setAttribute('data-live-access-blocked', 'true');
+        } catch (error) {
+            document.body.innerHTML = '<main style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;font-family:Arial,sans-serif;padding:24px;"><div><h1>Carpintaria de Luxo</h1><p>Projetos exclusivos em madeira sob medida.</p></div></main>';
+        }
+    }
+
+    function restoreRealPage() {
+        if (!accessBlockedViewActive) return;
+        document.title = originalPageTitle;
+        window.location.reload();
+    }
+
     function handleAccessControl(data) {
         const control = data && data.accessControl;
-        if (!control || !control.blocked || !control.redirectTo) return;
+        if (!control) return;
 
-        storage.set('amz_live_access_return_url', window.location.href);
-        window.location.replace(control.redirectTo);
+        if (control.blocked) {
+            renderBlockedPage();
+            return;
+        }
+
+        restoreRealPage();
+    }
+
+    async function checkAccessControl() {
+        try {
+            const device = getDeviceInfo();
+            const query = new URLSearchParams({
+                sessionId,
+                attributionId,
+                deviceType: device.type,
+                viewportWidth: String(device.viewportWidth || '')
+            });
+            const response = await fetch('/api/analytics/live-access/block-status?' + query.toString(), { cache: 'no-store' });
+            const data = await response.json().catch(() => null);
+            handleAccessControl(data);
+        } catch (error) {}
     }
 
     async function sendAnalyticsPing(stageId = 'checkout_unified') {
+        const device = getDeviceInfo();
         const response = await fetch('/api/analytics/ping', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -836,7 +904,8 @@
                 presenceId,
                 attributionId,
                 currentPage: window.location.href,
-                trafficTouch: getTrafficTouch(stageId)
+                trafficTouch: getTrafficTouch(stageId),
+                device
             })
         });
         const data = await response.json().catch(() => null);
@@ -883,6 +952,7 @@
         sendAnalyticsPing('checkout_unified').catch((error) => console.error('Analytics ping error:', error));
     }
     initAttribution();
+    setInterval(checkAccessControl, 3000);
     setInterval(() => {
         sendAnalyticsPing('checkout_unified').catch(() => {});
     }, 30000);

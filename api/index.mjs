@@ -218,6 +218,35 @@ function normalizeAccessControl(value) {
   };
 }
 
+function normalizeDeviceInfo(value) {
+  const source = ensurePlainObject(value);
+  const rawType = normalizeText(source.type || source.deviceType || source.device_type).toLowerCase();
+  const userAgent = normalizeText(source.userAgent || source.user_agent);
+  const viewportWidth = Number(source.viewportWidth || source.viewport_width || 0);
+  const hasSignal =
+    Boolean(rawType) ||
+    Boolean(userAgent) ||
+    (Number.isFinite(viewportWidth) && viewportWidth > 0);
+
+  if (!hasSignal) {
+    return null;
+  }
+
+  const mobileSignal =
+    rawType === "mobile" ||
+    rawType === "tablet" ||
+    /android|iphone|ipad|ipod|mobile|windows phone/i.test(userAgent) ||
+    (Number.isFinite(viewportWidth) && viewportWidth > 0 && viewportWidth <= 768);
+  const type = mobileSignal ? "mobile" : "desktop";
+
+  return {
+    type,
+    label: type === "mobile" ? "Mobile" : "Desktop",
+    userAgent,
+    viewportWidth: Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : null,
+  };
+}
+
 function hasTouchOriginSignal(touch) {
   return Boolean(
     touch &&
@@ -948,6 +977,7 @@ function normalizeTouch(touch) {
     meta,
     geo: normalizeGeoPoint(touch.geo || touch.location || touch.coords),
     accessControl: normalizeAccessControl(touch.accessControl || touch.access_control),
+    device: normalizeDeviceInfo(touch.device || touch.deviceInfo || touch.device_info),
     isMeta:
       Boolean(touch.isMeta) ||
       Boolean(
@@ -1104,13 +1134,22 @@ function getSessionAccessControl(session) {
   return lastTouch?.accessControl || firstTouch?.accessControl || null;
 }
 
-async function resolveLiveAccessBlockState(input = {}) {
+function getSessionDeviceInfo(session) {
+  const lastTouch = normalizeTouch(session?.last_touch || session?.lastTouch);
+  const firstTouch = normalizeTouch(session?.first_touch || session?.firstTouch);
+  return lastTouch?.device || firstTouch?.device || { type: "desktop", label: "Desktop" };
+}
+
+function resolveStoredOrDefaultAccessControl(input = {}) {
+  const session = input.session || null;
   const attributionId = normalizeText(input.attributionId || input.attribution_id);
   const sessionId = normalizeText(input.sessionId || input.session_id);
-  const session =
-    (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
-    (sessionId && (await loadAttributionSessionBySessionId(sessionId))) ||
-    null;
+  const device =
+    normalizeDeviceInfo(input.device || {
+      type: input.deviceType || input.device_type,
+      userAgent: input.userAgent || input.user_agent,
+      viewportWidth: input.viewportWidth || input.viewport_width,
+    }) || getSessionDeviceInfo(session);
   const persistedState = getSessionAccessControl(session);
   const memoryState =
     memoryStore.liveAccessBlocks.get(buildLiveAccessBlockKey({ attributionId, sessionId })) ||
@@ -1123,7 +1162,37 @@ async function resolveLiveAccessBlockState(input = {}) {
         )
       : null);
 
-  return persistedState || memoryState || { blocked: false, updatedAt: "", returnTo: "" };
+  if (persistedState || memoryState) {
+    return {
+      ...(persistedState || memoryState),
+      device,
+      defaultBlocked: false,
+    };
+  }
+
+  return {
+    blocked: device.type === "desktop",
+    defaultBlocked: device.type === "desktop",
+    updatedAt: "",
+    returnTo: "",
+    device,
+  };
+}
+
+async function resolveLiveAccessBlockState(input = {}) {
+  const attributionId = normalizeText(input.attributionId || input.attribution_id);
+  const sessionId = normalizeText(input.sessionId || input.session_id);
+  const session =
+    (attributionId && (await loadAttributionSessionByAttributionId(attributionId))) ||
+    (sessionId && (await loadAttributionSessionBySessionId(sessionId))) ||
+    null;
+
+  return resolveStoredOrDefaultAccessControl({
+    ...input,
+    session,
+    attributionId,
+    sessionId,
+  });
 }
 
 async function setLiveAccessBlockState(payload = {}) {
@@ -2189,6 +2258,7 @@ async function touchSessionPresence(payload) {
   const trackedPageId = stageId || pageId;
   const geo = normalizeGeoPoint(payload?.geo);
   const trafficTouch = normalizeTouch(payload?.trafficTouch || payload?.traffic || payload?.touch);
+  const device = normalizeDeviceInfo(payload?.device || payload?.deviceInfo || payload?.device_info);
   const now = new Date().toISOString();
 
   if (!sessionId || !pageId) {
@@ -2228,6 +2298,7 @@ async function touchSessionPresence(payload) {
       pageUrl: currentPage || trafficTouch.pageUrl || "",
       geo: trafficTouch.geo || currentLastTouch?.geo || currentFirstTouch?.geo || null,
       accessControl: currentLastTouch?.accessControl || currentFirstTouch?.accessControl || null,
+      device: device || trafficTouch.device || currentLastTouch?.device || currentFirstTouch?.device,
     };
 
     if (!next.first_touch) {
@@ -2259,6 +2330,7 @@ async function touchSessionPresence(payload) {
       pageUrl: currentPage || baseTouch.pageUrl || "",
       geo,
       accessControl: baseTouch.accessControl || null,
+      device: device || baseTouch.device,
     };
 
     next.last_touch = geoTouch;
@@ -3544,15 +3616,12 @@ async function buildLiveAccessStats() {
         null;
       const trafficTouch = selectLiveAccessOriginTouch(session);
       const trafficSource = resolveLiveAccessTrafficSource(trafficTouch);
-      const accessControl =
-        getSessionAccessControl(session) ||
-        memoryStore.liveAccessBlocks.get(
-          buildLiveAccessBlockKey({
-            attributionId: session.attribution_id,
-            sessionId: session.session_id,
-          }),
-        ) ||
-        { blocked: false, updatedAt: "", returnTo: "" };
+      const accessControl = resolveStoredOrDefaultAccessControl({
+        session,
+        attributionId: session.attribution_id,
+        sessionId: session.session_id,
+      });
+      const device = accessControl.device || getSessionDeviceInfo(session);
 
       return {
         sessionId: normalizeText(session.session_id),
@@ -3563,6 +3632,7 @@ async function buildLiveAccessStats() {
         currentPage: normalizeText(session.current_page || touchWithGeo?.pageUrl),
         trafficSource,
         accessControl,
+        device,
         geo: touchWithGeo?.geo || null,
       };
     })
@@ -3580,6 +3650,9 @@ async function buildLiveAccessStats() {
       trafficSource: row.trafficSource,
       accessControl: row.accessControl,
       blocked: Boolean(row.accessControl?.blocked),
+      device: row.device,
+      deviceType: row.device?.type || "",
+      deviceLabel: row.device?.label || "",
       lat: row.geo.lat,
       lng: row.geo.lng,
       accuracy: row.geo.accuracy,
@@ -4020,6 +4093,7 @@ export default async function handler(req, res) {
       const accessControl = await resolveLiveAccessBlockState({
         attributionId: pingPayload.attributionId,
         sessionId: pingPayload.sessionId,
+        device: pingPayload.device || pingPayload.deviceInfo || pingPayload.device_info,
       });
 
       return res.status(200).json({
@@ -4027,7 +4101,6 @@ export default async function handler(req, res) {
         touched: Boolean(touched),
         accessControl: {
           ...accessControl,
-          redirectTo: accessControl.blocked ? "/white.html?access_hold=1" : "",
         },
       });
     }
@@ -4082,6 +4155,9 @@ export default async function handler(req, res) {
       const accessControl = await resolveLiveAccessBlockState({
         attributionId: url.searchParams.get("attributionId"),
         sessionId: url.searchParams.get("sessionId"),
+        deviceType: url.searchParams.get("deviceType"),
+        userAgent: req.headers["user-agent"] || "",
+        viewportWidth: url.searchParams.get("viewportWidth"),
       });
 
       return res.status(200).json({
