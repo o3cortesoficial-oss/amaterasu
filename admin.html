@@ -2466,6 +2466,21 @@
         return query ? `?${query}` : '';
       }
 
+      function setTextById(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
+
+      function setInputValue(form, name, value) {
+        const input = form?.querySelector(`[name="${name}"]`);
+        if (input) input.value = value;
+      }
+
+      function setInputPlaceholder(form, name, value) {
+        const input = form?.querySelector(`[name="${name}"]`);
+        if (input) input.placeholder = value;
+      }
+
       function getTodayFilterValue() {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -2749,11 +2764,16 @@ function buildPendingPixCardHtml(stats = {}) {
           const data = await apiFetch('/api/titans/metrics' + buildMetricsQuery(filters));
           if (dot) dot.className = 'dot online';
           if (statusText) statusText.textContent = 'Sistema Online';
+          const pixelsFormForSync = document.getElementById('pixelsForm');
+          if (pixelsFormForSync) {
+            pixelsFormForSync.headTag = pixelsFormForSync.querySelector('[name="headTag"]');
+            pixelsFormForSync.bodyTag = pixelsFormForSync.querySelector('[name="bodyTag"]');
+          }
           
           if (data.config) {
-            document.getElementById('heroHostText').textContent = 'Domínio: ' + data.config.apiHost;
-            document.getElementById('webhookDisplayUrl').textContent = data.config.webhookUrl;
-            document.getElementById('heroPushcutText').textContent = data.config.pushcut.count;
+            setTextById('heroHostText', 'Domínio: ' + data.config.apiHost);
+            setTextById('webhookDisplayUrl', data.config.webhookUrl || '');
+            setTextById('heroPushcutText', data.config.pushcut?.count || 0);
             
             const titansBadge = document.getElementById('titansStatusBadge');
             if (titansBadge) {
@@ -2782,34 +2802,29 @@ function buildPendingPixCardHtml(stats = {}) {
 
             const cForm = document.getElementById('configForm');
             if (cForm) {
-              if (cForm.apiHost) cForm.apiHost.value = data.config.titans?.apiHost || '';
-              if (cForm.publicKey) cForm.publicKey.value = data.config.titans?.publicKey || '';
-              if (cForm.secretKey) {
-                cForm.secretKey.value = '';
-                cForm.secretKey.placeholder = data.config.hasSecretKey ? (data.config.secretKeyMasked || '••••••••••••') : '••••••••';
-              }
-              if (cForm.secretKey) cForm.secretKey.placeholder = data.config.titans?.hasSecretKey ? '************' : '********';
+              setInputValue(cForm, 'apiHost', data.config.titans?.apiHost || '');
+              setInputValue(cForm, 'publicKey', data.config.titans?.publicKey || '');
+              setInputValue(cForm, 'secretKey', '');
+              setInputPlaceholder(cForm, 'secretKey', data.config.titans?.hasSecretKey ? '************' : '********');
             }
 
             const primecashForm = document.getElementById('primecashConfigForm');
             if (primecashForm) {
-              if (primecashForm.apiHost) primecashForm.apiHost.value = data.config.primecash?.apiHost || '';
-              if (primecashForm.secretKey) {
-                primecashForm.secretKey.value = '';
-                primecashForm.secretKey.placeholder = data.config.primecash?.hasSecretKey ? (data.config.primecash?.secretKeyMasked || 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢') : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢';
-              }
-              if (primecashForm.secretKey) primecashForm.secretKey.placeholder = data.config.primecash?.hasSecretKey ? '************' : '********';
+              setInputValue(primecashForm, 'apiHost', data.config.primecash?.apiHost || '');
+              setInputValue(primecashForm, 'secretKey', '');
+              setInputPlaceholder(primecashForm, 'secretKey', data.config.primecash?.hasSecretKey ? '************' : '********');
             }
 
             if (document.getElementById('pixelsForm')) {
-              renderPixelLists(data.config.pixels);
-              document.getElementById('pixelsForm').headTag.value = data.config.pixels.headTag || '';
-              document.getElementById('pixelsForm').bodyTag.value = data.config.pixels.bodyTag || '';
+              const pixelsForm = document.getElementById('pixelsForm');
+              renderPixelLists(data.config.pixels || {});
+              setInputValue(pixelsForm, 'headTag', data.config.pixels?.headTag || '');
+              setInputValue(pixelsForm, 'bodyTag', data.config.pixels?.bodyTag || '');
             }
 
             renderPushcutItems(data.config.pushcut?.items || []);
-            document.getElementById('sidebarNote').textContent = 'Server: ' + data.config.apiHost;
-            document.getElementById('summaryLine').textContent = 'Última sincronização completa: ' + formatDate(data.generatedAt);
+            setTextById('sidebarNote', 'Server: ' + data.config.apiHost);
+            setTextById('summaryLine', 'Última sincronização completa: ' + formatDate(data.generatedAt));
           }
 
           if (data.analytics) {
