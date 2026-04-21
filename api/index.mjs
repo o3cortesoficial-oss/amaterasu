@@ -21,6 +21,7 @@ const hasSupabaseConfig = Boolean(supabaseUrl && supabaseKey);
 const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : null;
 
 const defaultApiHost = "api.shieldtecnologia.com";
+const defaultPrimeCashApiHost = "api.primecashbrasil.com";
 const maxStoredWebhookEvents = 250;
 const maxStoredConversionIntents = 500;
 const metricsPageSize = 50;
@@ -47,6 +48,8 @@ const hasAdminAuthConfig = Boolean(ADMIN_EMAIL && ADMIN_PASSWORD && JWT_SECRET);
 const runtimeConfigApiHost = process.env.TITANSHUB_API_HOST || "";
 const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
 const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
+const runtimePrimeCashApiHost = process.env.PRIMECASH_API_HOST || "";
+const runtimePrimeCashSecretKey = process.env.PRIMECASH_SECRET_KEY || "";
 const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const apiDirectory = path.dirname(fileURLToPath(import.meta.url));
 const localConfigPath = path.resolve(apiDirectory, "../.admin-data/titans-config.json");
@@ -438,9 +441,14 @@ function normalizeMultilineList(value) {
 
 function createDefaultConfig() {
   return {
+    activeGateway: "titanshub",
     apiHost: normalizeApiHost(defaultApiHost),
     publicKey: "",
     secretKey: "",
+    primecash: {
+      apiHost: normalizeApiHost(defaultPrimeCashApiHost),
+      secretKey: "",
+    },
     pixels: {
       metaPixelId: [],
       googleTagManagerId: [],
@@ -461,11 +469,24 @@ function normalizePersistedConfig(input, fallback = createDefaultConfig()) {
   const base = fallback && typeof fallback === "object" ? fallback : createDefaultConfig();
 
   return {
+    activeGateway:
+      normalizeText(source.activeGateway).toLowerCase() === "primecash"
+        ? "primecash"
+        : base.activeGateway || "titanshub",
     apiHost: normalizeApiHost(source.apiHost || base.apiHost),
     publicKey:
       typeof source.publicKey === "string" ? source.publicKey.trim() : base.publicKey,
     secretKey:
       typeof source.secretKey === "string" ? source.secretKey.trim() : base.secretKey,
+    primecash: {
+      apiHost: normalizeApiHost(
+        source?.primecash?.apiHost || base?.primecash?.apiHost || defaultPrimeCashApiHost,
+      ),
+      secretKey:
+        typeof source?.primecash?.secretKey === "string"
+          ? source.primecash.secretKey.trim()
+          : base?.primecash?.secretKey || "",
+    },
     pixels: {
       metaPixelId:
         "metaPixelId" in ensurePlainObject(source.pixels)
@@ -515,6 +536,11 @@ function applyRuntimeConfigOverrides(config) {
       apiHost: runtimeConfigApiHost || base.apiHost,
       publicKey: runtimeConfigPublicKey || base.publicKey,
       secretKey: runtimeConfigSecretKey || base.secretKey,
+      primecash: {
+        ...(base.primecash || {}),
+        apiHost: runtimePrimeCashApiHost || base?.primecash?.apiHost || defaultPrimeCashApiHost,
+        secretKey: runtimePrimeCashSecretKey || base?.primecash?.secretKey || "",
+      },
     },
     base,
   );
@@ -558,6 +584,10 @@ async function writeLocalConfigFile(config) {
 
 function hasRuntimeTitansConfig() {
   return Boolean(runtimeConfigPublicKey && runtimeConfigSecretKey);
+}
+
+function hasRuntimePrimeCashConfig() {
+  return Boolean(runtimePrimeCashSecretKey);
 }
 
 function normalizePushcutItem(value, index = 0) {
@@ -1158,6 +1188,26 @@ function buildTitansCustomerPayload(buyer) {
   };
 }
 
+function buildPrimeCashCustomerPayload(buyer) {
+  const safeBuyer = normalizeCheckoutSnapshot(buyer);
+  const emailSeed =
+    normalizeDigits(safeBuyer.cpf) ||
+    normalizeDigits(safeBuyer.phone) ||
+    randomUUID().replace(/-/g, "");
+  const address = buildTitansShippingPayload([{ tangible: true }], safeBuyer)?.address;
+
+  return {
+    name: safeBuyer.name,
+    email: normalizeText(safeBuyer.email) || `${emailSeed}@checkout.amaterasu.app`,
+    document: {
+      number: safeBuyer.cpf,
+      type: "cpf",
+    },
+    ...(safeBuyer.phone ? { phone: safeBuyer.phone } : {}),
+    ...(address ? { address } : {}),
+  };
+}
+
 function buildTitansShippingPayload(items, buyer) {
   const hasTangibleItem = (items || []).some((item) => item && item.tangible !== false);
   if (!hasTangibleItem) {
@@ -1226,10 +1276,75 @@ function buildCheckoutState(intent, fallbackAttributionId = "", fallbackSessionI
   };
 }
 
-function getWebhookUrl(req) {
+function normalizeGatewayProvider(value) {
+  return normalizeText(value).toLowerCase() === "primecash"
+    ? "primecash"
+    : "titanshub";
+}
+
+function getTitansGatewayConfig(config) {
+  return {
+    provider: "titanshub",
+    label: "TitansHub",
+    apiHost: normalizeApiHost(config?.apiHost || defaultApiHost),
+    publicKey: normalizeText(config?.publicKey),
+    secretKey: normalizeText(config?.secretKey),
+  };
+}
+
+function getPrimeCashGatewayConfig(config) {
+  return {
+    provider: "primecash",
+    label: "PrimeCash",
+    apiHost: normalizeApiHost(
+      config?.primecash?.apiHost || defaultPrimeCashApiHost,
+    ),
+    publicKey: "",
+    secretKey: normalizeText(config?.primecash?.secretKey),
+  };
+}
+
+function getActiveGatewayConfig(config) {
+  const provider = normalizeGatewayProvider(config?.activeGateway);
+  return provider === "primecash"
+    ? getPrimeCashGatewayConfig(config)
+    : getTitansGatewayConfig(config);
+}
+
+function isGatewayConfigured(config) {
+  const provider = normalizeGatewayProvider(config?.provider || config?.activeGateway);
+  if (provider === "primecash") {
+    return Boolean(normalizeText(config?.secretKey));
+  }
+
+  return Boolean(normalizeText(config?.publicKey) && normalizeText(config?.secretKey));
+}
+
+function buildGatewayClientConfig(config, req, provider) {
+  const gateway =
+    provider === "primecash"
+      ? getPrimeCashGatewayConfig(config)
+      : getTitansGatewayConfig(config);
+
+  return {
+    provider: gateway.provider,
+    label: gateway.label,
+    apiHost: gateway.apiHost,
+    publicKey: gateway.publicKey,
+    hasSecretKey: Boolean(gateway.secretKey),
+    secretKeyMasked: gateway.secretKey ? "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" : "",
+    isConfigured: isGatewayConfigured(gateway),
+    webhookUrl: getWebhookUrl(req, gateway.provider),
+  };
+}
+
+function getWebhookUrl(req, provider = "titanshub") {
   const protocol = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers.host;
-  return `${protocol}://${host}/api/titans/webhook`;
+  const normalizedProvider = normalizeGatewayProvider(provider);
+  const webhookPath =
+    normalizedProvider === "primecash" ? "/api/primecash/webhook" : "/api/titans/webhook";
+  return `${protocol}://${host}${webhookPath}`;
 }
 
 async function loadConfig() {
@@ -1275,8 +1390,14 @@ async function saveConfig(input) {
     input && typeof input.pixels === "object" && input.pixels ? input.pixels : {};
   const nextPushcutInput =
     input && typeof input.pushcut === "object" && input.pushcut ? input.pushcut : {};
+  const nextPrimeCashInput =
+    input && typeof input.primecash === "object" && input.primecash ? input.primecash : {};
 
   const next = {
+    activeGateway:
+      "activeGateway" in ensurePlainObject(input)
+        ? normalizeGatewayProvider(input?.activeGateway)
+        : current.activeGateway,
     apiHost: normalizeApiHost(input?.apiHost || current.apiHost),
     publicKey:
       typeof input?.publicKey === "string" ? input.publicKey.trim() : current.publicKey,
@@ -1284,6 +1405,16 @@ async function saveConfig(input) {
       typeof input?.secretKey === "string" && input.secretKey.trim()
         ? input.secretKey.trim()
         : current.secretKey,
+    primecash: {
+      apiHost:
+        typeof nextPrimeCashInput.apiHost === "string" && nextPrimeCashInput.apiHost.trim()
+          ? normalizeApiHost(nextPrimeCashInput.apiHost)
+          : current.primecash.apiHost,
+      secretKey:
+        typeof nextPrimeCashInput.secretKey === "string" && nextPrimeCashInput.secretKey.trim()
+          ? nextPrimeCashInput.secretKey.trim()
+          : current.primecash.secretKey,
+    },
     pixels: {
       metaPixelId:
         "metaPixelId" in nextPixelsInput
@@ -1322,9 +1453,14 @@ async function saveConfig(input) {
   if (!supabase) {
     memoryStore.config = next;
     const persisted = await writeLocalConfigFile(next);
-    if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
+    if (
+      !persisted &&
+      isServerlessRuntime &&
+      !hasRuntimeTitansConfig() &&
+      !hasRuntimePrimeCashConfig()
+    ) {
       const error = new Error(
-        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL com SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY, ou use TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+        "Nao foi possivel persistir a configuracao das gateways neste deploy. Configure o Supabase ou use as variaveis de ambiente da gateway desejada na Vercel.",
       );
       error.status = 500;
       throw error;
@@ -1345,9 +1481,14 @@ async function saveConfig(input) {
     console.error("saveConfig error:", error);
     memoryStore.config = next;
     const persisted = await writeLocalConfigFile(next);
-    if (!persisted && isServerlessRuntime && !hasRuntimeTitansConfig()) {
+    if (
+      !persisted &&
+      isServerlessRuntime &&
+      !hasRuntimeTitansConfig() &&
+      !hasRuntimePrimeCashConfig()
+    ) {
       const storageError = new Error(
-        "Nao foi possivel persistir a configuracao da TitansHub neste deploy. Configure SUPABASE_URL ou NEXT_PUBLIC_SUPABASE_URL com SUPABASE_SERVICE_ROLE_KEY/SUPABASE_ANON_KEY, ou use TITANSHUB_PUBLIC_KEY + TITANSHUB_SECRET_KEY nas Environment Variables da Vercel.",
+        "Nao foi possivel persistir a configuracao das gateways neste deploy. Configure o Supabase ou use as variaveis de ambiente da gateway desejada na Vercel.",
       );
       storageError.status = 500;
       throw storageError;
@@ -1361,13 +1502,20 @@ function serializeConfigForClient(config, req) {
   const pushcutItems = Array.isArray(config.pushcut?.items)
     ? config.pushcut.items
     : [];
+  const activeGateway = getActiveGatewayConfig(config);
+  const titansGateway = buildGatewayClientConfig(config, req, "titanshub");
+  const primecashGateway = buildGatewayClientConfig(config, req, "primecash");
 
   return {
-    apiHost: config.apiHost,
-    publicKey: config.publicKey,
-    hasSecretKey: Boolean(config.secretKey),
-    secretKeyMasked: config.secretKey ? "••••••••••••" : "",
-    isConfigured: Boolean(config.publicKey && config.secretKey),
+    activeGateway: activeGateway.provider,
+    activeGatewayLabel: activeGateway.label,
+    apiHost: activeGateway.apiHost,
+    publicKey: activeGateway.publicKey,
+    hasSecretKey: Boolean(activeGateway.secretKey),
+    secretKeyMasked: activeGateway.secretKey ? "••••••••••••" : "",
+    isConfigured: isGatewayConfigured(activeGateway),
+    titans: titansGateway,
+    primecash: primecashGateway,
     pixels: config.pixels,
     pushcut: {
       items: pushcutItems,
@@ -1375,7 +1523,7 @@ function serializeConfigForClient(config, req) {
       activeCount: pushcutItems.filter((item) => item.active !== false).length,
     },
     updatedAt: config.updatedAt,
-    webhookUrl: getWebhookUrl(req),
+    webhookUrl: getWebhookUrl(req, activeGateway.provider),
   };
 }
 
@@ -3102,9 +3250,23 @@ function serializeWebhookForClient(event) {
 }
 
 function createAuthHeader(config) {
+  const provider = normalizeGatewayProvider(config?.provider || config?.activeGateway);
+
+  if (provider === "primecash") {
+    if (!config.secretKey) {
+      const error = new Error(
+        "Configure a secret key da PrimeCash no painel admin.",
+      );
+      error.status = 400;
+      throw error;
+    }
+
+    return `Basic ${Buffer.from(`${config.secretKey}:x`).toString("base64")}`;
+  }
+
   if (!config.publicKey || !config.secretKey) {
     const error = new Error(
-      "Configure a public key e a secret key do TitansHub no painel admin.",
+      "Configure a public key e a secret key da TitansHub no painel admin.",
     );
     error.status = 400;
     throw error;
@@ -3148,7 +3310,8 @@ async function callTitansApi(config, pathname, options = {}) {
     const error = new Error(
       typeof data === "string"
         ? data
-        : data?.message || `TitansHub respondeu com status ${response.status}.`,
+        : data?.message ||
+          `${config.label || "Gateway"} respondeu com status ${response.status}.`,
     );
     error.status = response.status;
     error.details = data;
@@ -3173,8 +3336,9 @@ async function fetchTransactionsPage(config, page = 1, pageSize = 20) {
 
 function buildTransactionsCacheKey(config) {
   const host = normalizeApiHost(config?.apiHost || defaultApiHost);
-  const publicKey = normalizeText(config?.publicKey);
-  return `${host}:${publicKey}`;
+  const provider = normalizeGatewayProvider(config?.provider || config?.activeGateway);
+  const credential = normalizeText(config?.publicKey || config?.secretKey);
+  return `${provider}:${host}:${credential}`;
 }
 
 async function fetchTransactionsForMetrics(config) {
@@ -3363,7 +3527,10 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method === "POST" && pathname === "/api/titans/webhook") {
+    if (
+      req.method === "POST" &&
+      (pathname === "/api/titans/webhook" || pathname === "/api/primecash/webhook")
+    ) {
       const config = await loadConfig();
       const eventRecord = summarizeWebhookPayload(body, body?.rawBody || "");
       const matchInfo = await findMatchingConversionIntent(eventRecord);
@@ -3556,6 +3723,7 @@ export default async function handler(req, res) {
 
     if (req.method === "POST" && pathname === "/api/pix/create") {
       const config = await loadConfig();
+      const gatewayConfig = getActiveGatewayConfig(config);
       const attributionId = normalizeText(body.attributionId);
       const existingIntent = attributionId
         ? await loadLatestConversionIntentByAttributionId(attributionId)
@@ -3616,27 +3784,43 @@ export default async function handler(req, res) {
       if (itemPayload.some((item) => item.tangible !== false) && !shippingPayload) {
         return res.status(400).json({
           message:
-            "Endereco incompleto para gerar PIX da TitansHub. Preencha rua, numero, bairro, cidade, estado e CEP na fase 1.",
+            gatewayConfig.provider === "primecash"
+              ? "Endereco incompleto para gerar PIX da PrimeCash. Preencha rua, numero, bairro, cidade, estado e CEP no checkout."
+              : "Endereco incompleto para gerar PIX da TitansHub. Preencha rua, numero, bairro, cidade, estado e CEP na fase 1.",
         });
       }
 
-      const payload = {
-        amount,
-        paymentMethod: "pix",
-        externalRef: intent.id,
-        postbackUrl: getWebhookUrl(req),
-        items: itemPayload,
-        customer: buildTitansCustomerPayload(buyer),
-        shipping: shippingPayload || undefined,
-        metadata: JSON.stringify({
-          attributionId,
-          sessionId: sessionId || attributionId,
-          pageId: normalizeText(body.pageId) || "checkout_5",
-          origin: normalizeText(body.origin) || "shopee"
-        }),
+      const metadataPayload = {
+        attributionId,
+        sessionId: sessionId || attributionId,
+        pageId: normalizeText(body.pageId) || "checkout_5",
+        origin: normalizeText(body.origin) || "shopee",
       };
 
-      const rawTransaction = await callTitansApi(config, "/v1/transactions", {
+      const payload =
+        gatewayConfig.provider === "primecash"
+          ? {
+              amount,
+              paymentMethod: "pix",
+              externalRef: intent.id,
+              postbackUrl: getWebhookUrl(req, gatewayConfig.provider),
+              items: itemPayload,
+              customer: buildPrimeCashCustomerPayload(buyer),
+              shipping: shippingPayload || undefined,
+              metadata: metadataPayload,
+            }
+          : {
+              amount,
+              paymentMethod: "pix",
+              externalRef: intent.id,
+              postbackUrl: getWebhookUrl(req, gatewayConfig.provider),
+              items: itemPayload,
+              customer: buildTitansCustomerPayload(buyer),
+              shipping: shippingPayload || undefined,
+              metadata: JSON.stringify(metadataPayload),
+            };
+
+      const rawTransaction = await callTitansApi(gatewayConfig, "/v1/transactions", {
         method: "POST",
         body: payload,
       });
@@ -3660,6 +3844,7 @@ export default async function handler(req, res) {
 
     if (req.method === "GET" && pathname.startsWith("/api/pix/status/")) {
       const config = await loadConfig();
+      const gatewayConfig = getActiveGatewayConfig(config);
       const transactionId = pathname.split("/").pop();
 
       if (!transactionId) {
@@ -3667,7 +3852,7 @@ export default async function handler(req, res) {
       }
 
       const rawTransaction = await callTitansApi(
-        config,
+        gatewayConfig,
         `/v1/transactions/${transactionId}`,
         { method: "GET" },
       );
@@ -3709,9 +3894,10 @@ export default async function handler(req, res) {
         let orders = [];
         let totalCount = 0;
         const config = await loadConfig();
+        const gatewayConfig = getActiveGatewayConfig(config);
 
-        if (config.publicKey && config.secretKey) {
-          const salesData = await fetchTransactionsPage(config, page, limit);
+        if (isGatewayConfigured(gatewayConfig)) {
+          const salesData = await fetchTransactionsPage(gatewayConfig, page, limit);
           const transactions = Array.isArray(salesData?.data)
             ? salesData.data
             : Array.isArray(salesData)
@@ -3838,6 +4024,7 @@ export default async function handler(req, res) {
     if (req.method === "GET" && pathname === "/api/titans/metrics") {
       const filters = normalizeMetricsFilters(url.searchParams);
       const config = await loadConfig();
+      const gatewayConfig = getActiveGatewayConfig(config);
       const allWebhookEvents = await loadWebhookEvents(100);
       const cloneAlertEvents = allWebhookEvents.filter(
         (event) => normalizeText(event?.type) === cloneAlertType,
@@ -3848,9 +4035,9 @@ export default async function handler(req, res) {
       let transactions = [];
       let remoteWarning = "";
 
-      if (config.publicKey && config.secretKey) {
+      if (isGatewayConfigured(gatewayConfig)) {
         try {
-          transactions = await fetchTransactionsForMetrics(config);
+          transactions = await fetchTransactionsForMetrics(gatewayConfig);
         } catch (error) {
           console.error("fetchTransactionsPage error:", error);
           remoteWarning =

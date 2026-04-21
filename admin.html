@@ -883,6 +883,29 @@
         font-size: 12px;
         margin-bottom: 15px;
       }
+      .gateway-actions {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .gateway-active-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--amz-muted);
+      }
+      .gateway-active-toggle input {
+        accent-color: var(--amz-orange);
+      }
+      .gateway-active-flag {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        display: none;
+      }
 
       /* Modal System */
       .modal-overlay {
@@ -1602,6 +1625,7 @@
         <div class="gateway-grid">
           <!-- TitansHub Card -->
           <div class="gateway-card" onclick="openGatewayModal('titansModal')">
+            <span class="amz-badge badge-success gateway-active-flag" id="titansActiveFlag">Ativa</span>
             <div class="gateway-logo">
               <img src="assets/logos/titans_hub_logo.jpeg" alt="TitansHub">
             </div>
@@ -1609,9 +1633,32 @@
             <div class="gateway-status">
               <span class="amz-badge badge-warning" id="titansStatusBadge">Pendente</span>
             </div>
-            <button class="amz-btn amz-btn-primary" style="width: 100%;">Configurar</button>
+            <div class="gateway-actions" onclick="event.stopPropagation()">
+              <button type="button" class="amz-btn amz-btn-primary" style="width: 100%;" onclick="openGatewayModal('titansModal')">Configurar</button>
+              <label class="gateway-active-toggle">
+                <input type="radio" name="activeGatewayChoice" id="titansActiveToggle" onchange="setActiveGateway('titanshub')">
+                <span>Usar esta gateway</span>
+              </label>
+            </div>
           </div>
 
+          <div class="gateway-card" onclick="openGatewayModal('primecashModal')">
+            <span class="amz-badge badge-success gateway-active-flag" id="primecashActiveFlag">Ativa</span>
+            <div class="gateway-logo" style="width: 92px;">
+              <img src="assets/logos/Logo-primecash.png" alt="PrimeCash">
+            </div>
+            <h3>PrimeCash</h3>
+            <div class="gateway-status">
+              <span class="amz-badge badge-warning" id="primecashStatusBadge">Pendente</span>
+            </div>
+            <div class="gateway-actions" onclick="event.stopPropagation()">
+              <button type="button" class="amz-btn amz-btn-primary" style="width: 100%;" onclick="openGatewayModal('primecashModal')">Configurar</button>
+              <label class="gateway-active-toggle">
+                <input type="radio" name="activeGatewayChoice" id="primecashActiveToggle" onchange="setActiveGateway('primecash')">
+                <span>Usar esta gateway</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div class="amz-card" style="max-width: 800px; background: #fffcf5; border-color: #ffb800; margin-top: 30px;">
@@ -1651,6 +1698,32 @@
           <div class="modal-footer">
             <button type="button" class="amz-btn" onclick="closeGatewayModal()">Cancelar</button>
             <button type="submit" class="amz-btn amz-btn-primary">Salvar Configurações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="primecashModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="modal-header">
+          <h2>ConfiguraÃ§Ãµes da PrimeCash</h2>
+          <button class="close-modal" onclick="closeGatewayModal()">&times;</button>
+        </div>
+        <form id="primecashConfigForm">
+          <div class="modal-body">
+            <div class="form-group">
+              <label>DomÃ­nio da API</label>
+              <input type="text" name="apiHost" placeholder="api.primecashbrasil.com">
+            </div>
+            <div class="form-group">
+              <label>Secret Key</label>
+              <input type="password" name="secretKey" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢">
+              <p style="font-size: 11px; color: #666; margin-top: 4px;">A PrimeCash usa autenticaÃ§Ã£o Basic com a chave secreta.</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="amz-btn" onclick="closeGatewayModal()">Cancelar</button>
+            <button type="submit" class="amz-btn amz-btn-primary">Salvar ConfiguraÃ§Ãµes</button>
           </div>
         </form>
       </div>
@@ -1875,6 +1948,56 @@
       window.closeGatewayModal = function() {
         document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
       }
+
+      window.setActiveGateway = async function(provider) {
+        try {
+          await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activeGateway: provider })
+          });
+          refreshDashboard(true);
+        } catch (error) {
+          alert(error.message);
+        }
+      }
+
+      (function normalizeGatewaySectionCopy() {
+        const apiSection = document.getElementById('apiSection');
+        if (apiSection) {
+          const webhookInfo = apiSection.querySelector('.amz-card p');
+          if (webhookInfo) {
+            webhookInfo.textContent = 'Configure esta URL no painel da gateway ativa para receber notificacoes automaticas:';
+          }
+          const webhookDisplay = document.getElementById('webhookDisplayUrl');
+          if (webhookDisplay) {
+            webhookDisplay.textContent = 'Aguardando sincronizacao...';
+          }
+        }
+
+        const primecashModal = document.getElementById('primecashModal');
+        if (!primecashModal) return;
+
+        const primecashTitle = primecashModal.querySelector('.modal-header h2');
+        if (primecashTitle) primecashTitle.textContent = 'Configuracoes da PrimeCash';
+
+        const primecashLabels = primecashModal.querySelectorAll('.form-group label');
+        if (primecashLabels[0]) primecashLabels[0].textContent = 'Dominio da API';
+        if (primecashLabels[1]) primecashLabels[1].textContent = 'Secret Key';
+
+        const primecashHint = primecashModal.querySelector('.form-group p');
+        if (primecashHint) {
+          primecashHint.textContent = 'A PrimeCash usa autenticacao Basic com a chave secreta.';
+        }
+
+        const primecashSecretInput = primecashModal.querySelector('input[name="secretKey"]');
+        if (primecashSecretInput && !primecashSecretInput.value) {
+          primecashSecretInput.placeholder = '********';
+        }
+
+        const primecashSubmit = primecashModal.querySelector('.modal-footer .amz-btn-primary');
+        if (primecashSubmit) primecashSubmit.textContent = 'Salvar Configuracoes';
+      })();
 
       // Close modal on click outside
       window.addEventListener('click', (e) => {
@@ -2634,20 +2757,50 @@ function buildPendingPixCardHtml(stats = {}) {
             
             const titansBadge = document.getElementById('titansStatusBadge');
             if (titansBadge) {
-              titansBadge.textContent = data.config.isConfigured ? 'Configurado' : 'Pendente';
-              titansBadge.className = 'amz-badge ' + (data.config.isConfigured ? 'badge-success' : 'badge-warning');
+              const titansConfigured = Boolean(data.config.titans?.isConfigured);
+              titansBadge.textContent = titansConfigured ? 'Configurado' : 'Pendente';
+              titansBadge.className = 'amz-badge ' + (titansConfigured ? 'badge-success' : 'badge-warning');
             }
+
+            const primecashBadge = document.getElementById('primecashStatusBadge');
+            if (primecashBadge) {
+              const primecashConfigured = Boolean(data.config.primecash?.isConfigured);
+              primecashBadge.textContent = primecashConfigured ? 'Configurado' : 'Pendente';
+              primecashBadge.className = 'amz-badge ' + (primecashConfigured ? 'badge-success' : 'badge-warning');
+            }
+
+            const activeGateway = data.config.activeGateway || 'titanshub';
+            const titansToggle = document.getElementById('titansActiveToggle');
+            const primecashToggle = document.getElementById('primecashActiveToggle');
+            const titansActiveFlag = document.getElementById('titansActiveFlag');
+            const primecashActiveFlag = document.getElementById('primecashActiveFlag');
+
+            if (titansToggle) titansToggle.checked = activeGateway === 'titanshub';
+            if (primecashToggle) primecashToggle.checked = activeGateway === 'primecash';
+            if (titansActiveFlag) titansActiveFlag.style.display = activeGateway === 'titanshub' ? 'inline-flex' : 'none';
+            if (primecashActiveFlag) primecashActiveFlag.style.display = activeGateway === 'primecash' ? 'inline-flex' : 'none';
 
             const cForm = document.getElementById('configForm');
             if (cForm) {
-              if (cForm.apiHost) cForm.apiHost.value = data.config.apiHost || '';
-              if (cForm.publicKey) cForm.publicKey.value = data.config.publicKey || '';
+              if (cForm.apiHost) cForm.apiHost.value = data.config.titans?.apiHost || '';
+              if (cForm.publicKey) cForm.publicKey.value = data.config.titans?.publicKey || '';
               if (cForm.secretKey) {
                 cForm.secretKey.value = '';
                 cForm.secretKey.placeholder = data.config.hasSecretKey ? (data.config.secretKeyMasked || '••••••••••••') : '••••••••';
               }
+              if (cForm.secretKey) cForm.secretKey.placeholder = data.config.titans?.hasSecretKey ? '************' : '********';
             }
-            
+
+            const primecashForm = document.getElementById('primecashConfigForm');
+            if (primecashForm) {
+              if (primecashForm.apiHost) primecashForm.apiHost.value = data.config.primecash?.apiHost || '';
+              if (primecashForm.secretKey) {
+                primecashForm.secretKey.value = '';
+                primecashForm.secretKey.placeholder = data.config.primecash?.hasSecretKey ? (data.config.primecash?.secretKeyMasked || 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢') : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢';
+              }
+              if (primecashForm.secretKey) primecashForm.secretKey.placeholder = data.config.primecash?.hasSecretKey ? '************' : '********';
+            }
+
             if (document.getElementById('pixelsForm')) {
               renderPixelLists(data.config.pixels);
               document.getElementById('pixelsForm').headTag.value = data.config.pixels.headTag || '';
@@ -2994,6 +3147,22 @@ function buildPendingPixCardHtml(stats = {}) {
         try {
           await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           alert('Configurações salvas!');
+          refreshDashboard(true);
+        } catch (err) { alert(err.message); }
+      });
+
+      document.getElementById('primecashConfigForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = {
+          primecash: {
+            apiHost: fd.get('apiHost'),
+            secretKey: fd.get('secretKey') || undefined,
+          },
+        };
+        try {
+          await apiFetch('/api/admin/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          alert('ConfiguraÃ§Ãµes salvas!');
           refreshDashboard(true);
         } catch (err) { alert(err.message); }
       });
