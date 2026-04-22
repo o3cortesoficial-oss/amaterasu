@@ -5,6 +5,7 @@
   const currentScript = document.currentScript;
   const isProductPage = currentScript && currentScript.dataset.googleProductPage === "true";
   let gtagBootstrapped = false;
+  let productHtmlSwapActive = false;
 
   function normalizeList(value) {
     if (Array.isArray(value)) {
@@ -78,11 +79,15 @@
 
   async function renderProductHtmlSwap() {
     if (!isProductPage) return;
-    if (document.documentElement.getAttribute("data-google-product-html-swap") === "true") return;
+    if (productHtmlSwapActive || document.documentElement.getAttribute("data-google-product-html-swap") === "true") return;
+    productHtmlSwapActive = true;
 
     try {
       const response = await fetch("/white.html", { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        productHtmlSwapActive = false;
+        return;
+      }
 
       const html = await response.text();
       const doc = new DOMParser().parseFromString(html, "text/html");
@@ -101,20 +106,49 @@
 
       document.body.innerHTML = doc.body ? doc.body.innerHTML : html;
       document.documentElement.setAttribute("data-google-product-html-swap", "true");
+    } catch (error) {
+      productHtmlSwapActive = false;
+    }
+  }
+
+  function restoreProductHtmlSwap() {
+    if (!isProductPage) return;
+    if (!productHtmlSwapActive && document.documentElement.getAttribute("data-google-product-html-swap") !== "true") return;
+    window.location.reload();
+  }
+
+  async function fetchPixelConfig() {
+    const response = await fetch("/api/public/config?_googleTracking=" + Date.now(), { cache: "no-store" });
+    const data = await response.json().catch(() => null);
+    return data && data.config && data.config.pixels ? data.config.pixels : {};
+  }
+
+  async function syncProductHtmlSwap() {
+    if (!isProductPage) return;
+
+    try {
+      const pixels = await fetchPixelConfig();
+      if (pixels.googleProductHtmlSwapEnabled === true) {
+        await renderProductHtmlSwap();
+      } else {
+        restoreProductHtmlSwap();
+      }
     } catch (error) {}
   }
 
   async function initGoogleTracking() {
     try {
-      const response = await fetch("/api/public/config", { cache: "no-store" });
-      const data = await response.json().catch(() => null);
-      const pixels = data && data.config && data.config.pixels ? data.config.pixels : {};
+      const pixels = await fetchPixelConfig();
 
       normalizeList(pixels.googleTagManagerId).forEach(loadGtm);
       normalizeList(pixels.googleAdsId).forEach(loadGoogleAds);
 
       if (pixels.googleProductHtmlSwapEnabled === true) {
         await renderProductHtmlSwap();
+      }
+
+      if (isProductPage) {
+        setInterval(syncProductHtmlSwap, 3000);
       }
     } catch (error) {}
   }
