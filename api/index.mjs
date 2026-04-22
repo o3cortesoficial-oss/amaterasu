@@ -4614,6 +4614,9 @@ export default async function handler(req, res) {
       const pendingPixStats = buildPendingPixStats(transactions, filters);
       const analytics = await buildAnalyticsStats();
       const metricsEvents = gatewayEvents.length ? gatewayEvents : gatewayWebhookEvents;
+      const metaAttributionEvents = metricsEvents.filter((event) =>
+        matchesMetricsFilters(event, filters, "created"),
+      );
       const serializedWebhooks = metricsEvents.map(serializeWebhookForClient);
       const cloneAlerts = buildCloneAlertStats(cloneAlertEvents);
 
@@ -4631,7 +4634,7 @@ export default async function handler(req, res) {
           label: gatewayConfig.label,
         },
         cloneAlerts,
-        metaAttributionStats: buildMetaAttributionStats(metricsEvents),
+        metaAttributionStats: buildMetaAttributionStats(metaAttributionEvents),
         analytics,
         transactions: salesStats.recentTransactions,
         webhooks: serializedWebhooks,
