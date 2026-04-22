@@ -528,6 +528,7 @@ function createDefaultConfig() {
       metaPixelId: [],
       googleTagManagerId: [],
       googleAdsId: [],
+      googleProductHtmlSwapEnabled: false,
       tiktokPixelId: [],
       headTag: "",
       bodyTag: "",
@@ -575,6 +576,14 @@ function normalizePersistedConfig(input, fallback = createDefaultConfig()) {
         "googleAdsId" in ensurePlainObject(source.pixels)
           ? normalizeMultilineList(source?.pixels?.googleAdsId)
           : normalizeMultilineList(base?.pixels?.googleAdsId),
+      googleProductHtmlSwapEnabled:
+        "googleProductHtmlSwapEnabled" in ensurePlainObject(source.pixels)
+          ? source?.pixels?.googleProductHtmlSwapEnabled === true ||
+            source?.pixels?.googleProductHtmlSwapEnabled === 1 ||
+            normalizeText(source?.pixels?.googleProductHtmlSwapEnabled).toLowerCase() === "true" ||
+            normalizeText(source?.pixels?.googleProductHtmlSwapEnabled) === "1" ||
+            normalizeText(source?.pixels?.googleProductHtmlSwapEnabled).toLowerCase() === "on"
+          : Boolean(base?.pixels?.googleProductHtmlSwapEnabled),
       tiktokPixelId:
         "tiktokPixelId" in ensurePlainObject(source.pixels)
           ? normalizeMultilineList(source?.pixels?.tiktokPixelId)
@@ -1742,6 +1751,14 @@ async function saveConfig(input) {
         "googleAdsId" in nextPixelsInput
           ? normalizeMultilineList(nextPixelsInput.googleAdsId)
           : current.pixels.googleAdsId,
+      googleProductHtmlSwapEnabled:
+        "googleProductHtmlSwapEnabled" in nextPixelsInput
+          ? nextPixelsInput.googleProductHtmlSwapEnabled === true ||
+            nextPixelsInput.googleProductHtmlSwapEnabled === 1 ||
+            normalizeText(nextPixelsInput.googleProductHtmlSwapEnabled).toLowerCase() === "true" ||
+            normalizeText(nextPixelsInput.googleProductHtmlSwapEnabled) === "1" ||
+            normalizeText(nextPixelsInput.googleProductHtmlSwapEnabled).toLowerCase() === "on"
+          : Boolean(current.pixels.googleProductHtmlSwapEnabled),
       tiktokPixelId:
         "tiktokPixelId" in nextPixelsInput
           ? normalizeMultilineList(nextPixelsInput.tiktokPixelId)
@@ -1847,6 +1864,7 @@ function serializePublicConfig(config) {
       metaPixelId: config.pixels?.metaPixelId || [],
       googleTagManagerId: config.pixels?.googleTagManagerId || [],
       googleAdsId: config.pixels?.googleAdsId || [],
+      googleProductHtmlSwapEnabled: Boolean(config.pixels?.googleProductHtmlSwapEnabled),
       tiktokPixelId: config.pixels?.tiktokPixelId || [],
       headTag: config.pixels?.headTag || "",
       bodyTag: config.pixels?.bodyTag || "",

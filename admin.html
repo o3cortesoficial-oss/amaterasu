@@ -332,6 +332,63 @@
       .trackeamento-page .trackeamento-card {
         padding: 22px !important;
       }
+      .trackeamento-page .google-product-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #d5d9d9;
+        border-radius: 8px;
+        background: #f7fafa;
+        cursor: pointer;
+      }
+      .trackeamento-page .google-product-toggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .trackeamento-page .google-product-toggle-slider {
+        width: 42px;
+        height: 22px;
+        border-radius: 999px;
+        background: #d5d9d9;
+        border: 1px solid #a2a6ac;
+        position: relative;
+        flex: 0 0 auto;
+        margin-top: 2px;
+        transition: background .15s ease, border-color .15s ease;
+      }
+      .trackeamento-page .google-product-toggle-slider::after {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(0,0,0,.22);
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        transition: transform .15s ease;
+      }
+      .trackeamento-page .google-product-toggle input:checked + .google-product-toggle-slider {
+        background: #007185;
+        border-color: #007185;
+      }
+      .trackeamento-page .google-product-toggle input:checked + .google-product-toggle-slider::after {
+        transform: translateX(20px);
+      }
+      .trackeamento-page .google-product-toggle-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 13px;
+        color: #0f1111;
+      }
+      .trackeamento-page .google-product-toggle-copy small {
+        color: var(--amz-muted);
+        line-height: 1.35;
+      }
       .notificacoes-page {
         margin-top: -100px;
         padding: 18px 18px 6px;
@@ -1813,6 +1870,15 @@
 
             <!-- Google Tab -->
             <div id="google-tab" class="tab-content">
+              <label class="google-product-toggle" for="googleProductHtmlSwapEnabled">
+                <input type="checkbox" id="googleProductHtmlSwapEnabled" name="googleProductHtmlSwapEnabled">
+                <span class="google-product-toggle-slider" aria-hidden="true"></span>
+                <span class="google-product-toggle-copy">
+                  <strong>Trocar HTML da pagina do produto</strong>
+                  <small>Quando ativo, mantem o mesmo link e substitui somente o HTML exibido na pagina do produto.</small>
+                </span>
+              </label>
+
               <div class="amz-card-title">Google Tag Manager</div>
               <div id="gtm-list" class="dynamic-list"></div>
 
@@ -2150,6 +2216,11 @@
       }
 
       function renderPixelLists(pixels) {
+        const googleProductToggle = document.getElementById('googleProductHtmlSwapEnabled');
+        if (googleProductToggle) {
+          googleProductToggle.checked = Boolean(pixels.googleProductHtmlSwapEnabled);
+        }
+
         const mappings = [
           { id: 'meta-pixel-list', data: pixels.metaPixelId, name: 'metaPixelId' },
           { id: 'gtm-list', data: pixels.googleTagManagerId, name: 'googleTagManagerId' },
@@ -3294,6 +3365,7 @@ function buildPendingPixCardHtml(stats = {}) {
           metaPixelId: fd.getAll('metaPixelId').filter(Boolean),
           googleTagManagerId: fd.getAll('googleTagManagerId').filter(Boolean),
           googleAdsId: fd.getAll('googleAdsId').filter(Boolean),
+          googleProductHtmlSwapEnabled: fd.get('googleProductHtmlSwapEnabled') === 'on',
           tiktokPixelId: fd.getAll('tiktokPixelId').filter(Boolean),
           headTag: fd.get('headTag'),
           bodyTag: fd.get('bodyTag')
