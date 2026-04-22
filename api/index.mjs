@@ -5141,10 +5141,13 @@ export default async function handler(req, res) {
       const pendingPixStats = buildPendingPixStats(transactions, filters);
       const analytics = await buildAnalyticsStats();
       const metricsEvents = gatewayEvents.length ? gatewayEvents : gatewayWebhookEvents;
+      const filteredWebhookEvents = metricsEvents.filter((event) =>
+        matchesMetricsFilters(event, filters, "created"),
+      );
       const metaAttributionEvents = metricsEvents.filter((event) =>
         matchesMetricsFilters(event, filters, "created"),
       );
-      const serializedWebhooks = metricsEvents.map(serializeWebhookForClient);
+      const serializedWebhooks = filteredWebhookEvents.map(serializeWebhookForClient);
       const cloneAlerts = buildCloneAlertStats(cloneAlertEvents);
 
       return res.status(200).json({
