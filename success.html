@@ -252,6 +252,10 @@
                     <strong>Previsão de entrega</strong>
                     <span id="delivery-estimate">...</span>
                 </div>
+                <div class="detail-item" id="tracking-detail" style="display: none;">
+                    <strong>Rastreio</strong>
+                    <span id="tracking-link">...</span>
+                </div>
                 <div class="detail-item">
                     <strong>Endereço de entrega</strong>
                     <span id="delivery-address">...</span>
@@ -353,6 +357,38 @@
             if (productName) paymentPieces.push(productName);
 
             document.getElementById('payment-summary').textContent = paymentPieces.join(' | ');
+
+            const trackingCode = pick(
+                buyer.trackingCode,
+                buyer.tracking_code,
+                state.trackingCode,
+                state.tracking_code
+            );
+            const trackingUrl = pick(
+                buyer.trackingUrl,
+                buyer.tracking_url,
+                state.trackingUrl,
+                state.tracking_url
+            );
+            const trackingDetail = document.getElementById('tracking-detail');
+            const trackingLink = document.getElementById('tracking-link');
+
+            if (trackingCode && trackingDetail && trackingLink) {
+                trackingLink.textContent = '';
+
+                if (/^https?:\/\//i.test(trackingUrl)) {
+                    const link = document.createElement('a');
+                    link.href = trackingUrl;
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.textContent = trackingCode;
+                    trackingLink.appendChild(link);
+                } else {
+                    trackingLink.textContent = trackingCode;
+                }
+
+                trackingDetail.style.display = '';
+            }
         });
     </script>
 </body>

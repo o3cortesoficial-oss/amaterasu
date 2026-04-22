@@ -3237,6 +3237,7 @@ function buildPendingPixCardHtml(stats = {}) {
         const customer = details.customer || {};
         const address = customer.address || {};
         const pix = details.pix || {};
+        const tracking = details.tracking || {};
         const items = Array.isArray(details.items) ? details.items : [];
         const metadata = details.metadata || {};
         const receiptPreviewUrl = details.receiptUrl || details.secureUrl || '';
@@ -3287,6 +3288,9 @@ function buildPendingPixCardHtml(stats = {}) {
               <div class="order-detail-line"><strong>Secure URL:</strong> ${escapeHtml(details.secureUrl || '-')}</div>
               <div class="order-detail-line"><strong>End2End:</strong> ${escapeHtml(pix.end2EndId || '-')}</div>
               <div class="order-detail-line"><strong>Expiração:</strong> ${escapeHtml(pix.expirationDate || '-')}</div>
+              <div class="order-detail-line"><strong>Rastreio:</strong> ${tracking.url ? `<a href="${escapeHtml(tracking.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(tracking.code || tracking.url)}</a>` : escapeHtml(tracking.code || '-')}</div>
+              <div class="order-detail-line"><strong>Status do rastreio:</strong> ${escapeHtml(tracking.status || '-')}</div>
+              <div class="order-detail-line"><strong>Envio na gateway:</strong> ${escapeHtml(tracking.gatewayDeliveryStatus || '-')}</div>
               <div class="order-detail-line"><strong>Origem:</strong> ${escapeHtml(order.origin || '-')}</div>
               <div class="order-detail-line"><strong>Produto principal:</strong> ${escapeHtml(order.product || '-')}</div>
             </div>

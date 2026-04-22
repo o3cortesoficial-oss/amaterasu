@@ -22,6 +22,10 @@ const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseKey) : nu
 
 const defaultApiHost = "api.shieldtecnologia.com";
 const defaultPrimeCashApiHost = "api.primecashbrasil.com";
+const defaultPosVendaWebhookBaseUrl =
+  "https://xncotgcngryyokbbmess.supabase.co/functions/v1/webhook";
+const defaultPosVendaPlatform = "zedy";
+const defaultPosVendaTrackingBaseUrl = "https://trackorder-br.com/rastreio";
 const maxStoredWebhookEvents = 250;
 const maxStoredConversionIntents = 500;
 const metricsPageSize = 50;
@@ -50,6 +54,11 @@ const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
 const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
 const runtimePrimeCashApiHost = process.env.PRIMECASH_API_HOST || "";
 const runtimePrimeCashSecretKey = process.env.PRIMECASH_SECRET_KEY || "";
+const runtimePosVendaWebhookUrl = process.env.POSVENDA_PRO_WEBHOOK_URL || "";
+const runtimePosVendaToken = process.env.POSVENDA_PRO_TOKEN || "";
+const runtimePosVendaPlatform = process.env.POSVENDA_PRO_PLATFORM || "";
+const runtimePosVendaTrackingBaseUrl =
+  process.env.POSVENDA_PRO_TRACKING_BASE_URL || "";
 const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const apiDirectory = path.dirname(fileURLToPath(import.meta.url));
 const localConfigPath = path.resolve(apiDirectory, "../.admin-data/titans-config.json");
@@ -1328,6 +1337,54 @@ function normalizeCheckoutSnapshot(input) {
     upsellStorageCasePrice: centsToCurrencyValue(
       amountToCents(source.upsellStorageCasePrice ?? source.upsell_storage_case_price),
     ),
+    orderItems: Array.isArray(source.orderItems)
+      ? source.orderItems
+      : Array.isArray(source.order_items)
+        ? source.order_items
+        : [],
+    order_items: Array.isArray(source.order_items)
+      ? source.order_items
+      : Array.isArray(source.orderItems)
+        ? source.orderItems
+        : [],
+    trackingCode: pickFirstFilled(source.trackingCode, source.tracking_code),
+    tracking_code: pickFirstFilled(source.tracking_code, source.trackingCode),
+    trackingUrl: pickFirstFilled(source.trackingUrl, source.tracking_url),
+    tracking_url: pickFirstFilled(source.tracking_url, source.trackingUrl),
+    trackingStatus: pickFirstFilled(source.trackingStatus, source.tracking_status),
+    tracking_status: pickFirstFilled(source.tracking_status, source.trackingStatus),
+    trackingProvider: pickFirstFilled(source.trackingProvider, source.tracking_provider),
+    tracking_provider: pickFirstFilled(source.tracking_provider, source.trackingProvider),
+    trackingCreatedAt: pickFirstFilled(source.trackingCreatedAt, source.tracking_created_at),
+    tracking_created_at: pickFirstFilled(source.tracking_created_at, source.trackingCreatedAt),
+    trackingShipmentId: pickFirstFilled(source.trackingShipmentId, source.tracking_shipment_id),
+    tracking_shipment_id: pickFirstFilled(source.tracking_shipment_id, source.trackingShipmentId),
+    trackingError: pickFirstFilled(source.trackingError, source.tracking_error),
+    tracking_error: pickFirstFilled(source.tracking_error, source.trackingError),
+    gatewayDeliveryStatus: pickFirstFilled(
+      source.gatewayDeliveryStatus,
+      source.gateway_delivery_status,
+    ),
+    gateway_delivery_status: pickFirstFilled(
+      source.gateway_delivery_status,
+      source.gatewayDeliveryStatus,
+    ),
+    gatewayDeliverySyncedAt: pickFirstFilled(
+      source.gatewayDeliverySyncedAt,
+      source.gateway_delivery_synced_at,
+    ),
+    gateway_delivery_synced_at: pickFirstFilled(
+      source.gateway_delivery_synced_at,
+      source.gatewayDeliverySyncedAt,
+    ),
+    gatewayDeliveryError: pickFirstFilled(
+      source.gatewayDeliveryError,
+      source.gateway_delivery_error,
+    ),
+    gateway_delivery_error: pickFirstFilled(
+      source.gateway_delivery_error,
+      source.gatewayDeliveryError,
+    ),
     metodo_pagamento: pickFirstFilled(source.metodo_pagamento, source.paymentMethod),
     paymentMethod: pickFirstFilled(source.paymentMethod, source.metodo_pagamento),
     amountCents,
@@ -1571,6 +1628,332 @@ function buildTitansShippingPayload(items, buyer) {
     fee: 0,
     address,
   };
+}
+
+function getPosVendaConfig() {
+  return {
+    webhookUrl: normalizeText(runtimePosVendaWebhookUrl),
+    token: normalizeText(runtimePosVendaToken),
+    platform: normalizeText(runtimePosVendaPlatform) || defaultPosVendaPlatform,
+    trackingBaseUrl:
+      normalizeText(runtimePosVendaTrackingBaseUrl) || defaultPosVendaTrackingBaseUrl,
+  };
+}
+
+function buildPosVendaWebhookUrl(posVendaConfig) {
+  const config = posVendaConfig || getPosVendaConfig();
+  const explicitUrl = normalizeText(config.webhookUrl);
+
+  if (explicitUrl) {
+    try {
+      const url = new URL(explicitUrl);
+      if (config.token && !url.searchParams.has("token")) {
+        url.searchParams.set("token", config.token);
+      }
+      if (config.platform && !url.searchParams.has("platform")) {
+        url.searchParams.set("platform", config.platform);
+      }
+      return url.toString();
+    } catch {
+      return "";
+    }
+  }
+
+  if (!config.token) {
+    return "";
+  }
+
+  const url = new URL(defaultPosVendaWebhookBaseUrl);
+  url.searchParams.set("token", config.token);
+  url.searchParams.set("platform", config.platform || defaultPosVendaPlatform);
+  return url.toString();
+}
+
+function buildTrackingUrl(code, trackingBaseUrl = defaultPosVendaTrackingBaseUrl) {
+  const trackingCode = normalizeText(code);
+  const base = normalizeText(trackingBaseUrl) || defaultPosVendaTrackingBaseUrl;
+
+  if (!trackingCode) {
+    return "";
+  }
+
+  return `${base.replace(/\/+$/, "")}/${encodeURIComponent(trackingCode)}`;
+}
+
+function extractPosVendaProducts(intent, eventRecord, transaction) {
+  const buyer = normalizeCheckoutSnapshot(intent?.buyer);
+  const candidates = [
+    getNestedValue(eventRecord, "raw.items"),
+    getNestedValue(eventRecord, "raw.data.items"),
+    getNestedValue(eventRecord, "raw.products"),
+    getNestedValue(transaction, "items"),
+    getNestedValue(transaction, "raw.items"),
+    buyer.orderItems,
+    buyer.order_items,
+  ];
+
+  const rawItems = candidates.find((items) => Array.isArray(items) && items.length) || [];
+  const products = rawItems
+    .map((item) => {
+      const title = pickFirstFilled(item?.title, item?.name, item?.productName);
+      const quantity = Math.max(1, Number(item?.quantity || item?.qty || 1) || 1);
+      const priceInCents = amountToCents(
+        item?.priceInCents ??
+          item?.price_in_cents ??
+          item?.unitPrice ??
+          item?.unit_price ??
+          item?.price,
+      );
+
+      if (!title) {
+        return null;
+      }
+
+      return {
+        name: title,
+        quantity,
+        priceInCents:
+          priceInCents || Math.max(1, Math.round(amountToCents(intent?.amount || buyer.amountCents) / quantity)),
+      };
+    })
+    .filter(Boolean);
+
+  if (products.length) {
+    return products;
+  }
+
+  return [
+    {
+      name: buyer.productName || "Produto",
+      quantity: 1,
+      priceInCents: amountToCents(intent?.amount || buyer.amountCents),
+    },
+  ];
+}
+
+function buildPosVendaPayload(intent, eventRecord = null, transaction = null) {
+  const buyer = normalizeCheckoutSnapshot(intent?.buyer);
+  const shippingPayload = buildTitansShippingPayload(
+    extractPosVendaProducts(intent, eventRecord, transaction).map((item) => ({
+      title: item.name,
+      quantity: item.quantity,
+      unitPrice: item.priceInCents,
+      tangible: true,
+    })),
+    buyer,
+  );
+  const address = shippingPayload?.address || {};
+
+  return {
+    orderId: pickFirstFilled(
+      eventRecord?.object_id,
+      eventRecord?.external_ref,
+      transaction?.id,
+      intent?.matched_event_object_id,
+      intent?.id,
+    ),
+    customer: {
+      name: buyer.name,
+      email: buyer.email,
+      document: buyer.cpf,
+      phone: buyer.phone,
+    },
+    address: {
+      street: address.street || buyer.street || buyer.rua,
+      number: address.streetNumber || buyer.number || buyer.numero,
+      complement: address.complement || buyer.complement || buyer.complemento,
+      neighborhood: address.neighborhood || buyer.neighborhood || buyer.bairro,
+      city: address.city || buyer.city || buyer.cidade,
+      state: address.state || normalizeBrazilStateCode(buyer.state || buyer.estado),
+      zipcode: address.zipCode || buyer.zipCode || buyer.cep,
+    },
+    products: extractPosVendaProducts(intent, eventRecord, transaction),
+    status: "paid",
+    paymentMethod: "pix",
+  };
+}
+
+function mergeTrackingIntoIntent(intent, trackingData) {
+  const now = new Date().toISOString();
+  const buyer = normalizeCheckoutSnapshot(intent?.buyer || {});
+  const trackingCode = normalizeText(trackingData?.trackingCode);
+  const trackingUrl = normalizeText(trackingData?.trackingUrl);
+  const trackingStatus = normalizeText(trackingData?.trackingStatus);
+
+  return {
+    ...intent,
+    buyer: {
+      ...buyer,
+      trackingCode,
+      tracking_code: trackingCode,
+      trackingUrl,
+      tracking_url: trackingUrl,
+      trackingStatus,
+      tracking_status: trackingStatus,
+      trackingProvider: normalizeText(trackingData?.trackingProvider) || buyer.trackingProvider,
+      tracking_provider: normalizeText(trackingData?.trackingProvider) || buyer.tracking_provider,
+      trackingCreatedAt: normalizeText(trackingData?.trackingCreatedAt) || buyer.trackingCreatedAt || now,
+      tracking_created_at:
+        normalizeText(trackingData?.trackingCreatedAt) || buyer.tracking_created_at || now,
+      trackingShipmentId: normalizeText(trackingData?.trackingShipmentId) || buyer.trackingShipmentId,
+      tracking_shipment_id:
+        normalizeText(trackingData?.trackingShipmentId) || buyer.tracking_shipment_id,
+      trackingError: normalizeText(trackingData?.trackingError),
+      tracking_error: normalizeText(trackingData?.trackingError),
+      gatewayDeliveryStatus:
+        normalizeText(trackingData?.gatewayDeliveryStatus) || buyer.gatewayDeliveryStatus,
+      gateway_delivery_status:
+        normalizeText(trackingData?.gatewayDeliveryStatus) || buyer.gateway_delivery_status,
+      gatewayDeliverySyncedAt:
+        normalizeText(trackingData?.gatewayDeliverySyncedAt) || buyer.gatewayDeliverySyncedAt,
+      gateway_delivery_synced_at:
+        normalizeText(trackingData?.gatewayDeliverySyncedAt) || buyer.gateway_delivery_synced_at,
+      gatewayDeliveryError: normalizeText(trackingData?.gatewayDeliveryError),
+      gateway_delivery_error: normalizeText(trackingData?.gatewayDeliveryError),
+    },
+    updated_at: now,
+  };
+}
+
+async function syncPrimeCashDeliveryTracking(gatewayConfig, transactionId, trackingCode) {
+  if (
+    normalizeGatewayProvider(gatewayConfig?.provider) !== "primecash" ||
+    !normalizeText(transactionId) ||
+    !normalizeText(trackingCode)
+  ) {
+    return { skipped: true };
+  }
+
+  return callTitansApi(
+    gatewayConfig,
+    `/v1/transactions/${encodeURIComponent(transactionId)}/delivery`,
+    {
+      method: "PUT",
+      body: {
+        status: "in_transit",
+        trackingCode,
+      },
+    },
+  );
+}
+
+async function ensureTrackingForPaidIntent(intent, options = {}) {
+  if (!intent || !isPaidStatus(options.status || intent.stage)) {
+    return intent;
+  }
+
+  const buyer = normalizeCheckoutSnapshot(intent.buyer);
+  if (buyer.trackingCode || buyer.tracking_code) {
+    return intent;
+  }
+
+  const posVendaConfig = getPosVendaConfig();
+  const webhookUrl = buildPosVendaWebhookUrl(posVendaConfig);
+
+  if (!webhookUrl) {
+    const disabledIntent = mergeTrackingIntoIntent(intent, {
+      trackingStatus: "posvenda_not_configured",
+      trackingProvider: "posvenda_pro",
+      trackingError:
+        "Configure POSVENDA_PRO_WEBHOOK_URL ou POSVENDA_PRO_TOKEN nas variaveis de ambiente.",
+    });
+    await saveConversionIntentRow(disabledIntent);
+    return disabledIntent;
+  }
+
+  const payload = buildPosVendaPayload(intent, options.eventRecord, options.transaction);
+  const signal =
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(pushcutTimeoutMs)
+      : undefined;
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    const text = await response.text();
+    let data = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const message =
+        typeof data === "string"
+          ? data
+          : data?.message || `PósVenda Pro respondeu com status ${response.status}.`;
+      throw new Error(message);
+    }
+
+    const trackingCode = pickFirstFilled(
+      data?.tracking_code,
+      data?.trackingCode,
+      data?.code,
+    );
+    const trackingUrl = trackingCode
+      ? buildTrackingUrl(trackingCode, posVendaConfig.trackingBaseUrl)
+      : "";
+    let nextIntent = mergeTrackingIntoIntent(intent, {
+      trackingCode,
+      trackingUrl,
+      trackingStatus: trackingCode
+        ? "created"
+        : data?.duplicate
+          ? "duplicate"
+          : data?.auto_processed === false
+            ? "pending_balance"
+            : "pending",
+      trackingProvider: "posvenda_pro",
+      trackingShipmentId: pickFirstFilled(data?.shipment_id, data?.shipmentId),
+    });
+
+    if (trackingCode) {
+      try {
+        await syncPrimeCashDeliveryTracking(
+          options.gatewayConfig,
+          pickFirstFilled(
+            options.transaction?.id,
+            options.eventRecord?.object_id,
+            intent.matched_event_object_id,
+          ),
+          trackingCode,
+        );
+        nextIntent = mergeTrackingIntoIntent(nextIntent, {
+          ...nextIntent.buyer,
+          gatewayDeliveryStatus: "synced",
+          gatewayDeliverySyncedAt: new Date().toISOString(),
+          gatewayDeliveryError: "",
+        });
+      } catch (syncError) {
+        nextIntent = mergeTrackingIntoIntent(nextIntent, {
+          ...nextIntent.buyer,
+          gatewayDeliveryStatus: "error",
+          gatewayDeliveryError: syncError.message,
+        });
+      }
+    }
+
+    await saveConversionIntentRow(nextIntent);
+    return nextIntent;
+  } catch (error) {
+    const failedIntent = mergeTrackingIntoIntent(intent, {
+      trackingStatus: "error",
+      trackingProvider: "posvenda_pro",
+      trackingError: error.message,
+    });
+    await saveConversionIntentRow(failedIntent);
+    return failedIntent;
+  }
 }
 
 function buildCheckoutState(intent, fallbackAttributionId = "", fallbackSessionId = "") {
@@ -2711,11 +3094,52 @@ function extractTransactionsTotalCount(payload, fallbackCount = 0) {
   return fallbackCount;
 }
 
-function buildDetailedOrderRow(record, fallbackOrigin = "") {
+function findConversionIntentForTransaction(record, intents = []) {
+  const normalized = normalizeTransactionRecord(record);
+  const metadata = parseTransactionMetadata(record);
+  const candidates = [
+    normalized.id,
+    normalized.objectId,
+    normalized.externalRef,
+    metadata.externalRef,
+    metadata.external_ref,
+    metadata.intentId,
+    metadata.intent_id,
+    metadata.conversionIntentId,
+    metadata.conversion_intent_id,
+    getNestedValue(record, "externalRef"),
+    getNestedValue(record, "external_ref"),
+    getNestedValue(record, "raw.externalRef"),
+    getNestedValue(record, "raw.external_ref"),
+  ]
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  return (
+    (Array.isArray(intents) ? intents : []).find((intent) => {
+      const intentCandidates = [
+        intent?.id,
+        intent?.matched_event_object_id,
+        intent?.matched_event_id,
+      ]
+        .map((value) => normalizeText(value))
+        .filter(Boolean);
+
+      return intentCandidates.some((value) => candidates.includes(value));
+    }) || null
+  );
+}
+
+function buildDetailedOrderRow(record, fallbackOrigin = "", matchedIntent = null) {
   const normalized = normalizeTransactionRecord(record);
   const titles = extractOrderItemTitles(record);
   const productTitle =
     pickFirstFilled(titles[0], getNestedValue(normalized, "raw.items.0.title")) || "Venda Externa";
+  const matchedBuyer = normalizeCheckoutSnapshot(matchedIntent?.buyer || {});
   const rawCustomer = ensurePlainObject(record?.customer || normalized.raw?.customer);
   const rawAddress = ensurePlainObject(rawCustomer?.address || normalized.raw?.customer?.address);
   const customerDocument = pickFirstFilled(
@@ -2723,6 +3147,7 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     rawCustomer?.document,
     normalized.raw?.customer?.document?.number,
     normalized.raw?.customer?.document,
+    matchedBuyer.cpf,
   );
   const pixData = ensurePlainObject(normalized.raw?.pix);
   const metadataRaw = getNestedValue(normalized.raw, "metadata");
@@ -2753,7 +3178,14 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     normalizeNavigableUrl(metadata?.checkout_url),
     normalizeNavigableUrl(metadata?.checkoutUrl),
   );
-  const items = (Array.isArray(record?.items) ? record.items : Array.isArray(normalized.raw?.items) ? normalized.raw.items : [])
+  const rawItems = Array.isArray(record?.items)
+    ? record.items
+    : Array.isArray(normalized.raw?.items)
+      ? normalized.raw.items
+      : Array.isArray(matchedBuyer.orderItems)
+        ? matchedBuyer.orderItems
+        : [];
+  const items = rawItems
     .map((item) => ({
       title: normalizeText(item?.title || item?.name || item?.productName) || "Item",
       quantity: Math.max(1, Number(item?.quantity || 1) || 1),
@@ -2771,6 +3203,35 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     normalizeNavigableUrl(getNestedValue(normalized.raw, "secure_url")),
     metadataCheckoutUrl,
   );
+  const tracking = {
+    code: pickFirstFilled(
+      matchedBuyer.trackingCode,
+      matchedBuyer.tracking_code,
+      getNestedValue(normalized.raw, "trackingCode"),
+      getNestedValue(normalized.raw, "tracking_code"),
+    ),
+    url: pickFirstFilled(
+      normalizeNavigableUrl(matchedBuyer.trackingUrl),
+      normalizeNavigableUrl(matchedBuyer.tracking_url),
+      normalizeNavigableUrl(getNestedValue(normalized.raw, "trackingUrl")),
+      normalizeNavigableUrl(getNestedValue(normalized.raw, "tracking_url")),
+    ),
+    status: pickFirstFilled(matchedBuyer.trackingStatus, matchedBuyer.tracking_status),
+    provider: pickFirstFilled(matchedBuyer.trackingProvider, matchedBuyer.tracking_provider),
+    createdAt: pickFirstFilled(matchedBuyer.trackingCreatedAt, matchedBuyer.tracking_created_at),
+    gatewayDeliveryStatus: pickFirstFilled(
+      matchedBuyer.gatewayDeliveryStatus,
+      matchedBuyer.gateway_delivery_status,
+    ),
+    gatewayDeliverySyncedAt: pickFirstFilled(
+      matchedBuyer.gatewayDeliverySyncedAt,
+      matchedBuyer.gateway_delivery_synced_at,
+    ),
+    gatewayDeliveryError: pickFirstFilled(
+      matchedBuyer.gatewayDeliveryError,
+      matchedBuyer.gateway_delivery_error,
+    ),
+  };
 
   return {
     id: pickFirstFilled(
@@ -2781,9 +3242,9 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     ),
     date: normalized.createdAt,
     customer: {
-      name: normalizeText(rawCustomer?.name),
-      email: normalizeText(rawCustomer?.email),
-      phone: normalizeText(rawCustomer?.phone),
+      name: pickFirstFilled(rawCustomer?.name, matchedBuyer.name),
+      email: pickFirstFilled(rawCustomer?.email, matchedBuyer.email),
+      phone: pickFirstFilled(rawCustomer?.phone, matchedBuyer.phone),
       document: normalizeDigits(customerDocument),
     },
     amount: normalized.amount,
@@ -2791,6 +3252,8 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
     origin: resolveOrderOriginFromTitles(titles, fallbackOrigin),
     product: productTitle,
     receipt_url: gatewayReceiptUrl,
+    tracking_code: tracking.code,
+    tracking_url: tracking.url,
     details: {
       transactionId: normalized.id,
       objectId: normalized.objectId,
@@ -2828,19 +3291,34 @@ function buildDetailedOrderRow(record, fallbackOrigin = "") {
           getNestedValue(pixData, "expiration_date"),
         ),
       },
+      tracking,
       customer: {
-        name: normalizeText(rawCustomer?.name),
-        email: normalizeText(rawCustomer?.email),
-        phone: normalizeText(rawCustomer?.phone),
+        name: pickFirstFilled(rawCustomer?.name, matchedBuyer.name),
+        email: pickFirstFilled(rawCustomer?.email, matchedBuyer.email),
+        phone: pickFirstFilled(rawCustomer?.phone, matchedBuyer.phone),
         document: normalizeDigits(customerDocument),
         address: {
-          street: normalizeText(rawAddress?.street),
-          streetNumber: normalizeText(rawAddress?.streetNumber || rawAddress?.street_number),
-          complement: normalizeText(rawAddress?.complement),
-          neighborhood: normalizeText(rawAddress?.neighborhood),
-          city: normalizeText(rawAddress?.city),
-          state: normalizeText(rawAddress?.state),
-          zipCode: normalizeDigits(rawAddress?.zipCode || rawAddress?.zip_code),
+          street: pickFirstFilled(rawAddress?.street, matchedBuyer.street, matchedBuyer.rua),
+          streetNumber: pickFirstFilled(
+            rawAddress?.streetNumber || rawAddress?.street_number,
+            matchedBuyer.number,
+            matchedBuyer.numero,
+          ),
+          complement: pickFirstFilled(
+            rawAddress?.complement,
+            matchedBuyer.complement,
+            matchedBuyer.complemento,
+          ),
+          neighborhood: pickFirstFilled(
+            rawAddress?.neighborhood,
+            matchedBuyer.neighborhood,
+            matchedBuyer.bairro,
+          ),
+          city: pickFirstFilled(rawAddress?.city, matchedBuyer.city, matchedBuyer.cidade),
+          state: pickFirstFilled(rawAddress?.state, matchedBuyer.state, matchedBuyer.estado),
+          zipCode: normalizeDigits(
+            pickFirstFilled(rawAddress?.zipCode || rawAddress?.zip_code, matchedBuyer.zipCode, matchedBuyer.cep),
+          ),
           country: normalizeText(rawAddress?.country),
         },
       },
@@ -4065,14 +4543,27 @@ export default async function handler(req, res) {
         matchInfo,
       );
 
+      let syncedIntent = matchedIntent;
       if (matchedIntent) {
-        await markConversionIntentMatched(matchedIntent, eventRecord, matchInfo);
+        syncedIntent = await markConversionIntentMatched(matchedIntent, eventRecord, matchInfo);
+
+        if (isPaidStatus(eventRecord.status)) {
+          const webhookGatewayConfig =
+            webhookProvider === "primecash"
+              ? getPrimeCashGatewayConfig(config)
+              : getTitansGatewayConfig(config);
+          syncedIntent = await ensureTrackingForPaidIntent(syncedIntent, {
+            status: eventRecord.status,
+            eventRecord,
+            gatewayConfig: webhookGatewayConfig,
+          });
+        }
       }
 
       const pushcutDispatches = await notifyPushcutLinks(
         config,
         eventRecord,
-        matchedIntent,
+        syncedIntent,
       );
       eventRecord.pushcut_dispatches = pushcutDispatches;
 
@@ -4386,6 +4877,11 @@ export default async function handler(req, res) {
 
       const updatedIntent = {
         ...intent,
+        buyer: {
+          ...normalizeCheckoutSnapshot(intent.buyer || buyer),
+          orderItems: itemPayload,
+          order_items: itemPayload,
+        },
         matched_event_object_id: transaction.id || intent.matched_event_object_id || null,
         stage: "payment_pending",
         updated_at: new Date().toISOString(),
@@ -4423,11 +4919,17 @@ export default async function handler(req, res) {
         );
 
         if (intent) {
-          await saveConversionIntentRow({
+          const paidIntent = {
             ...intent,
             stage: "paid",
             matched_event_object_id: transaction.id,
             updated_at: new Date().toISOString(),
+          };
+          await saveConversionIntentRow(paidIntent);
+          await ensureTrackingForPaidIntent(paidIntent, {
+            status: transaction.status,
+            transaction,
+            gatewayConfig,
           });
         }
       }
@@ -4453,6 +4955,7 @@ export default async function handler(req, res) {
         let totalCount = 0;
         const config = await loadConfig();
         const gatewayConfig = getActiveGatewayConfig(config);
+        const conversionIntents = await loadConversionIntents();
 
         if (isGatewayConfigured(gatewayConfig)) {
           const salesData = await fetchTransactionsPage(gatewayConfig, page, limit);
@@ -4463,7 +4966,13 @@ export default async function handler(req, res) {
               : [];
 
           orders = transactions
-            .map((transaction) => buildDetailedOrderRow(transaction))
+            .map((transaction) =>
+              buildDetailedOrderRow(
+                transaction,
+                "",
+                findConversionIntentForTransaction(transaction, conversionIntents),
+              ),
+            )
             .filter((order) => !originFilter || order.origin === originFilter);
 
           totalCount = originFilter
@@ -4498,7 +5007,7 @@ export default async function handler(req, res) {
                   ? JSON.parse(raw.metadata)
                   : ensurePlainObject(raw.metadata);
 
-              return buildDetailedOrderRow(
+              const detailedRecord =
                 {
                   id: event.id,
                   object_id: event.object_id,
@@ -4513,8 +5022,12 @@ export default async function handler(req, res) {
                   items: raw.items,
                   pix: raw.pix,
                   receipt_url: raw.receipt_url || raw.data?.receipt_url || null,
-                },
+                };
+
+              return buildDetailedOrderRow(
+                detailedRecord,
                 metadata.origin,
+                findConversionIntentForTransaction(detailedRecord, conversionIntents),
               );
             })
             .filter((order) => !originFilter || order.origin === originFilter);
