@@ -1314,6 +1314,20 @@ function normalizeCheckoutSnapshot(input) {
     full_address: fullAddress,
     productName: pickFirstFilled(source.productName, source.product_name),
     productPrice: pickFirstFilled(source.productPrice, source.product_price),
+    shippingMethod: pickFirstFilled(source.shippingMethod, source.shipping_method),
+    shippingDeliveryWindow: pickFirstFilled(
+      source.shippingDeliveryWindow,
+      source.shipping_delivery_window,
+    ),
+    shippingPrice: centsToCurrencyValue(
+      amountToCents(source.shippingPrice ?? source.shipping_price),
+    ),
+    upsellStorageCaseSelected: Boolean(
+      source.upsellStorageCaseSelected || source.upsell_storage_case_selected,
+    ),
+    upsellStorageCasePrice: centsToCurrencyValue(
+      amountToCents(source.upsellStorageCasePrice ?? source.upsell_storage_case_price),
+    ),
     metodo_pagamento: pickFirstFilled(source.metodo_pagamento, source.paymentMethod),
     paymentMethod: pickFirstFilled(source.paymentMethod, source.metodo_pagamento),
     amountCents,

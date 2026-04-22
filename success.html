@@ -258,7 +258,7 @@
                 </div>
                 <div class="detail-item">
                     <strong>Resumo do pagamento</strong>
-                    <span>PIX - À vista</span>
+                    <span id="payment-summary">PIX - À vista</span>
                 </div>
             </div>
         </div>
@@ -276,35 +276,83 @@
     <script src="assets/js/supabase-bridge.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            const state = await window.__amzBridge.getState();
+            const state = window.__amzBridge
+                ? await window.__amzBridge.getState()
+                : {};
             const buyer = (state && state.buyer) ? state.buyer : state || {};
 
-            document.getElementById('customer-name').textContent = buyer.name || buyer.nome || 'Cliente';
+            function pick(...values) {
+                return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '') || '';
+            }
 
-            const addressStr = buyer.fullAddress || buyer.full_address || [
-                buyer.rua || buyer.street || '',
-                buyer.numero || buyer.number || '',
-                buyer.bairro || buyer.neighborhood || '',
-                buyer.cidade || buyer.city || '',
-                buyer.estado || buyer.state || '',
-                buyer.cep || buyer.zipCode || ''
+            function formatCurrency(value) {
+                const amount = Number(value || 0);
+                if (!Number.isFinite(amount) || amount <= 0) return '';
+                return amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            function parseDeliveryWindow(windowText) {
+                const match = String(windowText || '').match(/(\d+)\s*a\s*(\d+)\s*dias?/i);
+                if (!match) return null;
+                return {
+                    min: Number(match[1]),
+                    max: Number(match[2])
+                };
+            }
+
+            function formatDeliveryEstimate(windowText) {
+                const parsed = parseDeliveryWindow(windowText);
+                const options = { day: 'numeric', month: 'long' };
+
+                if (!parsed) {
+                    return windowText || 'Prazo de entrega em confirmação';
+                }
+
+                const start = new Date();
+                start.setDate(start.getDate() + parsed.min);
+
+                const end = new Date();
+                end.setDate(end.getDate() + parsed.max);
+
+                return `${start.toLocaleDateString('pt-BR', options)} - ${end.toLocaleDateString('pt-BR', options)}`;
+            }
+
+            const customerName = pick(buyer.name, buyer.nome);
+            document.getElementById('customer-name').textContent = customerName || 'Cliente';
+
+            const addressStr = pick(buyer.fullAddress, buyer.full_address) || [
+                pick(buyer.rua, buyer.street),
+                pick(buyer.numero, buyer.number),
+                pick(buyer.bairro, buyer.neighborhood),
+                pick(buyer.cidade, buyer.city),
+                pick(buyer.estado, buyer.state),
+                pick(buyer.cep, buyer.zipCode)
             ].filter(Boolean).join(', ');
             document.getElementById('delivery-address').textContent = addressStr || 'Endereço não informado';
 
-            const orderNum = state.order_id || state.matched_event_object_id || (
-                '40' + Math.floor(Math.random() * 9 + 1) + '-' +
-                Math.floor(Math.random() * 9000000 + 1000000) + '-' +
-                Math.floor(Math.random() * 9000000 + 1000000)
+            const orderNum = pick(
+                state.order_id,
+                state.matched_event_object_id,
+                sessionStorage.getItem('checkout_transaction_id')
             );
-            document.getElementById('order-number').textContent = orderNum;
+            document.getElementById('order-number').textContent = orderNum || 'Pedido em confirmação';
 
-            const date = new Date();
-            date.setDate(date.getDate() + 7);
-            const options = { day: 'numeric', month: 'long' };
-            const date7 = date.toLocaleDateString('pt-BR', options);
-            date.setDate(date.getDate() + 5);
-            const date12 = date.toLocaleDateString('pt-BR', options);
-            document.getElementById('delivery-estimate').textContent = `${date7} - ${date12}`;
+            const shippingMethod = pick(buyer.shippingMethod, state.shippingMethod);
+            const shippingWindow = pick(buyer.shippingDeliveryWindow, state.shippingDeliveryWindow);
+            const deliveryText = formatDeliveryEstimate(shippingWindow);
+            document.getElementById('delivery-estimate').textContent = shippingMethod
+                ? `${shippingMethod}: ${deliveryText}`
+                : deliveryText;
+
+            const totalAmount = pick(state.totalAmount, buyer.totalAmount, state.amount, buyer.amount);
+            const productName = pick(buyer.productName, state.productName);
+            const paymentPieces = ['PIX - à vista'];
+            const formattedTotal = formatCurrency(totalAmount);
+
+            if (formattedTotal) paymentPieces.push(formattedTotal);
+            if (productName) paymentPieces.push(productName);
+
+            document.getElementById('payment-summary').textContent = paymentPieces.join(' | ');
         });
     </script>
 </body>

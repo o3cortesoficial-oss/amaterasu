@@ -1313,7 +1313,8 @@
                 const res = await fetch('/api/pix/status/' + transactionId);
                 const data = await res.json();
                 
-                if (data.ok && (data.status === 'paid' || data.status === 'approved' || data.status === 'completed')) {
+                const paidStatuses = ['paid', 'approved', 'completed', 'confirmed', 'success'];
+                if (data.ok && paidStatuses.includes(String(data.status || '').toLowerCase())) {
                     clearInterval(pollingInterval);
                     alert('Pagamento aprovado! Redirecionando...');
                     window.location.href = '/success';
