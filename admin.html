@@ -3377,6 +3377,26 @@ function buildPendingPixCardHtml(stats = {}) {
         } catch (err) { alert(err.message); }
       });
 
+      document.getElementById('googleProductHtmlSwapEnabled')?.addEventListener('change', async (e) => {
+        const toggle = e.target;
+        const nextValue = Boolean(toggle.checked);
+        try {
+          const response = await apiFetch('/api/admin/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pixels: {
+                googleProductHtmlSwapEnabled: nextValue
+              }
+            })
+          });
+          toggle.checked = Boolean(response?.config?.pixels?.googleProductHtmlSwapEnabled);
+        } catch (err) {
+          toggle.checked = !nextValue;
+          alert(err.message);
+        }
+      });
+
       document.getElementById('pushcutForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const items = collectPushcutItemsFromForm();
