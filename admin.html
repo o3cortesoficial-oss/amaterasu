@@ -855,6 +855,26 @@
         margin-top: 16px !important;
         padding-top: 12px !important;
       }
+      .produtos-page,
+      .produtos-page.section {
+        margin-top: -100px !important;
+        padding-top: 16px !important;
+        margin-right: 0 !important;
+        margin-bottom: 0 !important;
+        margin-left: 0 !important;
+      }
+      .produtos-page > *:first-child,
+      .produtos-page h1,
+      .produtos-page h2,
+      .produtos-page .content,
+      .produtos-page .page-wrapper,
+      .produtos-page .inner-content,
+      .produtos-page .header-section,
+      .produtos-page .top-spacing,
+      .produtos-page .header-wrapper {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+      }
       @media (max-width: 768px) {
         .notificacoes-page .pushcut-item-header,
         .notificacoes-page .pushcut-item-footer {
@@ -1421,7 +1441,9 @@
         .trackeamento-page,
         .notificacoes-page,
         .pedidos-page,
-        .pedidos-page.section {
+        .pedidos-page.section,
+        .produtos-page,
+        .produtos-page.section {
           padding-right: 12px !important;
           padding-left: 12px !important;
         }
@@ -1438,6 +1460,11 @@
 
         .pedidos-page,
         .pedidos-page.section {
+          margin-top: -84px !important;
+        }
+
+        .produtos-page,
+        .produtos-page.section {
           margin-top: -84px !important;
         }
 
@@ -2033,7 +2060,7 @@
         </div>
       </section>
 
-      <section id="productsSection" class="section">
+      <section id="productsSection" class="section produtos-page">
         <h1 style="font-size: 24px; margin-bottom: 20px;">Produtos</h1>
         <div class="amz-card">
           <div class="amz-card-title">Produtos do projeto</div>
