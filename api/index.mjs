@@ -3329,6 +3329,36 @@ function buildDetailedOrderRow(record, fallbackOrigin = "", matchedIntent = null
   };
 }
 
+function countProductStats(records, exactTitle) {
+  const normalizedTitle = normalizeOrderProductTitle(exactTitle);
+  const list = Array.isArray(records) ? records : [];
+
+  return list.reduce(
+    (accumulator, record) => {
+      const titles = extractOrderItemTitles(record).map((title) =>
+        normalizeOrderProductTitle(title),
+      );
+
+      if (!titles.includes(normalizedTitle)) {
+        return accumulator;
+      }
+
+      accumulator.pixGeneratedCount += 1;
+
+      const normalized = normalizeTransactionRecord(record);
+      if (isPaidStatus(normalized.status)) {
+        accumulator.paidCount += 1;
+      }
+
+      return accumulator;
+    },
+    {
+      paidCount: 0,
+      pixGeneratedCount: 0,
+    },
+  );
+}
+
 function parseTransactionMetadata(record) {
   const raw = ensurePlainObject(record?.raw || record);
   const metadataRaw = getNestedValue(raw, "metadata");
@@ -5043,6 +5073,61 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Detailed orders error:", error);
         return res.status(500).json({ message: "Erro ao carregar pedidos detalhados." });
+      }
+    }
+
+    if (req.method === "GET" && pathname === "/api/admin/product-stats") {
+      if (!isAuthenticated(req)) {
+        return res.status(401).json({ message: "Não autorizado." });
+      }
+
+      try {
+        const config = await loadConfig();
+        const gatewayConfig = getActiveGatewayConfig(config);
+        let records = [];
+
+        if (isGatewayConfigured(gatewayConfig)) {
+          records = await fetchTransactionsForMetrics(gatewayConfig);
+        } else {
+          const events = await loadWebhookEvents(500);
+          records = events
+            .filter((event) => normalizeText(event?.type) !== cloneAlertType)
+            .map((event) => {
+              const raw = parsePlainObjectValue(event.raw);
+
+              return {
+                id: event.object_id || event.id,
+                object_id: event.object_id,
+                external_ref: event.external_ref,
+                created_at: event.received_at,
+                status: event.status,
+                amount: event.amount,
+                paid_amount: event.paid_amount,
+                refunded_amount: event.refunded_amount,
+                payment_method: event.payment_method,
+                customer: event.customer,
+                items: raw.items,
+                raw,
+              };
+            });
+        }
+
+        return res.status(200).json({
+          ok: true,
+          products: {
+            droneDjiMini3: {
+              title: "Drone DJI Mini 3 Standard (Com tela) - DJI047",
+              pageUrl: "/",
+              ...countProductStats(
+                records,
+                "Drone DJI Mini 3 Standard (Com tela) - DJI047",
+              ),
+            },
+          },
+        });
+      } catch (error) {
+        console.error("Product stats error:", error);
+        return res.status(500).json({ message: "Erro ao carregar as métricas do produto." });
       }
     }
 

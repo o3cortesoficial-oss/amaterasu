@@ -2069,6 +2069,19 @@
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <div style="padding: 16px 18px; border: 1px solid #e3e6e6; border-radius: 12px; background: #fff;">
               <div style="font-size: 16px; font-weight: 700; color: #111;">Drone DJI Mini 3 Standard (Com tela) - DJI047</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px;">
+                <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
+                  <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Vendas pagas</div>
+                  <div id="productDronePaidCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                </div>
+                <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
+                  <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Pix gerados</div>
+                  <div id="productDronePixCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                </div>
+                <div style="display: flex; align-items: stretch;">
+                  <a href="/" target="_blank" rel="noopener" class="amz-btn amz-btn-primary" style="width: 100%; height: 100%; min-height: 74px; font-size: 14px; font-weight: 700;">Ir para página do produto</a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2614,6 +2627,18 @@
       function setTextById(id, value) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
+      }
+
+      async function refreshProductsSection() {
+        try {
+          const data = await apiFetch('/api/admin/product-stats');
+          const stats = data?.products?.droneDjiMini3 || {};
+          setTextById('productDronePaidCount', stats.paidCount || 0);
+          setTextById('productDronePixCount', stats.pixGeneratedCount || 0);
+        } catch (error) {
+          setTextById('productDronePaidCount', 0);
+          setTextById('productDronePixCount', 0);
+        }
       }
 
       function setInputValue(form, name, value) {
@@ -3165,6 +3190,8 @@ function buildPendingPixCardHtml(stats = {}) {
           refreshLiveAccess(true);
         } else if (hash === '#ordersSection') {
           fetchDetailedOrders(1);
+        } else if (hash === '#productsSection') {
+          refreshProductsSection();
         }
       }
 
