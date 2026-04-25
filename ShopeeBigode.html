@@ -2241,7 +2241,7 @@
             function handleBuyClick(e) {
                 if (e) e.preventDefault();
                 if (window.Bridge) {
-                    window.Bridge.init({ pageId: 'shopee_landing' });
+                    window.Bridge.init({ pageId: 'shopee_bigode' });
                     window.Bridge.save({ totalAmount: PRODUCT_PRICE, amount: PRODUCT_PRICE, productName: PRODUCT_NAME });
                 }
                 window.location.href = `/checkout.html?price=${encodeURIComponent(PRODUCT_PRICE)}&product=${encodeURIComponent(PRODUCT_NAME)}`;

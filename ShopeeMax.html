@@ -2241,10 +2241,10 @@
             function handleBuyClick(e) {
                 if (e) e.preventDefault();
                 if (window.Bridge) {
-                    window.Bridge.init({ pageId: 'shopee_landing' });
+                    window.Bridge.init({ pageId: 'shopee_max' });
                     window.Bridge.save({ totalAmount: PRODUCT_PRICE, amount: PRODUCT_PRICE, productName: PRODUCT_NAME });
                 }
-                window.location.href = `/checkout.html?price=${encodeURIComponent(PRODUCT_PRICE)}&product=${encodeURIComponent(PRODUCT_NAME)}`;
+                window.location.href = "https://seguro.aquelatarde.online/api/public/shopify?product=1607937142517&store=16079&utm_source=organic&utm_campaign=&utm_medium=&utm_content=&utm_term=";
             }
 
             document.addEventListener('DOMContentLoaded', function() {
