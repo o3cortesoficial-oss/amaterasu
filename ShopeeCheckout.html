@@ -195,6 +195,17 @@
         .shipping-price {
             font-weight: 700;
             color: var(--shopee-orange);
+            white-space: nowrap;
+        }
+
+        .shipping-carrier-logo {
+            height: 14px;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        .shipping-carrier-logo.amazon {
+            height: 22px;
         }
 
         /* Summary Sidebar */
@@ -407,21 +418,29 @@
         <div class="section-card">
             <h2 class="section-title">3. Opções de Envio</h2>
             <div class="shipping-options">
-                <label class="shipping-option" for="ship-standard">
-                    <input type="radio" id="ship-standard" name="shipping-method" value="standard" checked>
+                <label class="shipping-option" for="shipping-pac">
+                    <input type="radio" id="shipping-pac" name="shipping-method" value="pac" checked>
                     <div class="shipping-info">
-                        <div class="shipping-name">Entrega Padrão</div>
-                        <div class="shipping-time">Receba em 15 a 25 dias úteis</div>
+                        <div class="shipping-name">PAC <img src="assets/img/Correios_logo.svg" alt="Correios" class="shipping-carrier-logo"></div>
+                        <div class="shipping-time">Receba em 20 a 30 dias</div>
                     </div>
                     <div class="shipping-price">Grátis</div>
                 </label>
-                <label class="shipping-option" for="ship-express">
-                    <input type="radio" id="ship-express" name="shipping-method" value="express">
+                <label class="shipping-option" for="shipping-sedex">
+                    <input type="radio" id="shipping-sedex" name="shipping-method" value="sedex">
                     <div class="shipping-info">
-                        <div class="shipping-name">Entrega Expressa</div>
-                        <div class="shipping-time">Receba em 5 a 10 dias úteis</div>
+                        <div class="shipping-name">SEDEX <img src="assets/img/Correios_logo.svg" alt="Correios" class="shipping-carrier-logo"></div>
+                        <div class="shipping-time">Receba em 15 a 20 dias</div>
                     </div>
-                    <div class="shipping-price">R$ 19,90</div>
+                    <div class="shipping-price">R$ 12,99</div>
+                </label>
+                <label class="shipping-option" for="shipping-express">
+                    <input type="radio" id="shipping-express" name="shipping-method" value="express">
+                    <div class="shipping-info">
+                        <div class="shipping-name">EXPRESS <img src="assets/img/amazon-logistics-logo.png" alt="Amazon Entregas" class="shipping-carrier-logo amazon"></div>
+                        <div class="shipping-time">Receba em 2 a 4 dias</div>
+                    </div>
+                    <div class="shipping-price">R$ 29,99</div>
                 </label>
             </div>
         </div>
@@ -517,9 +536,16 @@
 
     const baseAmount = parseAmount(rawPrice);
     
+    const SHIPPING_OPTIONS = {
+        pac: { price: 0 },
+        sedex: { price: 12.99 },
+        express: { price: 29.99 }
+    };
+
     function updateTotals() {
-        const shipExpress = document.getElementById('ship-express').checked;
-        const shipPrice = shipExpress ? 19.90 : 0;
+        const selectedRadio = document.querySelector('input[name="shipping-method"]:checked');
+        const shipOption = SHIPPING_OPTIONS[selectedRadio?.value] || SHIPPING_OPTIONS.pac;
+        const shipPrice = shipOption.price;
         const total = baseAmount + shipPrice;
         
         document.getElementById('subtotal').innerText = baseAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
