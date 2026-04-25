@@ -1151,6 +1151,38 @@ function resolveLiveAccessTrafficSource(touch) {
   };
 }
 
+function isShopeeLiveAccessSession(session, input = {}) {
+  const pageId = normalizeText(input.pageId || session?.page_id).toLowerCase();
+  const currentPage = normalizeText(input.currentPage || session?.current_page).toLowerCase();
+  const entryPage = normalizeText(session?.entry_page).toLowerCase();
+
+  return (
+    pageId === "shopee_bigode" ||
+    pageId === "shopee_max" ||
+    pageId === "shopee_checkout" ||
+    currentPage.includes("shopeebigode.html") ||
+    currentPage.includes("shopeemax.html") ||
+    currentPage.includes("shopeecheckout.html") ||
+    entryPage.includes("shopeebigode.html") ||
+    entryPage.includes("shopeemax.html") ||
+    entryPage.includes("shopeecheckout.html")
+  );
+}
+
+function shouldBypassShopeeDefaultDesktopBlock(session, input = {}) {
+  if (!isShopeeLiveAccessSession(session, input)) {
+    return false;
+  }
+
+  const originTouch = selectLiveAccessOriginTouch(session);
+  if (!originTouch) {
+    return false;
+  }
+
+  const trafficSource = resolveLiveAccessTrafficSource(originTouch);
+  return trafficSource?.type === "ad" || trafficSource?.type === "campaign";
+}
+
 function getSessionAccessControl(session) {
   const lastTouch = normalizeTouch(session?.last_touch || session?.lastTouch);
   const firstTouch = normalizeTouch(session?.first_touch || session?.firstTouch);
@@ -1193,9 +1225,12 @@ function resolveStoredOrDefaultAccessControl(input = {}) {
     };
   }
 
+  const bypassShopeeDesktopDefault =
+    device.type === "desktop" && shouldBypassShopeeDefaultDesktopBlock(session, input);
+
   return {
-    blocked: device.type === "desktop",
-    defaultBlocked: device.type === "desktop",
+    blocked: bypassShopeeDesktopDefault ? false : device.type === "desktop",
+    defaultBlocked: bypassShopeeDesktopDefault ? false : device.type === "desktop",
     updatedAt: "",
     returnTo: "",
     device,

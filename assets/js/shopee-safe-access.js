@@ -251,7 +251,6 @@
   }
 
   initAttribution();
-  checkAccessControl();
   ping();
   setInterval(checkAccessControl, 3000);
   setInterval(ping, 30000);
