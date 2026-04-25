@@ -2085,18 +2085,35 @@
             </div>
 
             <div style="padding: 16px 18px; border: 1px solid #e3e6e6; border-radius: 12px; background: #fff;">
-              <div style="font-size: 16px; font-weight: 700; color: #111;">Drone DJI Mini 4 Pro (Shopee Template)</div>
+              <div style="font-size: 16px; font-weight: 700; color: #111;">Drone DJI Mini 4 Pro (Shopee Bigode)</div>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px;">
                 <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
                   <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Vendas pagas</div>
-                  <div id="productShopeePaidCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                  <div id="productShopeeBigodePaidCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
                 </div>
                 <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
                   <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Pix gerados</div>
-                  <div id="productShopeePixCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                  <div id="productShopeeBigodePixCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
                 </div>
                 <div style="display: flex; align-items: stretch;">
-                  <a href="/ShopeeLandpage.html" target="_blank" rel="noopener" class="amz-btn amz-btn-primary" style="width: 100%; height: 100%; min-height: 74px; font-size: 14px; font-weight: 700;">Ir para página do produto</a>
+                  <a href="/ShopeeBigode.html" target="_blank" rel="noopener" class="amz-btn amz-btn-primary" style="width: 100%; height: 100%; min-height: 74px; font-size: 14px; font-weight: 700;">Ir para página do produto</a>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding: 16px 18px; border: 1px solid #e3e6e6; border-radius: 12px; background: #fff;">
+              <div style="font-size: 16px; font-weight: 700; color: #111;">Drone DJI Mini 4 Pro (Shopee Max)</div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px;">
+                <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
+                  <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Vendas pagas</div>
+                  <div id="productShopeeMaxPaidCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                </div>
+                <div style="padding: 14px; border: 1px solid #e3e6e6; border-radius: 10px; background: #f9fbfb;">
+                  <div style="font-size: 12px; font-weight: 700; color: #565959; text-transform: uppercase;">Pix gerados</div>
+                  <div id="productShopeeMaxPixCount" style="font-size: 28px; font-weight: 700; color: #111; line-height: 1.1; margin-top: 6px;">0</div>
+                </div>
+                <div style="display: flex; align-items: stretch;">
+                  <a href="/ShopeeMax.html" target="_blank" rel="noopener" class="amz-btn amz-btn-primary" style="width: 100%; height: 100%; min-height: 74px; font-size: 14px; font-weight: 700;">Ir para página do produto</a>
                 </div>
               </div>
             </div>
@@ -2655,14 +2672,20 @@
           setTextById('productDronePaidCount', droneStats.paidCount || 0);
           setTextById('productDronePixCount', droneStats.pixGeneratedCount || 0);
 
-          const shopeeStats = data?.products?.droneDjiMini4Shopee || {};
-          setTextById('productShopeePaidCount', shopeeStats.paidCount || 0);
-          setTextById('productShopeePixCount', shopeeStats.pixGeneratedCount || 0);
+          const bigodeStats = data?.products?.droneDjiMini4ShopeeBigode || {};
+          setTextById('productShopeeBigodePaidCount', bigodeStats.paidCount || 0);
+          setTextById('productShopeeBigodePixCount', bigodeStats.pixGeneratedCount || 0);
+
+          const maxStats = data?.products?.droneDjiMini4ShopeeMax || {};
+          setTextById('productShopeeMaxPaidCount', maxStats.paidCount || 0);
+          setTextById('productShopeeMaxPixCount', maxStats.pixGeneratedCount || 0);
         } catch (error) {
           setTextById('productDronePaidCount', 0);
           setTextById('productDronePixCount', 0);
-          setTextById('productShopeePaidCount', 0);
-          setTextById('productShopeePixCount', 0);
+          setTextById('productShopeeBigodePaidCount', 0);
+          setTextById('productShopeeBigodePixCount', 0);
+          setTextById('productShopeeMaxPaidCount', 0);
+          setTextById('productShopeeMaxPixCount', 0);
         }
       }
 
