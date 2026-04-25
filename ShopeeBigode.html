@@ -2244,7 +2244,7 @@
                     window.Bridge.init({ pageId: 'shopee_bigode' });
                     window.Bridge.save({ totalAmount: PRODUCT_PRICE, amount: PRODUCT_PRICE, productName: PRODUCT_NAME });
                 }
-                window.location.href = `/checkout.html?price=${encodeURIComponent(PRODUCT_PRICE)}&product=${encodeURIComponent(PRODUCT_NAME)}`;
+                window.location.href = `/ShopeeCheckout.html?price=${encodeURIComponent(PRODUCT_PRICE)}&product=${encodeURIComponent(PRODUCT_NAME)}`;
             }
 
             document.addEventListener('DOMContentLoaded', function() {
