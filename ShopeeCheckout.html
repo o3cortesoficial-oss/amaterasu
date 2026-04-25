@@ -691,7 +691,7 @@
                 const paidStatuses = ['paid', 'approved', 'completed', 'confirmed', 'success'];
                 if (data.ok && paidStatuses.includes(String(data.status || '').toLowerCase())) {
                     clearInterval(pollingInterval);
-                    window.location.href = '/success.html';
+                    window.location.href = '/ShopeeSuccess.html';
                 }
             } catch (e) {
                 console.error('Polling error:', e);
