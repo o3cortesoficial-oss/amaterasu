@@ -45,27 +45,6 @@
             const response = await fetch('/safe-page-shopee.html', { cache: 'no-store' });
             let html = await response.text();
             
-            // Add release script to the safe page HTML
-            const releaseScript = `
-              <script>
-                (function() {
-                  async function checkRelease() {
-                    try {
-                      const sid = sessionStorage.getItem('amz_session_id');
-                      const aid = sessionStorage.getItem('amz_attribution_id');
-                      const response = await fetch('/api/analytics/live-access/block-status?sessionId=' + sid + '&attributionId=' + aid, { cache: 'no-store' });
-                      const data = await response.json();
-                      if (data && data.accessControl && data.accessControl.blocked === false) {
-                        window.location.reload();
-                      }
-                    } catch (e) {}
-                  }
-                  setInterval(checkRelease, 5000);
-                })();
-              <\/script>
-            `;
-            html = html.replace('</body>', releaseScript + '</body>');
-
             const doc = new DOMParser().parseFromString(html, 'text/html');
             
             // Clear existing conflicting styles/links from head
@@ -89,6 +68,11 @@
           }
         }
 
+        function restoreRealPage() {
+          if (!accessBlockedViewActive) return;
+          window.location.reload();
+        }
+
         function showRealPage() {
           const preloader = document.getElementById('access-control-preloader');
           if (preloader) preloader.remove();
@@ -97,9 +81,17 @@
 
         function handleAccessControl(data) {
           const control = data && data.accessControl;
-          if (!control) { showRealPage(); return; }
-          if (control.blocked) { renderBlockedPage(); return; }
-          showRealPage();
+          if (!control) { 
+            if (accessBlockedViewActive) restoreRealPage();
+            else showRealPage(); 
+            return; 
+          }
+          if (control.blocked) { 
+            renderBlockedPage(); 
+          } else {
+            if (accessBlockedViewActive) restoreRealPage();
+            else showRealPage();
+          }
         }
 
         async function ping() {
@@ -134,6 +126,7 @@
 
         // Run protection
         ping();
+        setInterval(ping, 3000); // Check every 3 seconds
       })();
     </script>
 
