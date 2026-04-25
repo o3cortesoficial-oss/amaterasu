@@ -188,7 +188,7 @@
       normalizeList(pixels.googleTagManagerId).forEach(loadGtm);
       normalizeList(pixels.googleAdsId).forEach(loadGoogleAds);
       normalizeList(pixels.tiktokPixelId).forEach(loadTiktokPixel);
-      loadUtmify(pixels.utmifyPixelId);
+      normalizeList(pixels.utmifyPixelId).forEach(loadUtmify);
 
       // Inject Custom Tags
       if (pixels.headTag) injectHtml(pixels.headTag, document.head);

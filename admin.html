@@ -1895,12 +1895,12 @@
                 <p style="font-size: 12px; color: #565959; margin-top: 10px; line-height: 1.45;">Se a macro exata da sua conta Meta mudar, mantenha a mesma ideia: a URL final precisa entregar valores equivalentes para campanha, grupo/conjunto e criativo/anuncio.</p>
               </div>
 
-              <div class="amz-card-title" style="margin-top: 30px;">UTMIFY Pixel</div>
-              <div class="form-group">
-                <label>Token / Pixel ID UTMIFY</label>
-                <input type="text" name="utmifyPixelId" placeholder="Ex: 69d728580c366842154e77b2">
-                <p style="font-size: 11px; color: #666; margin-top: 4px;">Ao preencher este campo, o rastreamento da UTMIFY será carregado automaticamente em todas as páginas.</p>
+              <div class="amz-card-title" style="margin-top: 30px;">UTMIFY Pixel IDs</div>
+              <div id="utmify-pixel-list" class="dynamic-list"></div>
+              <div class="add-btn" onclick="addPixelInput('utmify-pixel-list', '', 'utmifyPixelId')">
+                <span>+</span> Adicionar novo Token UTMIFY
               </div>
+              <p style="font-size: 11px; color: #666; margin-top: 10px; margin-bottom: 0;">O rastreamento da UTMIFY será carregado automaticamente para cada ID configurado.</p>
             </div>
 
             <!-- Google Tab -->
@@ -2316,16 +2316,13 @@
           googleProductToggle.checked = Boolean(pixels.googleProductHtmlSwapEnabled);
         }
 
-        const pixelsForm = document.getElementById('pixelsForm');
-        if (pixelsForm) {
-          setInputValue(pixelsForm, 'utmifyPixelId', pixels.utmifyPixelId || '');
-        }
 
         const mappings = [
           { id: 'meta-pixel-list', data: pixels.metaPixelId, name: 'metaPixelId' },
           { id: 'gtm-list', data: pixels.googleTagManagerId, name: 'googleTagManagerId' },
           { id: 'gads-list', data: pixels.googleAdsId, name: 'googleAdsId' },
-          { id: 'tiktok-pixel-list', data: pixels.tiktokPixelId, name: 'tiktokPixelId' }
+          { id: 'tiktok-pixel-list', data: pixels.tiktokPixelId, name: 'tiktokPixelId' },
+          { id: 'utmify-pixel-list', data: pixels.utmifyPixelId, name: 'utmifyPixelId' }
         ];
 
         mappings.forEach(m => {
@@ -3501,7 +3498,7 @@ function buildPendingPixCardHtml(stats = {}) {
           googleAdsId: fd.getAll('googleAdsId').filter(Boolean),
           googleProductHtmlSwapEnabled: fd.get('googleProductHtmlSwapEnabled') === 'on',
           tiktokPixelId: fd.getAll('tiktokPixelId').filter(Boolean),
-          utmifyPixelId: fd.get('utmifyPixelId'),
+          utmifyPixelId: fd.getAll('utmifyPixelId').filter(Boolean),
           headTag: fd.get('headTag'),
           bodyTag: fd.get('bodyTag')
         };
