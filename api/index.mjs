@@ -4092,18 +4092,17 @@ function resolveLiveAccessPageLabel(session, touch) {
   }
 
   if (
-    pageId === "shopee_landing" ||
-    currentPage.includes("shopeelandpage.html") ||
-    entryPage.includes("shopeelandpage.html")
+    pageId === "shopee_bigode" ||
+    currentPage.includes("shopeebigode.html")
   ) {
-    return "Shopee";
+    return "Shopee Bigode";
   }
 
   if (
-    pageId === "shopee_landing_2" ||
-    currentPage.includes("shopeelandpage2.html")
+    pageId === "shopee_max" ||
+    currentPage.includes("shopeemax.html")
   ) {
-    return "Shopee 2";
+    return "Shopee Max";
   }
 
   if (pageId === "checkout_unified" || currentPage.includes("/checkout")) {
@@ -5138,20 +5137,20 @@ export default async function handler(req, res) {
                 "Drone DJI Mini 3 Standard (Com tela) - DJI047",
               ),
             },
-            droneDjiMini4Shopee: {
-              title: "Drone DJI Mini 4 Pro (Shopee Template)",
-              pageUrl: "/ShopeeLandpage.html",
+            droneDjiMini4ShopeeBigode: {
+              title: "Drone DJI Mini 4 Pro (Shopee Bigode)",
+              pageUrl: "/ShopeeBigode.html",
               ...countProductStats(
                 records,
-                "Drone DJI Mini 4 Pro (Shopee Template)",
+                "Drone DJI Mini 4 Pro (Shopee Bigode)",
               ),
             },
-            droneDjiMini4Shopee2: {
-              title: "Drone DJI Mini 4 Pro (Shopee Template 2)",
-              pageUrl: "/ShopeeLandpage2.html",
+            droneDjiMini4ShopeeMax: {
+              title: "Drone DJI Mini 4 Pro (Shopee Max)",
+              pageUrl: "/ShopeeMax.html",
               ...countProductStats(
                 records,
-                "Drone DJI Mini 4 Pro (Shopee Template 2)",
+                "Drone DJI Mini 4 Pro (Shopee Max)",
               ),
             },
           },
