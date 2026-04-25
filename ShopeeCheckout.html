@@ -475,7 +475,7 @@
         <div class="summary-card">
             <h3 style="font-size: 16px; margin-bottom: 15px;">Resumo do Pedido</h3>
             <div class="product-brief">
-                <img id="product-img" src="assets/img/product-drone.jpg" alt="Produto" class="product-img">
+                <img id="product-img" src="assets/img/IMG Drone Checkout.png" alt="Produto" class="product-img">
                 <div class="product-info">
                     <h4 id="product-name-label">Carregando produto...</h4>
                     <div style="font-size: 12px; color: var(--text-secondary);">Qtd: 1</div>
@@ -521,7 +521,7 @@
     // Initialize labels
     const rawPrice = urlParams.get('price') || storage.get('amz_total_amount') || '138,77';
     const rawProductName = urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini 4 Pro';
-    const productImg = urlParams.get('img') || storage.get('amz_product_image') || 'assets/img/product-drone.jpg';
+    const productImg = urlParams.get('img') || storage.get('amz_product_image') || 'assets/img/IMG Drone Checkout.png';
 
     // Remove internal tracking suffix for the customer display (e.g. " (Shopee Bigode)")
     const displayName = rawProductName.split('(')[0].trim();

@@ -573,7 +573,7 @@
             <h3 style="margin-bottom: 15px; font-size: 16px;">Resumo do pedido</h3>
             
             <div style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                <img id="product-img" src="assets/img/product-drone.jpg" alt="Drone" style="width: 60px; height: 60px; object-fit: contain;">
+                <img id="product-img" src="assets/img/IMG Drone Checkout.png" alt="Drone" style="width: 60px; height: 60px; object-fit: contain;">
                 <div>
                     <h4 style="font-size: 13px;">Drone DJI Mini Pro Professional 8K Obstacle Avoidance</h4>
                     <p style="font-size: 12px; color: var(--text-secondary);">Quantidade: 1</p>
@@ -693,7 +693,7 @@
     const rawPrice = storage.get('amz_total_amount') || storedCompositePrice || urlParams.get('price') || '138,77';
     const amountValue = parseAmountValue(rawPrice) || 138.77;
     const productName = (urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini Pro Professional 8K Obstacle Avoidance').trim();
-    const imgParam = urlParams.get('img') || storage.get('amz_product_image');
+    const imgParam = urlParams.get('img') || storage.get('amz_product_image') || 'assets/img/IMG Drone Checkout.png';
     const wholePart = Math.floor(amountValue).toString();
     const fractionPart = Math.round((amountValue - Math.floor(amountValue)) * 100).toString().padStart(2, '0');
 
