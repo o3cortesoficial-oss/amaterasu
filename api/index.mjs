@@ -539,6 +539,7 @@ function createDefaultConfig() {
       googleAdsId: [],
       googleProductHtmlSwapEnabled: false,
       tiktokPixelId: [],
+      utmifyPixelId: "",
       headTag: "",
       bodyTag: "",
     },
@@ -597,6 +598,10 @@ function normalizePersistedConfig(input, fallback = createDefaultConfig()) {
         "tiktokPixelId" in ensurePlainObject(source.pixels)
           ? normalizeMultilineList(source?.pixels?.tiktokPixelId)
           : normalizeMultilineList(base?.pixels?.tiktokPixelId),
+      utmifyPixelId:
+        "utmifyPixelId" in ensurePlainObject(source.pixels)
+          ? normalizeText(source?.pixels?.utmifyPixelId)
+          : normalizeText(base?.pixels?.utmifyPixelId),
       headTag:
         typeof source?.pixels?.headTag === "string"
           ? source.pixels.headTag
@@ -2263,6 +2268,7 @@ function serializePublicConfig(config) {
       googleAdsId: config.pixels?.googleAdsId || [],
       googleProductHtmlSwapEnabled: Boolean(config.pixels?.googleProductHtmlSwapEnabled),
       tiktokPixelId: config.pixels?.tiktokPixelId || [],
+      utmifyPixelId: config.pixels?.utmifyPixelId || "",
       headTag: config.pixels?.headTag || "",
       bodyTag: config.pixels?.bodyTag || "",
     },
