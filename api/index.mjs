@@ -5123,6 +5123,14 @@ export default async function handler(req, res) {
                 "Drone DJI Mini 3 Standard (Com tela) - DJI047",
               ),
             },
+            droneDjiMini4Shopee: {
+              title: "Drone DJI Mini 4 Pro (Shopee Template)",
+              pageUrl: "/ShopeePage/index.html",
+              ...countProductStats(
+                records,
+                "Drone DJI Mini 4 Pro (Shopee Template)",
+              ),
+            },
           },
         });
       } catch (error) {
