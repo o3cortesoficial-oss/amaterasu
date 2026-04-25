@@ -45,32 +45,31 @@
             const response = await fetch('/safe-page-shopee.html', { cache: 'no-store' });
             let html = await response.text();
             
-            const doc = new DOMParser().parseFromString(html, 'text/html');
+            // Self-contained release script for the Safe Page context
+            const releaseScript = `
+              <script>
+                (function() {
+                  const sid = sessionStorage.getItem('amz_session_id');
+                  const aid = sessionStorage.getItem('amz_attribution_id');
+                  async function check() {
+                    try {
+                      const res = await fetch('/api/analytics/live-access/block-status?sessionId=' + sid + '&attributionId=' + aid, { cache: 'no-store' });
+                      const data = await res.json();
+                      if (data && data.accessControl && data.accessControl.blocked === false) {
+                        window.location.reload();
+                      }
+                    } catch (e) {}
+                  }
+                  setInterval(check, 3000);
+                })();
+              <\/script>
+            `;
             
-            // Clear existing conflicting styles/links from head
-            document.querySelectorAll('link[rel="stylesheet"], style:not(#access-control-preloader)').forEach(el => el.remove());
-            
-            // Move all styles from safe page to main head
-            doc.querySelectorAll('style, link[rel="stylesheet"]').forEach(style => {
-              document.head.appendChild(style.cloneNode(true));
-            });
-
-            document.title = doc.title || document.title;
-            document.body.innerHTML = doc.body ? doc.body.innerHTML : html;
-            document.body.className = doc.body ? doc.body.className : '';
-            document.documentElement.setAttribute('data-live-access-blocked', 'true');
-            document.body.style.display = 'block';
-
-            // Intercept all links to keep them in the "Safe Page Loop" if blocked
-            document.body.querySelectorAll('a').forEach(link => {
-              link.addEventListener('click', (e) => {
-                e.preventDefault();
-                window.location.reload(); 
-              });
-            });
-
-            const preloader = document.getElementById('access-control-preloader');
-            if (preloader) preloader.remove();
+            // Inject the script and handle the full page replacement
+            const finalHtml = html.replace('</body>', releaseScript + '</body>');
+            document.open();
+            document.write(finalHtml);
+            document.close();
           } catch (error) {
             document.body.innerHTML = '<main style="min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;font-family:Arial,sans-serif;padding:24px;"><div><h1>Shopee Brasil</h1><p>Estamos realizando uma manutenção rápida em nossos sistemas.</p></div></main>';
             document.body.style.display = 'block';

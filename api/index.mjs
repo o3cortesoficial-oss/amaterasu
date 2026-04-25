@@ -5125,7 +5125,7 @@ export default async function handler(req, res) {
             },
             droneDjiMini4Shopee: {
               title: "Drone DJI Mini 4 Pro (Shopee Template)",
-              pageUrl: "/ShopeePage/index.html",
+              pageUrl: "/ShopeeLandpage.html",
               ...countProductStats(
                 records,
                 "Drone DJI Mini 4 Pro (Shopee Template)",
