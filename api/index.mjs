@@ -2165,6 +2165,10 @@ async function saveConfig(input) {
         "tiktokPixelId" in nextPixelsInput
           ? normalizeMultilineList(nextPixelsInput.tiktokPixelId)
           : current.pixels.tiktokPixelId,
+      utmifyPixelId:
+        "utmifyPixelId" in nextPixelsInput
+          ? normalizeMultilineList(nextPixelsInput.utmifyPixelId)
+          : current.pixels.utmifyPixelId,
       headTag:
         typeof nextPixelsInput.headTag === "string"
           ? nextPixelsInput.headTag
