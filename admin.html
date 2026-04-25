@@ -2840,9 +2840,10 @@ function buildPendingPixCardHtml(stats = {}) {
                 data-attribution-id="${escapeHtml(row.attributionId || '')}"
                 data-current-page="${escapeHtml(row.currentPage || '')}"
                 data-next-blocked="${row.blocked ? 'false' : 'true'}"
+                data-page-label="${escapeHtml(row.pageLabel || '')}"
                 onclick="toggleLiveAccessBlock(this)"
               >
-                ${row.blocked ? 'Liberar pagina real' : 'Enviar para carpintaria'}
+                ${row.blocked ? 'Liberar pagina real' : (row.pageLabel === 'Shopee' ? 'Enviar para Safe page shoppe' : 'Enviar para carpintaria')}
               </button>
             </div>
           </div>
@@ -2939,7 +2940,8 @@ function buildPendingPixCardHtml(stats = {}) {
         } catch (error) {
           alert(error.message || 'Nao foi possivel atualizar esse acesso.');
           button.disabled = false;
-          button.textContent = nextBlocked ? 'Enviar para carpintaria' : 'Liberar pagina real';
+          const isShopee = button.dataset.pageLabel === 'Shopee';
+          button.textContent = nextBlocked ? (isShopee ? 'Enviar para Safe page shoppe' : 'Enviar para carpintaria') : 'Liberar pagina real';
         }
       }
 

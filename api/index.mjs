@@ -4091,6 +4091,13 @@ function resolveLiveAccessPageLabel(session, touch) {
     return "Página do produto";
   }
 
+  if (
+    currentPage.includes("shopeelandpage.html") ||
+    entryPage.includes("shopeelandpage.html")
+  ) {
+    return "Shopee";
+  }
+
   if (pageId === "checkout_unified" || currentPage.includes("/checkout")) {
     return "Checkout";
   }
