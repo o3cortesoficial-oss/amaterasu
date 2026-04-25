@@ -4092,6 +4092,7 @@ function resolveLiveAccessPageLabel(session, touch) {
   }
 
   if (
+    pageId === "shopee_landing" ||
     currentPage.includes("shopeelandpage.html") ||
     entryPage.includes("shopeelandpage.html")
   ) {
