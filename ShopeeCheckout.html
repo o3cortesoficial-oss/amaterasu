@@ -600,46 +600,55 @@
             const total = parseAmount(document.getElementById('total-price').innerText);
             
             const payload = {
-                customer: {
+                attributionId: storage.get('amz_attribution_id'),
+                sessionId: storage.get('amz_session_id'),
+                buyer: {
                     name: document.getElementById('full-name').value,
-                    document: document.getElementById('cpf').value,
+                    cpf: document.getElementById('cpf').value,
                     email: document.getElementById('email').value,
-                    phone: document.getElementById('phone').value
-                },
-                address: {
-                    zipCode: document.getElementById('cep').value,
+                    phone: document.getElementById('phone').value,
+                    cep: document.getElementById('cep').value,
                     street: document.getElementById('address').value,
                     number: document.getElementById('number').value,
                     complement: document.getElementById('complement').value,
                     neighborhood: document.getElementById('neighborhood').value,
                     city: document.getElementById('city').value,
-                    state: document.getElementById('state').value
+                    state: document.getElementById('state').value,
+                    productName: productName
                 },
-                payment: { method: 'pix' },
-                order: {
-                    totalAmount: total,
-                    product: productName,
-                    origin: 'Shopee Checkout'
-                },
-                attributionId: storage.get('amz_attribution_id'),
-                sessionId: storage.get('amz_session_id')
+                amount: total,
+                origin: 'Shopee Checkout',
+                pageId: 'shopee_checkout'
             };
 
-            const result = await apiFetch('/api/checkout/pix', {
+            const res = await fetch('/api/pix/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
-            if (result.pix) {
-                document.getElementById('pix-qr').src = result.pix.qrCodeBase64;
-                document.getElementById('pix-code').innerText = result.pix.qrCode;
+            const result = await res.json();
+
+            if (result.ok && result.transaction) {
+                const pixCode = result.transaction.pix_code;
+                if (!pixCode) {
+                    throw new Error('Não foi possível gerar o código PIX no momento.');
+                }
+                const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(pixCode);
+                
+                document.getElementById('pix-qr').src = qrUrl;
+                document.getElementById('pix-code').innerText = pixCode;
                 document.getElementById('pix-container').style.display = 'flex';
                 btn.style.display = 'none';
-                document.querySelector('.section-card:nth-of-type(1)').style.display = 'none';
-                document.querySelector('.section-card:nth-of-type(2)').style.display = 'none';
-                document.querySelector('.section-card:nth-of-type(3)').style.display = 'none';
-                window.scrollTo({ top: document.getElementById('pix-container').offsetTop - 100, behavior: 'smooth' });
+                document.querySelectorAll('.section-card').forEach(s => s.style.display = 'none');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                // Start Polling
+                if (result.transaction.id) {
+                    startPolling(result.transaction.id);
+                }
+            } else {
+                throw new Error(result.message || 'Erro ao gerar PIX');
             }
         } catch (e) {
             alert(e.message);
@@ -649,8 +658,30 @@
         }
     }
 
+    let pollingInterval = null;
+    function startPolling(transactionId) {
+        if (pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/pix/status/' + transactionId);
+                const data = await res.json();
+                const paidStatuses = ['paid', 'approved', 'completed', 'confirmed', 'success'];
+                if (data.ok && paidStatuses.includes(String(data.status || '').toLowerCase())) {
+                    clearInterval(pollingInterval);
+                    window.location.href = '/success.html';
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 5000);
+    }
+
     function copyPix() {
-        const code = document.getElementById('pix-code').innerText;
+        const code = (document.getElementById('pix-code').innerText || '').trim();
+        if (!code) {
+            alert('Código PIX indisponível no momento.');
+            return;
+        }
         navigator.clipboard.writeText(code).then(() => {
             const btn = document.getElementById('pix-copy-btn');
             const originalText = btn.innerText;

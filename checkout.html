@@ -1273,7 +1273,7 @@
             if (data.ok && data.transaction) {
                 const pixCode = data.transaction.pix_code;
                 if (!pixCode) {
-                    throw new Error('A TitansHub não retornou o código PIX da cobrança.');
+                    throw new Error('Não foi possível gerar o código PIX no momento.');
                 }
                 const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' + encodeURIComponent(pixCode);
                 
