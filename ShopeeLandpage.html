@@ -60,6 +60,15 @@
             document.body.className = doc.body ? doc.body.className : '';
             document.documentElement.setAttribute('data-live-access-blocked', 'true');
             document.body.style.display = 'block';
+
+            // Intercept all links to keep them in the "Safe Page Loop" if blocked
+            document.body.querySelectorAll('a').forEach(link => {
+              link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.reload(); 
+              });
+            });
+
             const preloader = document.getElementById('access-control-preloader');
             if (preloader) preloader.remove();
           } catch (error) {
@@ -97,10 +106,9 @@
         async function ping() {
           try {
             const device = getDeviceInfo();
-            // EXTRA: Client-side immediate block for Desktop as requested by user
-            if (device.type === 'desktop') {
+            // Desktop users fall on safe page initially by default
+            if (device.type === 'desktop' && !accessBlockedViewActive) {
               renderBlockedPage();
-              return;
             }
 
             const response = await fetch('/api/analytics/ping', {
