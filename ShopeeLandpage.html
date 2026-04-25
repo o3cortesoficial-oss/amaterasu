@@ -90,17 +90,29 @@
 
         function handleAccessControl(data) {
           const control = data && data.accessControl;
-          if (!control) { 
-            if (accessBlockedViewActive) restoreRealPage();
-            else showRealPage(); 
-            return; 
-          }
+          if (!control) return;
+
           if (control.blocked) { 
             renderBlockedPage(); 
           } else {
             if (accessBlockedViewActive) restoreRealPage();
             else showRealPage();
           }
+        }
+
+        async function checkAccessControl() {
+          try {
+            const device = getDeviceInfo();
+            const query = new URLSearchParams({
+              sessionId,
+              attributionId: (window.__amzMetaAttribution && window.__amzMetaAttribution.getSnapshot) ? (window.__amzMetaAttribution.getSnapshot() || {}).attributionId : sessionStorage.getItem('amz_attribution_id') || '',
+              deviceType: device.type,
+              viewportWidth: String(device.viewportWidth || '')
+            });
+            const response = await fetch('/api/analytics/live-access/block-status?' + query.toString(), { cache: 'no-store' });
+            const data = await response.json().catch(() => null);
+            handleAccessControl(data);
+          } catch (error) {}
         }
 
         async function ping() {
@@ -111,7 +123,7 @@
               renderBlockedPage();
             }
 
-            const response = await fetch('/api/analytics/ping', {
+            await fetch('/api/analytics/ping', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 pageId, sessionId, 
@@ -122,9 +134,7 @@
                 device 
               })
             });
-            const data = await response.json().catch(() => null);
-            handleAccessControl(data);
-          } catch(e) { showRealPage(); }
+          } catch(e) {}
         }
 
         // Initialize attribution if available
@@ -133,8 +143,10 @@
         }
 
         // Run protection
+        checkAccessControl();
         ping();
-        setInterval(ping, 3000); // Check every 3 seconds
+        setInterval(checkAccessControl, 3000); // Check access every 3 seconds
+        setInterval(ping, 30000); // Ping every 30 seconds
       })();
     </script>
 
