@@ -4099,6 +4099,13 @@ function resolveLiveAccessPageLabel(session, touch) {
     return "Shopee";
   }
 
+  if (
+    pageId === "shopee_landing_2" ||
+    currentPage.includes("shopeelandpage2.html")
+  ) {
+    return "Shopee 2";
+  }
+
   if (pageId === "checkout_unified" || currentPage.includes("/checkout")) {
     return "Checkout";
   }
@@ -5137,6 +5144,14 @@ export default async function handler(req, res) {
               ...countProductStats(
                 records,
                 "Drone DJI Mini 4 Pro (Shopee Template)",
+              ),
+            },
+            droneDjiMini4Shopee2: {
+              title: "Drone DJI Mini 4 Pro (Shopee Template 2)",
+              pageUrl: "/ShopeeLandpage2.html",
+              ...countProductStats(
+                records,
+                "Drone DJI Mini 4 Pro (Shopee Template 2)",
               ),
             },
           },
