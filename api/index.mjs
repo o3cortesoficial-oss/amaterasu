@@ -4115,6 +4115,13 @@ function resolveLiveAccessPageLabel(session, touch) {
     return "Shopee Max";
   }
 
+  if (
+    pageId === "shopee_checkout" ||
+    currentPage.includes("shopeecheckout.html")
+  ) {
+    return "Shopee Checkout";
+  }
+
   if (pageId === "checkout_unified" || currentPage.includes("/checkout")) {
     return "Checkout";
   }
