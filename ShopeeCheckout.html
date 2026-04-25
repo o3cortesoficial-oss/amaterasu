@@ -497,10 +497,12 @@
 
     // Initialize labels
     const rawPrice = urlParams.get('price') || storage.get('amz_total_amount') || '138,77';
-    const productName = urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini 4 Pro';
-    const productImg = urlParams.get('img') || storage.get('amz_product_image') || 'assets/img/product-drone.jpg';
+    const rawProductName = urlParams.get('product') || storage.get('amz_product_name') || 'Drone DJI Mini 4 Pro';
+    // Remove internal tracking suffix for the customer display (e.g. " (Shopee Bigode)")
+    const displayName = rawProductName.split('(')[0].trim();
+    const productName = rawProductName; // Keep full name for backend tracking
 
-    document.getElementById('product-name-label').innerText = productName;
+    document.getElementById('product-name-label').innerText = displayName;
     document.getElementById('product-img').src = productImg;
 
     function parseAmount(val) {
