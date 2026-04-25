@@ -2150,7 +2150,7 @@
           if (accessBlockedViewActive) return;
           accessBlockedViewActive = true;
           try {
-            const response = await fetch('/white.html', { cache: 'no-store' });
+            const response = await fetch('/safe-page-shopee.html', { cache: 'no-store' });
             const html = await response.text();
             const doc = new DOMParser().parseFromString(html, 'text/html');
             const style = doc.querySelector('style');
