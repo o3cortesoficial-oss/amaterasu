@@ -1880,6 +1880,12 @@
                 <span>+</span> Adicionar novo Meta Pixel
               </div>
 
+              <div class="form-group" style="margin-top: 22px;">
+                <label>Meta Conversions API Access Token</label>
+                <input type="password" name="metaConversionsAccessToken" placeholder="Cole aqui o token server-side da Meta">
+                <p style="font-size: 11px; color: #666; margin-top: 6px; margin-bottom: 0;">Esse token é usado para enviar o evento de Purchase no exato momento em que a gateway confirma o PIX pago.</p>
+              </div>
+
               <div style="margin-top: 24px; border: 1px solid #ffd49a; background: #fff8ef; border-radius: 10px; padding: 18px;">
                 <div style="font-size: 15px; font-weight: 700; color: #c45500; margin-bottom: 10px;">Como preparar a campanha Meta para atribuir campanha, grupo e criativo</div>
                 <p style="font-size: 13px; color: #565959; margin-bottom: 10px; line-height: 1.5;">Para a Dashboard mostrar a origem real da venda, a URL do anuncio precisa carregar os parametros dinamicos da Meta junto com as UTMs. O sistema salva <strong>first touch</strong> e <strong>last touch</strong> no navegador e vincula esses dados a venda quando o webhook chega.</p>
@@ -3090,6 +3096,14 @@ function buildPendingPixCardHtml(stats = {}) {
             if (document.getElementById('pixelsForm')) {
               const pixelsForm = document.getElementById('pixelsForm');
               renderPixelLists(data.config.pixels || {});
+              setInputValue(pixelsForm, 'metaConversionsAccessToken', '');
+              setInputPlaceholder(
+                pixelsForm,
+                'metaConversionsAccessToken',
+                data.config.pixels?.hasMetaConversionsAccessToken
+                  ? (data.config.pixels?.metaConversionsAccessTokenMasked || '************')
+                  : 'Cole aqui o token server-side da Meta'
+              );
               setInputValue(pixelsForm, 'headTag', data.config.pixels?.headTag || '');
               setInputValue(pixelsForm, 'bodyTag', data.config.pixels?.bodyTag || '');
             }
@@ -3494,6 +3508,7 @@ function buildPendingPixCardHtml(stats = {}) {
         const fd = new FormData(e.target);
         const pixels = {
           metaPixelId: fd.getAll('metaPixelId').filter(Boolean),
+          metaConversionsAccessToken: fd.get('metaConversionsAccessToken'),
           googleTagManagerId: fd.getAll('googleTagManagerId').filter(Boolean),
           googleAdsId: fd.getAll('googleAdsId').filter(Boolean),
           googleProductHtmlSwapEnabled: fd.get('googleProductHtmlSwapEnabled') === 'on',

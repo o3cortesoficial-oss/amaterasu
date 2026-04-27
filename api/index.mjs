@@ -54,11 +54,17 @@ const runtimeConfigPublicKey = process.env.TITANSHUB_PUBLIC_KEY || "";
 const runtimeConfigSecretKey = process.env.TITANSHUB_SECRET_KEY || "";
 const runtimePrimeCashApiHost = process.env.PRIMECASH_API_HOST || "";
 const runtimePrimeCashSecretKey = process.env.PRIMECASH_SECRET_KEY || "";
+const runtimeMetaConversionsAccessToken =
+  process.env.META_CONVERSIONS_API_TOKEN ||
+  process.env.META_ACCESS_TOKEN ||
+  process.env.FACEBOOK_ACCESS_TOKEN ||
+  "";
 const runtimePosVendaWebhookUrl = process.env.POSVENDA_PRO_WEBHOOK_URL || "";
 const runtimePosVendaToken = process.env.POSVENDA_PRO_TOKEN || "";
 const runtimePosVendaPlatform = process.env.POSVENDA_PRO_PLATFORM || "";
 const runtimePosVendaTrackingBaseUrl =
   process.env.POSVENDA_PRO_TRACKING_BASE_URL || "";
+const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION || "v22.0";
 const isServerlessRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const apiDirectory = path.dirname(fileURLToPath(import.meta.url));
 const localConfigPath = path.resolve(apiDirectory, "../.admin-data/titans-config.json");
@@ -535,6 +541,7 @@ function createDefaultConfig() {
     },
     pixels: {
       metaPixelId: [],
+      metaConversionsAccessToken: normalizeText(runtimeMetaConversionsAccessToken),
       googleTagManagerId: [],
       googleAdsId: [],
       googleProductHtmlSwapEnabled: false,
@@ -578,6 +585,10 @@ function normalizePersistedConfig(input, fallback = createDefaultConfig()) {
         "metaPixelId" in ensurePlainObject(source.pixels)
           ? normalizeMultilineList(source?.pixels?.metaPixelId)
           : normalizeMultilineList(base?.pixels?.metaPixelId),
+      metaConversionsAccessToken:
+        typeof source?.pixels?.metaConversionsAccessToken === "string"
+          ? source.pixels.metaConversionsAccessToken.trim()
+          : normalizeText(base?.pixels?.metaConversionsAccessToken),
       googleTagManagerId:
         "googleTagManagerId" in ensurePlainObject(source.pixels)
           ? normalizeMultilineList(source?.pixels?.googleTagManagerId)
@@ -1877,6 +1888,263 @@ async function syncPrimeCashDeliveryTracking(gatewayConfig, transactionId, track
   );
 }
 
+function sha256Hex(value) {
+  const text = normalizeText(value);
+  if (!text) {
+    return "";
+  }
+
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
+
+function normalizeMetaEventAmount(value) {
+  const cents = amountToCents(value);
+  return Number((cents / 100).toFixed(2));
+}
+
+function normalizePhoneForMeta(value) {
+  const digits = normalizeDigits(value);
+  if (!digits) {
+    return "";
+  }
+
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+function splitCustomerName(name) {
+  const text = normalizeText(name);
+  if (!text) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const parts = text.split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.length > 1 ? parts.slice(1).join(" ") : parts[0] || "",
+  };
+}
+
+function buildMetaPurchaseEventId(intent, eventRecord = null, transaction = null) {
+  const sourceId = pickFirstFilled(
+    eventRecord?.object_id,
+    eventRecord?.external_ref,
+    transaction?.id,
+    transaction?.objectId,
+    transaction?.externalRef,
+    intent?.matched_event_object_id,
+    intent?.matched_event_id,
+    intent?.id,
+    intent?.attribution_id,
+  );
+
+  return sourceId ? `purchase_${normalizeText(sourceId)}` : "";
+}
+
+function buildMetaConversionsUserData(intent, session = null, eventRecord = null) {
+  const buyer = normalizeCheckoutSnapshot(intent?.buyer || eventRecord?.customer || {});
+  const customer = ensurePlainObject(eventRecord?.customer);
+  const touch = selectAttributionTouch(session || intent || {});
+  const trackingParams = ensurePlainObject(touch?.trackingParams);
+  const name = pickFirstFilled(buyer.name, customer.name);
+  const { firstName, lastName } = splitCustomerName(name);
+  const city = pickFirstFilled(buyer.city, buyer.cidade);
+  const state = normalizeBrazilStateCode(pickFirstFilled(buyer.state, buyer.estado));
+  const zipCode = normalizeDigits(pickFirstFilled(buyer.zipCode, buyer.cep));
+  const externalId = pickFirstFilled(
+    intent?.attribution_id,
+    intent?.id,
+    eventRecord?.external_ref,
+    eventRecord?.object_id,
+  );
+  const fbclid = normalizeText(trackingParams.fbclid);
+  const fbc =
+    normalizeText(trackingParams.fbc) ||
+    normalizeText(touch?.fbc) ||
+    (fbclid
+      ? `fb.1.${Math.floor(new Date(touch?.capturedAt || Date.now()).getTime() / 1000)}.${fbclid}`
+      : "");
+  const fbp = normalizeText(trackingParams.fbp) || normalizeText(touch?.fbp);
+
+  const userData = {};
+  const emailHash = sha256Hex(normalizeText(pickFirstFilled(buyer.email, customer.email)).toLowerCase());
+  const phoneHash = sha256Hex(normalizePhoneForMeta(pickFirstFilled(buyer.phone, customer.phone)));
+  const firstNameHash = sha256Hex(firstName.toLowerCase());
+  const lastNameHash = sha256Hex(lastName.toLowerCase());
+  const cityHash = sha256Hex(city.toLowerCase());
+  const stateHash = sha256Hex(state.toLowerCase());
+  const zipHash = sha256Hex(zipCode);
+  const countryHash = sha256Hex("br");
+  const externalIdHash = sha256Hex(externalId);
+
+  if (emailHash) userData.em = [emailHash];
+  if (phoneHash) userData.ph = [phoneHash];
+  if (firstNameHash) userData.fn = [firstNameHash];
+  if (lastNameHash) userData.ln = [lastNameHash];
+  if (cityHash) userData.ct = [cityHash];
+  if (stateHash) userData.st = [stateHash];
+  if (zipHash) userData.zp = [zipHash];
+  if (countryHash) userData.country = [countryHash];
+  if (externalIdHash) userData.external_id = [externalIdHash];
+  if (fbc) userData.fbc = fbc;
+  if (fbp) userData.fbp = fbp;
+
+  return userData;
+}
+
+function buildMetaConversionsCustomData(intent, eventRecord = null, transaction = null) {
+  const buyer = normalizeCheckoutSnapshot(intent?.buyer || {});
+  const itemTitles = extractOrderItemTitles(transaction || eventRecord || intent || {});
+  const productName = pickFirstFilled(
+    itemTitles[0],
+    buyer.productName,
+    getNestedValue(eventRecord, "raw.items.0.title"),
+    getNestedValue(transaction, "raw.items.0.title"),
+    "Produto",
+  );
+  const amount = normalizeMetaEventAmount(
+    eventRecord?.paid_amount ??
+      transaction?.paidAmount ??
+      eventRecord?.amount ??
+      transaction?.amount ??
+      intent?.amount ??
+      buyer.amountCents,
+  );
+  const orderId = pickFirstFilled(
+    eventRecord?.object_id,
+    transaction?.id,
+    intent?.matched_event_object_id,
+    intent?.id,
+  );
+
+  return {
+    currency: "BRL",
+    value: amount,
+    content_name: productName,
+    content_ids: orderId ? [String(orderId)] : undefined,
+    contents: productName
+      ? [
+          {
+            id: orderId ? String(orderId) : productName,
+            quantity: 1,
+            item_price: amount,
+          },
+        ]
+      : undefined,
+    order_id: orderId ? String(orderId) : undefined,
+  };
+}
+
+async function dispatchMetaPurchaseServerSide(config, intent, session = null, options = {}) {
+  const pixelIds = normalizeMultilineList(config?.pixels?.metaPixelId);
+  const accessToken = normalizeText(config?.pixels?.metaConversionsAccessToken);
+
+  if (!pixelIds.length) {
+    return { skipped: true, reason: "meta_pixel_not_configured" };
+  }
+
+  if (!accessToken) {
+    return { skipped: true, reason: "meta_conversions_access_token_missing" };
+  }
+
+  const eventId = buildMetaPurchaseEventId(intent, options.eventRecord, options.transaction);
+  if (!eventId) {
+    return { skipped: true, reason: "missing_event_id" };
+  }
+
+  const recentWebhookEvents = await loadWebhookEvents(150);
+  const alreadySent = recentWebhookEvents.some((event) => {
+    const raw = parsePlainObjectValue(event?.raw);
+    const dispatch = parsePlainObjectValue(raw.server_side_tracking);
+    const metaDispatch = parsePlainObjectValue(dispatch.meta_purchase);
+    return (
+      metaDispatch.eventId === eventId &&
+      metaDispatch.status === "sent"
+    );
+  });
+
+  if (alreadySent) {
+    return { skipped: true, reason: "already_sent", eventId };
+  }
+
+  const eventSourceUrl = normalizeText(
+    options.eventRecord?.url ||
+      intent?.page_url ||
+      intent?.landing_page ||
+      session?.entry_page ||
+      selectAttributionTouch(session || intent || {})?.pageUrl,
+  );
+  const userData = buildMetaConversionsUserData(intent, session, options.eventRecord);
+  const customData = buildMetaConversionsCustomData(intent, options.eventRecord, options.transaction);
+  const eventTime = Math.floor(
+    new Date(
+      normalizeIsoTimestamp(
+        options.eventRecord?.received_at,
+        normalizeIsoTimestamp(options.transaction?.createdAt, new Date().toISOString()),
+      ) || Date.now(),
+    ).getTime() / 1000,
+  );
+
+  const payload = {
+    data: [
+      {
+        event_name: "Purchase",
+        event_time: Number.isFinite(eventTime) ? eventTime : Math.floor(Date.now() / 1000),
+        event_id: eventId,
+        action_source: "website",
+        event_source_url: eventSourceUrl || undefined,
+        user_data: userData,
+        custom_data: customData,
+      },
+    ],
+  };
+
+  const responses = [];
+
+  for (const pixelId of pixelIds) {
+    const endpoint = `https://graph.facebook.com/${metaGraphApiVersion}/${encodeURIComponent(pixelId)}/events?access_token=${encodeURIComponent(accessToken)}`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await response.text();
+    let data = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        typeof data === "string"
+          ? data
+          : data?.error?.message || `Meta CAPI respondeu com status ${response.status}.`,
+      );
+    }
+
+    responses.push({
+      pixelId,
+      status: response.status,
+      body: data,
+    });
+  }
+
+  return {
+    sent: true,
+    status: "sent",
+    eventId,
+    pixelIds,
+    responses,
+    sentAt: new Date().toISOString(),
+    customData,
+  };
+}
+
 async function ensureTrackingForPaidIntent(intent, options = {}) {
   if (!intent || !isPaidStatus(options.status || intent.stage)) {
     return intent;
@@ -2180,6 +2448,11 @@ async function saveConfig(input) {
         "metaPixelId" in nextPixelsInput
           ? normalizeMultilineList(nextPixelsInput.metaPixelId)
           : current.pixels.metaPixelId,
+      metaConversionsAccessToken:
+        typeof nextPixelsInput.metaConversionsAccessToken === "string" &&
+        nextPixelsInput.metaConversionsAccessToken.trim()
+          ? nextPixelsInput.metaConversionsAccessToken.trim()
+          : current.pixels.metaConversionsAccessToken,
       googleTagManagerId:
         "googleTagManagerId" in nextPixelsInput
           ? normalizeMultilineList(nextPixelsInput.googleTagManagerId)
@@ -2288,7 +2561,24 @@ function serializeConfigForClient(config, req) {
     isConfigured: isGatewayConfigured(activeGateway),
     titans: titansGateway,
     primecash: primecashGateway,
-    pixels: config.pixels,
+    pixels: {
+      metaPixelId: config.pixels?.metaPixelId || [],
+      hasMetaConversionsAccessToken: Boolean(
+        normalizeText(config.pixels?.metaConversionsAccessToken),
+      ),
+      metaConversionsAccessTokenMasked: normalizeText(
+        config.pixels?.metaConversionsAccessToken,
+      )
+        ? "••••••••••••"
+        : "",
+      googleTagManagerId: config.pixels?.googleTagManagerId || [],
+      googleAdsId: config.pixels?.googleAdsId || [],
+      googleProductHtmlSwapEnabled: Boolean(config.pixels?.googleProductHtmlSwapEnabled),
+      tiktokPixelId: config.pixels?.tiktokPixelId || [],
+      utmifyPixelId: config.pixels?.utmifyPixelId || [],
+      headTag: config.pixels?.headTag || "",
+      bodyTag: config.pixels?.bodyTag || "",
+    },
     pushcut: {
       items: pushcutItems,
       count: pushcutItems.length,
@@ -4653,6 +4943,41 @@ export default async function handler(req, res) {
             eventRecord,
             gatewayConfig: webhookGatewayConfig,
           });
+        }
+      }
+
+      if (isPaidStatus(eventRecord.status)) {
+        try {
+          const metaDispatch = await dispatchMetaPurchaseServerSide(
+            config,
+            syncedIntent || matchedIntent,
+            attributionSession,
+            { eventRecord },
+          );
+          eventRecord.raw = {
+            ...ensurePlainObject(eventRecord.raw),
+            server_side_tracking: {
+              ...ensurePlainObject(getNestedValue(eventRecord.raw, "server_side_tracking")),
+              meta_purchase: metaDispatch,
+            },
+          };
+        } catch (metaDispatchError) {
+          eventRecord.raw = {
+            ...ensurePlainObject(eventRecord.raw),
+            server_side_tracking: {
+              ...ensurePlainObject(getNestedValue(eventRecord.raw, "server_side_tracking")),
+              meta_purchase: {
+                sent: false,
+                status: "error",
+                message: metaDispatchError.message,
+                eventId: buildMetaPurchaseEventId(
+                  syncedIntent || matchedIntent,
+                  eventRecord,
+                ),
+                failedAt: new Date().toISOString(),
+              },
+            },
+          };
         }
       }
 

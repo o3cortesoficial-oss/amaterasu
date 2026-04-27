@@ -25,6 +25,65 @@
       .replace(/[^a-zA-Z0-9_-]/g, "");
   }
 
+  function normalizeCurrencyValue(value, fallback) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Number(value.toFixed(2));
+    }
+
+    const text = String(value || "").trim();
+    if (!text) {
+      return fallback;
+    }
+
+    const normalized = text
+      .replace(/[^\d,.-]/g, "")
+      .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+      .replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : fallback;
+  }
+
+  function buildPurchaseEventId(state) {
+    const sourceId =
+      (state && (state.matched_event_object_id || state.order_id || state.attribution_id || state.session_id)) ||
+      "";
+    return sourceId ? "purchase_" + String(sourceId).trim() : "";
+  }
+
+  async function readBridgeState() {
+    if (!window.__amzBridge || typeof window.__amzBridge.getState !== "function") {
+      return {};
+    }
+
+    try {
+      return (await window.__amzBridge.getState()) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async function trackPurchaseEvent() {
+    const state = await readBridgeState();
+    const amount = normalizeCurrencyValue(
+      state.totalAmount || state.amount || (state.buyer && (state.buyer.totalAmount || state.buyer.amount)),
+      139.9,
+    );
+    const eventId = buildPurchaseEventId(state);
+    const purchasePayload = { currency: "BRL", value: amount };
+
+    if (window.fbq) {
+      if (eventId) {
+        fbq("track", "Purchase", purchasePayload, { eventID: eventId });
+      } else {
+        fbq("track", "Purchase", purchasePayload);
+      }
+    }
+
+    if (window.ttq) {
+      ttq.track("CompletePayment", eventId ? { ...purchasePayload, event_id: eventId } : purchasePayload);
+    }
+  }
+
   function appendScriptOnce(id, src) {
     if (!id || !src || document.getElementById(id)) return;
     const script = document.createElement("script");
@@ -202,8 +261,7 @@
 
       if (isSuccess) {
         // Purchase
-        if (window.fbq) fbq('track', 'Purchase', { currency: 'BRL', value: 139.90 });
-        if (window.ttq) ttq.track('CompletePayment', { currency: 'BRL', value: 139.90 });
+        await trackPurchaseEvent();
       } else if (isCheckout) {
         // InitiateCheckout
         if (window.fbq) fbq('track', 'InitiateCheckout');
