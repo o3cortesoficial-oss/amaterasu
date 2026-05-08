@@ -532,6 +532,119 @@
         get(key) { try { return sessionStorage.getItem(key) || ''; } catch (e) { return ''; } },
         set(key, value) { try { sessionStorage.setItem(key, String(value)); } catch (e) {} }
     };
+    const SHOPEE_FIELD_STAGE_MAP = {
+        'full-name': 'checkout_name',
+        'cpf': 'checkout_cpf',
+        'email': 'checkout_email',
+        'phone': 'checkout_phone',
+        'cep': 'checkout_cep',
+        'address': 'checkout_street',
+        'number': 'checkout_number',
+        'complement': 'checkout_complement',
+        'neighborhood': 'checkout_neighborhood',
+        'city': 'checkout_city',
+        'state': 'checkout_state'
+    };
+
+    function getShopeeAttributionSnapshot() {
+        try {
+            return window.__amzMetaAttribution && typeof window.__amzMetaAttribution.getSnapshot === 'function'
+                ? window.__amzMetaAttribution.getSnapshot()
+                : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function ensureShopeeCheckoutTrackingIds() {
+        const snapshot = getShopeeAttributionSnapshot();
+        let sessionId = storage.get('amz_session_id') || (snapshot && snapshot.sessionId) || '';
+        let attributionId = storage.get('amz_attribution_id') || (snapshot && snapshot.attributionId) || '';
+
+        if (!sessionId) {
+            sessionId = 'sess_' + Math.random().toString(36).slice(2, 11);
+        }
+        if (!attributionId) {
+            attributionId = 'manual_' + Date.now();
+        }
+
+        storage.set('amz_session_id', sessionId);
+        storage.set('amz_attribution_id', attributionId);
+
+        return { sessionId, attributionId, presenceId: sessionId };
+    }
+
+    function getShopeeTrafficTouch(stageId) {
+        const params = new URLSearchParams(window.location.search);
+        const trackingParams = {};
+        [
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+            'utm_id', 'fbclid', 'campaign_id', 'campaign_name', 'adset_id',
+            'adset_name', 'ad_id', 'ad_name', 'creative_id', 'creative_name'
+        ].forEach((key) => {
+            const value = params.get(key);
+            if (value) trackingParams[key] = value;
+        });
+
+        return {
+            capturedAt: new Date().toISOString(),
+            pageId: stageId,
+            pageUrl: window.location.href,
+            path: window.location.pathname,
+            referrer: document.referrer || '',
+            trackingParams,
+            isMeta: Boolean(trackingParams.fbclid || /meta|facebook|instagram/i.test(trackingParams.utm_source || ''))
+        };
+    }
+
+    function getShopeeDeviceInfo() {
+        return {
+            type: window.matchMedia && window.matchMedia('(max-width: 767px)').matches ? 'mobile' : 'desktop',
+            viewportWidth: window.innerWidth || 0,
+            viewportHeight: window.innerHeight || 0,
+            userAgent: navigator.userAgent || ''
+        };
+    }
+
+    async function sendShopeeCheckoutPing(stageId = 'checkout_unified') {
+        const ids = ensureShopeeCheckoutTrackingIds();
+        await fetch('/api/analytics/ping', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageId: 'checkout_unified',
+                stageId,
+                sessionId: ids.sessionId,
+                presenceId: ids.presenceId,
+                attributionId: ids.attributionId,
+                currentPage: window.location.href,
+                trafficTouch: getShopeeTrafficTouch(stageId),
+                device: getShopeeDeviceInfo()
+            })
+        }).catch(() => {});
+    }
+
+    function markShopeeCheckoutStage(stageId) {
+        if (!stageId) return;
+        const key = `shopee_checkout_stage_${stageId}`;
+        if (storage.get(key) === '1') return;
+        storage.set(key, '1');
+        sendShopeeCheckoutPing(stageId);
+    }
+
+    function watchShopeeCheckoutField(fieldId, stageId) {
+        const element = document.getElementById(fieldId);
+        if (!element || !stageId) return;
+
+        const evaluate = () => {
+            if (String(element.value || '').trim()) {
+                markShopeeCheckoutStage(stageId);
+            }
+        };
+
+        element.addEventListener('blur', evaluate);
+        element.addEventListener('change', evaluate);
+    }
 
     // Initialize labels
     const rawPrice = urlParams.get('price') || storage.get('amz_total_amount') || '138,77';
@@ -581,6 +694,10 @@
 
     document.querySelectorAll('input[name="shipping-method"]').forEach(el => el.addEventListener('change', updateTotals));
     updateTotals();
+    sendShopeeCheckoutPing('checkout_unified');
+    Object.entries(SHOPEE_FIELD_STAGE_MAP).forEach(([fieldId, stageId]) => {
+        watchShopeeCheckoutField(fieldId, stageId);
+    });
 
     // Logic from checkout.html
     async function apiFetch(url, options = {}) {
@@ -655,6 +772,7 @@
                 document.getElementById('pix-code').innerText = pixCode;
                 document.getElementById('pix-code-display').innerText = pixCode;
                 document.getElementById('pix-container').style.display = 'flex';
+                markShopeeCheckoutStage('checkout_pix_generated');
                 btn.style.display = 'none';
                 
                 // Hide only previous sections, not the one containing pix-container
@@ -741,6 +859,11 @@
                     document.getElementById('neighborhood').value = data.bairro;
                     document.getElementById('city').value = data.localidade;
                     document.getElementById('state').value = data.uf;
+                    markShopeeCheckoutStage('checkout_cep');
+                    if (data.logradouro) markShopeeCheckoutStage('checkout_street');
+                    if (data.bairro) markShopeeCheckoutStage('checkout_neighborhood');
+                    if (data.localidade) markShopeeCheckoutStage('checkout_city');
+                    if (data.uf) markShopeeCheckoutStage('checkout_state');
                     document.getElementById('number').focus();
                 }
             } catch (e) {}
