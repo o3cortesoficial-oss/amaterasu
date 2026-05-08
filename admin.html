@@ -1555,6 +1555,7 @@
               <option value="all">Todas as ofertas</option>
               <option value="amazon_drone">Amazon</option>
               <option value="shopee">Shopee</option>
+              <option value="shopee_bigode">Drone DJI Mini 4 Pro (Shopee Bigode)</option>
             </select>
           </div>
           <div class="dashboard-filter-field">
@@ -2645,6 +2646,7 @@
       function formatDashboardOriginLabel(origin) {
         if (origin === 'amazon_drone') return 'Amazon';
         if (origin === 'shopee') return 'Shopee';
+        if (origin === 'shopee_bigode') return 'Drone DJI Mini 4 Pro (Shopee Bigode)';
         if (origin === 'other') return 'Outros';
         return 'Todas as ofertas';
       }

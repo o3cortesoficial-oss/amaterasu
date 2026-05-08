@@ -3901,8 +3901,22 @@ function resolveTransactionReferenceDate(record, mode = "created") {
 function matchesMetricsFilters(record, filters, mode = "created") {
   const safeFilters = filters || {};
   const origin = resolveTransactionOrigin(record);
-  if (safeFilters.origin && safeFilters.origin !== "all" && origin !== safeFilters.origin) {
-    return false;
+  if (safeFilters.origin && safeFilters.origin !== "all") {
+    if (safeFilters.origin === "shopee_bigode") {
+      const product = normalizeOrderProductTitle(resolveTransactionProduct(record));
+      if (product !== normalizeOrderProductTitle("Drone DJI Mini 4 Pro (Shopee Bigode)")) {
+        return false;
+      }
+    } else if (
+      safeFilters.origin === "shopee" &&
+      origin !== "shopee" &&
+      normalizeOrderProductTitle(resolveTransactionProduct(record)) !==
+        normalizeOrderProductTitle("Drone DJI Mini 4 Pro (Shopee Bigode)")
+    ) {
+      return false;
+    } else if (safeFilters.origin !== "shopee" && origin !== safeFilters.origin) {
+      return false;
+    }
   }
 
   const referenceDate = resolveTransactionReferenceDate(record, mode);
