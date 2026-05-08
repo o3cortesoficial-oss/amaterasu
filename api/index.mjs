@@ -3868,7 +3868,10 @@ function normalizeMetricsFilters(searchParams) {
 
   return {
     origin:
-      origin === "amazon_drone" || origin === "shopee" || origin === "other"
+      origin === "amazon_drone" ||
+      origin === "shopee" ||
+      origin === "shopee_bigode" ||
+      origin === "other"
         ? origin
         : "all",
     dateFrom: normalizeMetricsDateValue(searchParams.get("dateFrom")),
