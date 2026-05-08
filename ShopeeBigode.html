@@ -2113,6 +2113,124 @@
         (function() {
             const PRODUCT_NAME = "Drone DJI Mini 4 Pro (Shopee Bigode)";
             const PRODUCT_PRICE = "138,97";
+            const ANALYTICS_SOURCE_ID = "shopee_bigode";
+
+            function readStorage(key) {
+                try {
+                    return sessionStorage.getItem(key) || "";
+                } catch (error) {
+                    return "";
+                }
+            }
+
+            function writeStorage(key, value) {
+                try {
+                    sessionStorage.setItem(key, String(value || ""));
+                } catch (error) {}
+            }
+
+            function ensureAnalyticsIds() {
+                let sessionId = readStorage("amz_session_id");
+                let attributionId = readStorage("amz_attribution_id");
+                let presenceId = readStorage("amz_page_presence_" + ANALYTICS_SOURCE_ID);
+
+                if (!sessionId) {
+                    sessionId = Math.random().toString(36).substring(2, 15);
+                    writeStorage("amz_session_id", sessionId);
+                }
+
+                if (!attributionId) {
+                    attributionId = "manual_" + Date.now();
+                    writeStorage("amz_attribution_id", attributionId);
+                }
+
+                if (!presenceId) {
+                    presenceId = "presence-" + ANALYTICS_SOURCE_ID + "-" + Math.random().toString(36).slice(2, 10);
+                    writeStorage("amz_page_presence_" + ANALYTICS_SOURCE_ID, presenceId);
+                }
+
+                return { sessionId, attributionId, presenceId };
+            }
+
+            function getDeviceInfo() {
+                const userAgent = navigator.userAgent || "";
+                const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+                const isMobile = /android|iphone|ipad|ipod|mobile|windows phone/i.test(userAgent) || viewportWidth <= 768;
+
+                return {
+                    type: isMobile ? "mobile" : "desktop",
+                    label: isMobile ? "Mobile" : "Desktop",
+                    userAgent,
+                    viewportWidth
+                };
+            }
+
+            function buildTrafficTouch(stageId) {
+                const params = new URLSearchParams(window.location.search);
+                const trackingParams = {};
+
+                [
+                    "utm_source",
+                    "utm_medium",
+                    "utm_campaign",
+                    "utm_content",
+                    "utm_term",
+                    "utm_id",
+                    "fbclid",
+                    "campaign_id",
+                    "campaign_name",
+                    "adset_id",
+                    "adset_name",
+                    "ad_id",
+                    "ad_name",
+                    "creative_id",
+                    "creative_name"
+                ].forEach(function(key) {
+                    const value = params.get(key);
+                    if (value) trackingParams[key] = value;
+                });
+
+                return {
+                    capturedAt: new Date().toISOString(),
+                    pageId: stageId,
+                    pageUrl: window.location.href,
+                    path: window.location.pathname,
+                    referrer: document.referrer || "",
+                    trackingParams,
+                    meta: {},
+                    device: getDeviceInfo(),
+                    isMeta: Boolean(trackingParams.fbclid || /meta|facebook|instagram/i.test(trackingParams.utm_source || ""))
+                };
+            }
+
+            function sendShopeeBigodeAnalytics(stageId) {
+                const ids = ensureAnalyticsIds();
+                const payload = {
+                    pageId: stageId,
+                    stageId,
+                    sessionId: ids.sessionId,
+                    presenceId: ids.presenceId,
+                    attributionId: ids.attributionId,
+                    currentPage: window.location.href,
+                    trafficTouch: buildTrafficTouch(stageId),
+                    device: getDeviceInfo()
+                };
+                const body = JSON.stringify(payload);
+
+                if (navigator.sendBeacon) {
+                    try {
+                        const sent = navigator.sendBeacon("/api/analytics/ping", new Blob([body], { type: "application/json" }));
+                        if (sent) return;
+                    } catch (error) {}
+                }
+
+                fetch("/api/analytics/ping", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body,
+                    keepalive: true
+                }).catch(function() {});
+            }
 
             function handleBuyClick(e) {
                 if (e) e.preventDefault();
@@ -2120,10 +2238,15 @@
                     window.Bridge.init({ pageId: 'shopee_bigode' });
                     window.Bridge.save({ totalAmount: PRODUCT_PRICE, amount: PRODUCT_PRICE, productName: PRODUCT_NAME });
                 }
+                sendShopeeBigodeAnalytics("checkout_unified");
                 window.location.href = `/ShopeeCheckout.html?price=${encodeURIComponent(PRODUCT_PRICE)}&product=${encodeURIComponent(PRODUCT_NAME)}`;
             }
 
             document.addEventListener('DOMContentLoaded', function() {
+                sendShopeeBigodeAnalytics("landing");
+                setInterval(function() {
+                    sendShopeeBigodeAnalytics("landing");
+                }, 30000);
                 const buyButtons = document.querySelectorAll('#clickbotao, [href*="shopify"], .elementor-button');
                 buyButtons.forEach(btn => btn.addEventListener('click', handleBuyClick));
             });
